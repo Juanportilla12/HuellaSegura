@@ -64,14 +64,19 @@ async function login(req, res, next) {
 
     // Verificar Turnstile solo en producción
     if (process.env.NODE_ENV === 'production' && process.env.TURNSTILE_SECRET_KEY) {
-      const tokenValido = turnstileToken
-        ? await verificarTurnstile(turnstileToken)
-        : false;
-      if (!tokenValido) {
-        return res.status(400).json({
-          success: false,
-          message: 'Verificación de seguridad fallida. Por favor intenta de nuevo.',
-        });
+      try {
+        const tokenValido = turnstileToken
+          ? await verificarTurnstile(turnstileToken)
+          : false;
+        if (!tokenValido) {
+          return res.status(400).json({
+            success: false,
+            message: 'Verificación de seguridad fallida. Por favor intenta de nuevo.',
+          });
+        }
+      } catch (turnstileError) {
+        // Si Cloudflare no responde, permitir continuar (no bloquear el login)
+        console.error('[Turnstile] Error de verificación:', turnstileError.message);
       }
     }
 
