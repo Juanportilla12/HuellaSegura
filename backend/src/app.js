@@ -8,6 +8,13 @@ const { errorHandler, notFound } = require('./middlewares/errorMiddleware');
 
 const app = express();
 
+// En producción la app corre detrás del proxy de Railway: confiar en un salto
+// permite leer la IP real del cliente (X-Forwarded-For). Sin esto, el rate
+// limit trataría a todos los usuarios como una sola IP.
+if (process.env.NODE_ENV === 'production') {
+  app.set('trust proxy', 1);
+}
+
 // ── Seguridad ────────────────────────────────────────────────────────────────
 app.use(helmet({
   crossOriginResourcePolicy: { policy: 'cross-origin' }, // Permite imágenes de Cloudinary
