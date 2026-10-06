@@ -24,6 +24,11 @@ function errorHandler(err, req, res, next) {
     });
   }
 
+  // Cuerpo JSON mal formado
+  if (err.type === 'entity.parse.failed') {
+    return res.status(400).json({ success: false, message: 'El cuerpo de la petición no es un JSON válido.' });
+  }
+
   // Errores de subida de archivos (tamaño, cantidad o tipo no permitido)
   if (err.name === 'MulterError') {
     const mensajes = {

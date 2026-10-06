@@ -171,3 +171,19 @@ describe('R5 — Video de la mascota', () => {
     expect(res.status).toBe(400);
   });
 });
+
+describe('Manejo de errores', () => {
+  test('JSON mal formado → 400 con mensaje propio', async () => {
+    const res = await request(app)
+      .post('/api/auth/login')
+      .set('Content-Type', 'application/json')
+      .send('{malformado');
+    expect(res.status).toBe(400);
+    expect(res.body.message).toBe('El cuerpo de la petición no es un JSON válido.');
+  });
+
+  test('Origen no permitido por CORS → 403', async () => {
+    const res = await request(app).get('/api/reportes').set('Origin', 'https://sitio-malo.com');
+    expect(res.status).toBe(403);
+  });
+});
