@@ -111,4 +111,26 @@ async function enviarCorreoResetCodigo({ email, nombre, codigo }) {
   });
 }
 
-module.exports = { enviarCorreoReporteCreado, enviarCorreoAvistamiento, enviarCorreoResetCodigo };
+async function enviarCorreoAlertaProximidad({ destinatario, mascotaNombre, distanciaKm, reporteId }) {
+  const transporte = crearTransporte();
+  const enlace = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/mapa?reporte=${reporteId}`;
+  return transporte.sendMail({
+    from: `"HuellaSegura" <${process.env.EMAIL_USER}>`,
+    to: destinatario.email,
+    subject: `🐾 Mascota perdida cerca de ti — ${mascotaNombre}`,
+    html: `
+      <div style="font-family:sans-serif;max-width:500px;margin:auto;">
+        <h2 style="color:#F97B62;">HuellaSegura</h2>
+        <p>Hola <strong>${esc(destinatario.nombre)}</strong>,</p>
+        <p>Se reportó la pérdida de <strong>${esc(mascotaNombre)}</strong> a
+           <strong>${Number(distanciaKm).toFixed(1)} km</strong> de tu ubicación.</p>
+        <p><a href="${esc(enlace)}" style="color:#F97B62;font-weight:bold;">Ver el reporte en el mapa</a></p>
+        <p style="color:#888;font-size:12px;">Recibes este correo porque activaste las alertas por proximidad.
+          Puedes desactivarlas desde tu perfil.</p>
+      </div>`,
+  });
+}
+
+module.exports = {
+  enviarCorreoReporteCreado, enviarCorreoAvistamiento, enviarCorreoResetCodigo, enviarCorreoAlertaProximidad,
+};

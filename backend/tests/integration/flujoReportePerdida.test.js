@@ -55,6 +55,7 @@ describe('Flujo completo: Reporte de pérdida', () => {
     Usuario.create.mockResolvedValue(nuevoUsuario);
 
     const res = await request(app).post('/api/auth/register').send({
+        celular: '3001234567',
       nombre: 'María González', email: 'maria@example.com', password: 'password123',
     });
 

@@ -24,7 +24,7 @@ async function register(req, res, next) {
       return res.status(400).json({ success: false, errors: errors.array() });
     }
 
-    const { nombre, email, password } = req.body;
+    const { nombre, email, celular, password } = req.body;
 
     const existe = await Usuario.findOne({ where: { email } });
     if (existe) {
@@ -34,7 +34,7 @@ async function register(req, res, next) {
       });
     }
 
-    const usuario = await Usuario.create({ nombre, email, password });
+    const usuario = await Usuario.create({ nombre, email, celular, password });
 
     const token = sign({
       id: usuario.id,

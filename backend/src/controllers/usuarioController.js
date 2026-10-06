@@ -1,4 +1,4 @@
-const { body, validationResult } = require('express-validator');
+const { validationResult } = require('express-validator');
 const { uploadBuffer } = require('../config/cloudinary');
 
 async function actualizarRadioAlerta(req, res, next) {
@@ -54,4 +54,51 @@ async function actualizarFoto(req, res, next) {
   }
 }
 
-module.exports = { actualizarRadioAlerta, actualizarUbicacion, actualizarFoto };
+async function actualizarPerfil(req, res, next) {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ success: false, errors: errors.array() });
+    }
+    const { nombre, celular } = req.body;
+    const cambios = {};
+    if (nombre !== undefined) cambios.nombre = nombre;
+    if (celular !== undefined) cambios.celular = celular || null;
+    await req.usuario.update(cambios);
+    return res.status(200).json({
+      success: true,
+      message: 'Perfil actualizado.',
+      usuario: req.usuario.toPublicJSON(),
+    });
+  } catch (error) { next(error); }
+}
+
+// Retira el consentimiento de ubicación: se borra y se dejan de recibir alertas
+async function desactivarUbicacion(req, res, next) {
+  try {
+    await req.usuario.update({ ubicacion_lat: null, ubicacion_lng: null });
+    return res.status(200).json({ success: true, message: 'Ubicación eliminada. Alertas desactivadas.' });
+  } catch (error) { next(error); }
+}
+
+// Ley 1581: el titular puede solicitar la eliminación de sus datos.
+// Las mascotas, reportes, avistamientos y notificaciones se eliminan en cascada.
+async function eliminarCuenta(req, res, next) {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ success: false, errors: errors.array() });
+    }
+    const passwordValida = await req.usuario.verificarPassword(req.body.password);
+    if (!passwordValida) {
+      return res.status(401).json({ success: false, message: 'Contraseña incorrecta.' });
+    }
+    await req.usuario.destroy();
+    return res.status(200).json({ success: true, message: 'Tu cuenta y tus datos fueron eliminados.' });
+  } catch (error) { next(error); }
+}
+
+module.exports = {
+  actualizarRadioAlerta, actualizarUbicacion, actualizarFoto,
+  actualizarPerfil, desactivarUbicacion, eliminarCuenta,
+};

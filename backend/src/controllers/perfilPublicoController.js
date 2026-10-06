@@ -4,7 +4,7 @@ async function obtenerPerfil(req, res, next) {
   try {
     const mascota = await Mascota.findByPk(req.params.id, {
       attributes: ['id', 'nombre', 'especie', 'raza', 'sexo', 'color', 'descripcion', 'microchip', 'foto_urls'],
-      include: [{ model: Usuario, as: 'propietario', attributes: ['id', 'nombre'] }],
+      include: [{ model: Usuario, as: 'propietario', attributes: ['id', 'nombre', 'celular'] }],
     });
 
     if (!mascota) {
@@ -29,10 +29,10 @@ async function obtenerPerfil(req, res, next) {
         foto_urls: mascota.foto_urls || [],
         foto_principal: (mascota.foto_urls || [])[0] || null,
       },
+      // Ley 1581: solo el primer nombre y el número de contacto; nunca el correo
       propietario: {
-        id: mascota.propietario.id,
-        nombre: mascota.propietario.nombre,
-        // email omitido intencionalmente — privacidad (Ley 1581)
+        nombre: (mascota.propietario.nombre || '').split(' ')[0],
+        telefono: mascota.propietario.celular || null,
       },
       reporte_activo: reporteActivo
         ? {

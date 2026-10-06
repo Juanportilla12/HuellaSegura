@@ -104,7 +104,7 @@ async function generarReporteSemanal(reportes) {
 
 function tablaReportes(doc, reportes) {
   const cols = [50, 100, 200, 350, 450];
-  const headers = ['#', 'Mascota ID', 'Estado', 'Fecha pérdida', 'Coords'];
+  const headers = ['#', 'Mascota', 'Estado', 'Fecha pérdida', 'Coords'];
 
   // Cabecera tabla
   doc.fontSize(9).font('Helvetica-Bold').fillColor('white');
@@ -119,7 +119,7 @@ function tablaReportes(doc, reportes) {
     if (idx % 2 === 0) doc.rect(50, y, 495, 14).fill('#f8f9fa');
     doc.fillColor('#333');
     doc.text(String(r.id ?? '—'),         cols[0] + 2, y + 2, { width: 45 });
-    doc.text(String(r.mascota_id ?? '—'), cols[1] + 2, y + 2, { width: 90 });
+    doc.text(r.mascota?.nombre ?? `#${r.mascota_id}`, cols[1] + 2, y + 2, { width: 90 });
     doc.text(r.estado ?? '—',             cols[2] + 2, y + 2, { width: 140 });
     doc.text(r.fecha_perdida ?? '—',      cols[3] + 2, y + 2, { width: 90 });
     doc.text(r.latitud ? `${parseFloat(r.latitud).toFixed(3)}, ${parseFloat(r.longitud).toFixed(3)}` : '—',

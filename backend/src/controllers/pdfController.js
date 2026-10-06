@@ -27,6 +27,7 @@ async function reporteSemanal(req, res, next) {
 
     const reportes = await Reporte.findAll({
       where: { created_at: { [Op.gte]: hace7Dias } },
+      include: [{ model: Mascota, as: 'mascota', attributes: ['id', 'nombre', 'especie', 'foto_urls'] }],
       order: [['created_at', 'DESC']],
     });
 

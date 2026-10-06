@@ -26,6 +26,10 @@ const Usuario = sequelize.define(
         isEmail: { msg: 'El correo electrónico no es válido.' },
       },
     },
+    celular: {
+      type: DataTypes.STRING(20),
+      allowNull: true,
+    },
     password: {
       type: DataTypes.STRING(255),
       allowNull: false,
@@ -98,9 +102,12 @@ Usuario.prototype.toPublicJSON = function () {
     id: this.id,
     nombre: this.nombre,
     email: this.email,
+    celular: this.celular || null,
     rol: this.rol,
     radio_alerta: this.radio_alerta,
     activo: this.activo,
+    // Las alertas por proximidad están activas si el usuario compartió su ubicación
+    alertas_activas: this.ubicacion_lat !== null && this.ubicacion_lat !== undefined,
     foto_url: this.foto_url || null,
     created_at: this.created_at,
   };

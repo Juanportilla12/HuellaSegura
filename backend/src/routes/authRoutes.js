@@ -5,12 +5,19 @@ const { authenticate } = require('../middlewares/authMiddleware');
 
 const router = Router();
 
+// Celular: 7 a 15 dígitos, opcionalmente con + inicial, espacios o guiones
+const CELULAR_REGEX = /^\+?[0-9][0-9\s-]{6,18}$/;
+
 const registerValidators = [
   body('nombre').trim().notEmpty().withMessage('El nombre es obligatorio.'),
   body('email').isEmail().normalizeEmail().withMessage('Ingresa un correo válido.'),
+  body('celular')
+    .trim()
+    .matches(CELULAR_REGEX)
+    .withMessage('Ingresa un número de celular válido.'),
   body('password')
-    .isLength({ min: 6 })
-    .withMessage('La contraseña debe tener al menos 6 caracteres.'),
+    .isLength({ min: 8 })
+    .withMessage('La contraseña debe tener al menos 8 caracteres.'),
 ];
 
 const loginValidators = [
@@ -50,7 +57,7 @@ router.post('/reset-password',
   [
     body('email').isEmail().normalizeEmail().withMessage('Correo inválido.'),
     body('codigo').isLength({ min: 6, max: 6 }).withMessage('Código inválido.'),
-    body('nuevaPassword').isLength({ min: 6 }).withMessage('La contraseña debe tener al menos 6 caracteres.'),
+    body('nuevaPassword').isLength({ min: 8 }).withMessage('La contraseña debe tener al menos 8 caracteres.'),
   ],
   authController.resetPassword
 );

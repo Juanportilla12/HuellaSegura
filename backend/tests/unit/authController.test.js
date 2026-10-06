@@ -61,6 +61,7 @@ describe('AuthController', () => {
       Usuario.create.mockResolvedValue(mockUser);
 
       const res = await request(app).post('/api/auth/register').send({
+        celular: '3001234567',
         nombre: 'Ana García',
         email: 'ana@example.com',
         password: 'password123',
@@ -74,6 +75,7 @@ describe('AuthController', () => {
 
     test('400 si falta el nombre', async () => {
       const res = await request(app).post('/api/auth/register').send({
+        celular: '3001234567',
         email: 'ana@example.com',
         password: 'password123',
       });
@@ -83,6 +85,7 @@ describe('AuthController', () => {
 
     test('400 si falta el correo', async () => {
       const res = await request(app).post('/api/auth/register').send({
+        celular: '3001234567',
         nombre: 'Ana García',
         password: 'password123',
       });
@@ -91,14 +94,16 @@ describe('AuthController', () => {
 
     test('400 si falta la contraseña', async () => {
       const res = await request(app).post('/api/auth/register').send({
+        celular: '3001234567',
         nombre: 'Ana García',
         email: 'ana@example.com',
       });
       expect(res.status).toBe(400);
     });
 
-    test('400 si la contraseña tiene menos de 6 caracteres', async () => {
+    test('400 si la contraseña tiene menos de 8 caracteres (HU-01)', async () => {
       const res = await request(app).post('/api/auth/register').send({
+        celular: '3001234567',
         nombre: 'Ana García',
         email: 'ana@example.com',
         password: '123',
@@ -111,6 +116,7 @@ describe('AuthController', () => {
       Usuario.findOne.mockResolvedValue(mockUser);
 
       const res = await request(app).post('/api/auth/register').send({
+        celular: '3001234567',
         nombre: 'Ana García',
         email: 'ana@example.com',
         password: 'password123',
@@ -218,5 +224,21 @@ describe('AuthController', () => {
       const result = await bcrypt.compare('wrongpassword', hash);
       expect(result).toBe(false);
     });
+  });
+});
+
+describe('AuthController — reglas de la tesis (HU-01 / R1)', () => {
+  test('400 si falta el celular', async () => {
+    const res = await request(app).post('/api/auth/register').send({
+      nombre: 'Sin Celular', email: 'sincel@example.com', password: 'password123',
+    });
+    expect(res.status).toBe(400);
+  });
+
+  test('400 si la contraseña tiene 7 caracteres', async () => {
+    const res = await request(app).post('/api/auth/register').send({
+      nombre: 'Corta', email: 'corta@example.com', celular: '3001234567', password: '1234567',
+    });
+    expect(res.status).toBe(400);
   });
 });
