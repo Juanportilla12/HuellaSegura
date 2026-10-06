@@ -12,8 +12,12 @@ function uploadBuffer(buffer, options = {}) {
       .upload_stream(
         { folder: 'huella-segura/mascotas', ...options },
         (error, result) => {
-          if (error) reject(error);
-          else resolve(result);
+          if (!error) return resolve(result);
+          // Error del servicio externo: se registra el detalle y se responde 502
+          console.error('[Cloudinary]', error.http_code || '', error.message);
+          const fallo = new Error('No se pudo subir el archivo al servicio de almacenamiento. Intenta más tarde.');
+          fallo.status = 502;
+          reject(fallo);
         }
       )
       .end(buffer);

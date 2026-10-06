@@ -187,3 +187,23 @@ describe('Manejo de errores', () => {
     expect(res.status).toBe(403);
   });
 });
+
+describe('Servicio de almacenamiento', () => {
+  test('Si Cloudinary rechaza la subida se responde 502 con mensaje claro', async () => {
+    const cloudinary = require('../../src/config/cloudinary').cloudinary;
+    jest.spyOn(cloudinary.uploader, 'upload_stream').mockImplementation((_opts, cb) => ({
+      end: () => cb({ http_code: 401, message: 'Invalid api_key' }),
+    }));
+    jest.spyOn(console, 'error').mockImplementation(() => {});
+    Usuario.findByPk.mockResolvedValue(crearUsuario());
+    Mascota.findOne.mockResolvedValue({ id: 4, foto_urls: [], update: jest.fn() });
+
+    const res = await request(app)
+      .post('/api/mascotas/4/fotos')
+      .set('Authorization', `Bearer ${TOKEN_USUARIO}`)
+      .attach('fotos', Buffer.from([0xff, 0xd8, 0xff]), { filename: 'f.jpg', contentType: 'image/jpeg' });
+
+    expect(res.status).toBe(502);
+    expect(res.body.message).toMatch(/servicio de almacenamiento/);
+  });
+});

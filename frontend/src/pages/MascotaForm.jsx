@@ -147,9 +147,17 @@ export default function MascotaForm() {
       } else {
         const { data } = await mascotaService.crearMascota(payload); mascotaId = data.mascota.id;
       }
-      if (fotos.length > 0) await mascotaService.subirFotos(mascotaId, fotos.map(f => f.archivo));
-      if (video) await mascotaService.subirVideo(mascotaId, video.archivo);
-      toast.success(esEdicion ? '¡Perfil actualizado!' : `¡${form.nombre} registrado! 🐾`);
+      // La mascota ya quedó guardada: si fallan los archivos se informa sin
+      // reintentar el registro completo (evita mascotas duplicadas).
+      try {
+        if (fotos.length > 0) await mascotaService.subirFotos(mascotaId, fotos.map(f => f.archivo));
+        if (video) await mascotaService.subirVideo(mascotaId, video.archivo);
+        toast.success(esEdicion ? '¡Perfil actualizado!' : `¡${form.nombre} registrado! 🐾`);
+      } catch (errArchivos) {
+        toast.error(`${form.nombre} se guardó, pero no se pudieron subir las fotos o el video: `
+          + (errArchivos.response?.data?.message || 'error de conexión.')
+          + ' Puedes agregarlos luego desde "Editar".');
+      }
       navigate('/mascotas');
     } catch (err) {
       toast.error(err.response?.data?.message || 'Error al guardar. Intenta de nuevo.');
