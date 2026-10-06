@@ -1,10 +1,6 @@
-<h1 align="center">
-  <br>
-  🐾 HuellaSegura
-  <br>
-</h1>
+<h1 align="center">🐾 HuellaSegura</h1>
 
-<h4 align="center">Plataforma web para la búsqueda y recuperación de mascotas perdidas</h4>
+<h4 align="center">Prototipo de aplicación web para la localización y recuperación de mascotas perdidas en Pasto, Nariño</h4>
 
 <p align="center">
   <img src="https://img.shields.io/badge/Node.js-18+-339933?style=for-the-badge&logo=node.js&logoColor=white" />
@@ -14,321 +10,261 @@
   <img src="https://img.shields.io/badge/TailwindCSS-3-06B6D4?style=for-the-badge&logo=tailwindcss&logoColor=white" />
 </p>
 
-<p align="center">
-  <a href="#caracteristicas">Características</a> •
-  <a href="#tecnologias">Tecnologías</a> •
-  <a href="#instalacion">Instalación</a> •
-  <a href="#uso">Uso</a> •
-  <a href="#estructura">Estructura</a> •
-  <a href="#pruebas">Pruebas</a>
-</p>
+Trabajo de grado — Programa de Ingeniería de Sistemas, Universidad Mariana (San Juan de Pasto).
 
 ---
 
-## Vista previa
+## Contenido
 
-<table>
-  <tr>
-    <td><img src="docs/diseno/splash.png" alt="Splash" width="200"/></td>
-    <td><img src="docs/diseno/home.png" alt="Inicio" width="200"/></td>
-    <td><img src="docs/diseno/mapa.png" alt="Mapa" width="200"/></td>
-    <td><img src="docs/diseno/perfil-mascota.png" alt="Perfil Mascota" width="200"/></td>
-  </tr>
-  <tr>
-    <td align="center">Splash</td>
-    <td align="center">Inicio</td>
-    <td align="center">Mapa de reportes</td>
-    <td align="center">Perfil de mascota</td>
-  </tr>
-  <tr>
-    <td><img src="docs/diseno/carnet-qr.png" alt="Carnet QR" width="200"/></td>
-    <td><img src="docs/diseno/alertas-dark.png" alt="Alertas" width="200"/></td>
-    <td><img src="docs/diseno/perfil-usuario.png" alt="Perfil Usuario" width="200"/></td>
-    <td><img src="docs/diseno/veterinarias.png" alt="Directorio" width="200"/></td>
-  </tr>
-  <tr>
-    <td align="center">Carnet QR</td>
-    <td align="center">Alertas</td>
-    <td align="center">Perfil de usuario</td>
-    <td align="center">Directorio aliados</td>
-  </tr>
-</table>
+- [Descripción y objetivo](#descripción-y-objetivo)
+- [Funcionalidades](#funcionalidades)
+- [Arquitectura](#arquitectura)
+- [Tecnologías](#tecnologías)
+- [Estructura del proyecto](#estructura-del-proyecto)
+- [Requisitos](#requisitos)
+- [Instalación y ejecución local](#instalación-y-ejecución-local)
+- [Variables de entorno](#variables-de-entorno)
+- [Base de datos](#base-de-datos)
+- [API REST](#api-rest)
+- [Pruebas](#pruebas)
+- [Despliegue](#despliegue)
+- [Documentación técnica](#documentación-técnica)
+- [Autores](#autores)
 
 ---
 
-## Características
+## Descripción y objetivo
 
-- **Registro de mascotas** — Crea el perfil de tu mascota con fotos, descripción y datos médicos
-- **Reportes de perdida/encuentro** — Publica reportes geolocalizados cuando pierdas o encuentres una mascota
-- **Mapa interactivo** — Visualiza todos los reportes y avistamientos en un mapa en tiempo real
-- **Código QR personal** — Genera un QR único por mascota que lleva a su perfil público con tus datos de contacto
-- **Carnet digital** — Carnet imprimible con foto, datos y QR de la mascota
-- **Avistamientos** — Reporta si viste una mascota perdida con ubicación exacta
-- **Notificaciones automáticas** — Recibe alertas por email cuando alguien reporte un avistamiento cercano
-- **Directorio de aliados** — Encuentra veterinarias y refugios asociados cerca de ti
-- **Panel de administración** — Moderación de reportes y gestión de usuarios
-- **Perfil público** — Comparte el perfil de tu mascota sin necesidad de cuenta
+En Pasto no existe un canal centralizado y georreferenciado para reportar mascotas perdidas: los dueños dependen de carteles y de publicaciones dispersas en redes sociales.
 
----
+**Objetivo general:** proponer una solución tecnológica que apoye la búsqueda y localización de mascotas perdidas en la ciudad de Pasto.
+
+HuellaSegura reúne en una sola plataforma web (instalable como PWA) el registro digital de mascotas, la geolocalización de reportes en un mapa, las alertas por proximidad, la identificación con código QR, el directorio de entidades aliadas y la generación de documentos (cartel y reporte semanal en PDF).
+
+**Actores:** propietario de mascota, ciudadano colaborador (puede reportar avistamientos sin crear cuenta) y administrador.
+
+## Funcionalidades
+
+| Requisito de la tesis | Funcionalidad |
+|---|---|
+| R1, R2 · HU-01 a HU-03 | Registro (nombre, correo, celular, contraseña ≥ 8), inicio de sesión con JWT (24 h) y cierre de sesión que invalida el token. Recuperación de contraseña por código al correo. |
+| R3, R4, R5 · HU-05 a HU-08 | Registro y edición de mascotas en un formulario por pasos, hasta 5 fotos y 1 video (Cloudinary). |
+| R6 · HU-09 a HU-12 | Reporte de pérdida en tres pasos: elegir la mascota, confirmar la ubicación (GPS o marcada en el mapa) y describir. Estados: en búsqueda, encontrada, cerrado. |
+| R10 · HU-13 a HU-16 | Mapa interactivo (Leaflet + OpenStreetMap) con filtros por especie y fecha, ficha emergente y botón "Mi ubicación". |
+| R8, R9 · HU-17 a HU-20 | Alertas por proximidad (fórmula de Haversine, radio configurable de 1 a 10 km): notificación interna, aviso en tiempo real (SSE) y correo. La ubicación solo se guarda con consentimiento. |
+| R7, R11 · HU-21, HU-24 | Reporte de avistamiento con foto y GPS, sin necesidad de cuenta. El propietario recibe aviso inmediato. |
+| HU-22, HU-23 | Código QR único por mascota (descargable en PNG) que lleva a un perfil público sin inicio de sesión. |
+| HU-25 a HU-28 | Panel de administración: estadísticas, activación/desactivación de usuarios, moderación de reportes y gestión del directorio de entidades aliadas (también visibles en el mapa). |
+| HU-29 a HU-31 | Compartir en Facebook y WhatsApp con vista previa, reporte semanal en PDF (automático cada lunes y bajo demanda) y cartel A4 en PDF con foto, datos y QR. |
+| RNF-11 (Ley 1581 de 2012) | Autorización de tratamiento de datos al registrarse, perfil público con solo el primer nombre y el teléfono, retiro del consentimiento de ubicación y eliminación de la cuenta. |
+
+La correspondencia completa requisito → código está en [docs/TRAZABILIDAD.md](docs/TRAZABILIDAD.md).
+
+## Arquitectura
+
+Arquitectura cliente-servidor en **tres capas** (monolito modular), tal como se plantea en la tesis:
+
+```mermaid
+flowchart LR
+  subgraph Presentación
+    A[React SPA / PWA<br/>Vite + Tailwind]
+  end
+  subgraph Aplicación
+    B[API REST<br/>Node.js + Express]
+  end
+  subgraph Datos
+    C[(MySQL 8<br/>Sequelize ORM)]
+  end
+  subgraph Servicios externos
+    D[Cloudinary<br/>fotos y videos]
+    E[Gmail SMTP<br/>Nodemailer]
+    F[OpenStreetMap<br/>teselas y geocodificación]
+    G[Cloudflare Turnstile]
+  end
+  A -- HTTPS / JSON + JWT --> B
+  B -- SSE --> A
+  B --> C
+  B --> D
+  B --> E
+  A --> F
+  A --> G
+  B --> G
+```
+
+Dentro del backend cada petición recorre: **rutas → middlewares (autenticación, rol, validación, archivos) → controladores → servicios → modelos**. Detalle en [docs/ARQUITECTURA.md](docs/ARQUITECTURA.md).
 
 ## Tecnologías
 
-### Backend
-| Tecnología | Uso |
+| Capa | Tecnologías |
 |---|---|
-| Node.js + Express | Servidor y API REST |
-| Sequelize + MySQL | ORM y base de datos |
-| JWT (jsonwebtoken) | Autenticación stateless |
-| Cloudinary | Almacenamiento de imágenes |
-| Nodemailer | Envío de correos de alerta |
-| QRCode | Generación de códigos QR |
-| PDFKit | Exportación de carnets en PDF |
-| Multer | Subida de archivos |
+| Frontend | React 18, Vite, Tailwind CSS 3, React Router 6, Leaflet / React-Leaflet, Axios, Framer Motion, qrcode.react, Sonner, vite-plugin-pwa |
+| Backend | Node.js ≥ 18, Express 4, Sequelize 6 + sequelize-cli, mysql2, JWT, bcryptjs, express-validator, Helmet, express-rate-limit, Multer, Nodemailer, PDFKit, qrcode, node-cron |
+| Datos | MySQL 8 |
+| Servicios | Cloudinary, Gmail SMTP, OpenStreetMap / Nominatim, Cloudflare Turnstile |
+| Pruebas | Jest + Supertest (backend), Vitest + Testing Library (frontend), prueba E2E contra MySQL real |
 
-### Frontend
-| Tecnología | Uso |
-|---|---|
-| React 18 + Vite | Framework de UI y bundler |
-| TailwindCSS | Estilos utilitarios |
-| React Router v6 | Navegación SPA |
-| Leaflet + React Leaflet | Mapas interactivos |
-| React Hook Form + Zod | Formularios y validación |
-| Framer Motion | Animaciones de transición |
-| Axios | Peticiones HTTP |
-| qrcode.react | Renderizado de QR en UI |
-| Sonner | Notificaciones toast |
-
-### Testing
-| Herramienta | Uso |
-|---|---|
-| Jest + Supertest | Pruebas unitarias e integración del backend |
-| Vitest + Testing Library | Pruebas unitarias del frontend |
-
----
-
-## Instalación
-
-### Requisitos previos
-- Node.js 18+
-- MySQL 8+
-- Cuenta en [Cloudinary](https://cloudinary.com) (gratuita)
-- Cuenta de Gmail con [contraseña de aplicación](https://support.google.com/accounts/answer/185833)
-
-### 1. Clonar el repositorio
-
-```bash
-git clone https://github.com/VictorRosas69/HuellaSegura.git
-cd HuellaSegura
-```
-
-### 2. Configurar el backend
-
-```bash
-cd backend
-npm install
-cp .env.example .env
-```
-
-Edita el archivo `.env` con tus credenciales:
-
-```env
-PORT=3001
-NODE_ENV=development
-
-DB_HOST=localhost
-DB_PORT=3306
-DB_NAME=huella_segura
-DB_USER=root
-DB_PASSWORD=tu_contraseña_mysql
-
-JWT_SECRET=un_secreto_muy_largo_y_seguro_minimo_32_caracteres
-JWT_EXPIRES_IN=24h
-
-CLOUDINARY_CLOUD_NAME=tu_cloud_name
-CLOUDINARY_API_KEY=tu_api_key
-CLOUDINARY_API_SECRET=tu_api_secret
-
-EMAIL_HOST=smtp.gmail.com
-EMAIL_PORT=587
-EMAIL_USER=tucorreo@gmail.com
-EMAIL_PASS=tu_contraseña_de_aplicacion
-
-FRONTEND_URL=http://localhost:5173
-```
-
-### 3. Crear la base de datos y ejecutar migraciones
-
-```bash
-# Crear la base de datos en MySQL
-mysql -u root -p -e "CREATE DATABASE huella_segura;"
-
-# Ejecutar migraciones
-npx sequelize-cli db:migrate
-```
-
-### 4. Configurar el frontend
-
-```bash
-cd ../frontend
-npm install
-cp .env.example .env
-```
-
-Edita `frontend/.env`:
-
-```env
-VITE_API_URL=http://localhost:3001/api
-```
-
----
-
-## Uso
-
-### Iniciar en desarrollo
-
-Desde la raíz del proyecto, abre dos terminales:
-
-**Terminal 1 — Backend:**
-```bash
-cd backend
-npm run dev
-```
-
-**Terminal 2 — Frontend:**
-```bash
-cd frontend
-npm run dev
-```
-
-La aplicación estará disponible en:
-- Frontend: [http://localhost:5173](http://localhost:5173)
-- API: [http://localhost:3001/api](http://localhost:3001/api)
-
-### Iniciar en producción
-
-```bash
-# Backend
-cd backend && npm start
-
-# Frontend
-cd frontend && npm run build && npm run preview
-```
-
----
+> Nota: la tesis menciona Bootstrap 5 para la interfaz; la implementación final usa **Tailwind CSS**.
 
 ## Estructura del proyecto
 
 ```
 HuellaSegura/
 ├── backend/
-│   ├── migrations/          # Migraciones de base de datos
-│   ├── seeders/             # Datos de prueba
+│   ├── server.js                 # Arranque: valida entorno, conecta BD, programa tareas
+│   ├── railway.json              # Configuración de despliegue (migra y arranca)
+│   ├── migrations/               # 15 migraciones Sequelize (esquema completo)
 │   ├── src/
-│   │   ├── config/          # BD, JWT, Cloudinary
-│   │   ├── controllers/     # Lógica de negocio
-│   │   ├── middlewares/     # Auth, admin, upload, errores
-│   │   ├── models/          # Modelos Sequelize
-│   │   ├── routes/          # Definición de endpoints
-│   │   └── services/        # Email, QR, PDF, distancias
-│   ├── tests/
-│   │   ├── unit/            # Pruebas unitarias
-│   │   └── integration/     # Pruebas de integración
-│   └── server.js
-│
+│   │   ├── app.js                # Express: seguridad, CORS, rate limit, rutas, errores
+│   │   ├── config/               # BD, JWT, Cloudinary, validación de variables de entorno
+│   │   ├── routes/               # Definición de endpoints y validaciones de entrada
+│   │   ├── middlewares/          # Autenticación/rol, subida de archivos, errores
+│   │   ├── controllers/          # Orquestan cada caso de uso
+│   │   ├── services/             # Lógica reutilizable: proximidad, correo, PDF, QR, tiempo real
+│   │   ├── models/               # Entidades Sequelize y asociaciones
+│   │   └── seeders/              # Creación del administrador inicial
+│   └── tests/                    # unit/, integration/ y e2e/
 ├── frontend/
 │   ├── src/
-│   │   ├── components/      # Componentes reutilizables
-│   │   │   └── ui/          # Sistema de diseño base
-│   │   ├── context/         # AuthContext
-│   │   ├── hooks/           # useGeolocalizacion, useTheme
-│   │   ├── pages/           # Vistas de la aplicación
-│   │   │   └── admin/       # Panel de administración
-│   │   ├── providers/       # ThemeProvider
-│   │   └── services/        # Comunicación con la API
-│   └── tests/
-│       └── unit/            # Pruebas de componentes
-│
-└── docs/
-    ├── DESIGN_SYSTEM.md     # Sistema de diseño
-    └── diseno/              # Mockups de interfaz
+│   │   ├── pages/                # Pantallas (admin/ para el panel de administración)
+│   │   ├── components/           # Componentes reutilizables (ui/ para los básicos)
+│   │   ├── services/             # ÚNICO punto de acceso a la API
+│   │   ├── context/              # Sesión (AuthContext) y notificaciones en tiempo real
+│   │   ├── hooks/ providers/     # Geolocalización, tema claro/oscuro
+│   │   └── config/               # Configuración del mapa
+│   ├── tests/                    # Pruebas Vitest
+│   └── vercel.json               # Configuración de despliegue del frontend
+└── docs/                         # Arquitectura, base de datos, despliegue, trazabilidad, diseño
 ```
 
-### Endpoints principales de la API
+## Requisitos
 
-| Método | Ruta | Descripción |
-|---|---|---|
-| `POST` | `/api/auth/register` | Registro de usuario |
-| `POST` | `/api/auth/login` | Inicio de sesión |
-| `GET` | `/api/mascotas` | Listar mascotas del usuario |
-| `POST` | `/api/mascotas` | Registrar mascota |
-| `GET` | `/api/reportes` | Listar reportes activos |
-| `POST` | `/api/reportes` | Crear reporte de pérdida |
-| `GET` | `/api/avistamientos` | Listar avistamientos |
-| `POST` | `/api/avistamientos` | Registrar avistamiento |
-| `GET` | `/api/notificaciones` | Notificaciones del usuario |
-| `GET` | `/api/publico/:uuid` | Perfil público de mascota (sin auth) |
-| `GET` | `/api/entidades` | Directorio de entidades aliadas |
+- Node.js 18 o superior y npm
+- MySQL 8 (local o en la nube)
+- Cuentas en Cloudinary y Gmail (contraseña de aplicación) para fotos y correos
+- Opcional: Cloudflare Turnstile (en desarrollo funciona con la clave de prueba)
 
----
+## Instalación y ejecución local
 
-## Pruebas
+```bash
+git clone https://github.com/Juanportilla12/HuellaSegura.git
+cd HuellaSegura
+```
 
-### Backend
+**Backend**
 
 ```bash
 cd backend
-
-# Pruebas unitarias
-npm test
-
-# Pruebas con coverage
-npm run test:coverage
-
-# Solo pruebas de integración
-npm run test:integration
+npm install
+cp .env.example .env          # completar con tus valores
+npm run migrate               # crea todas las tablas en la BD indicada en .env
+npm run dev                   # http://localhost:3001
 ```
 
-### Frontend
+La base de datos indicada en `DB_NAME` debe existir: `CREATE DATABASE huella_segura CHARACTER SET utf8mb4;`
+
+**Frontend** (en otra terminal)
 
 ```bash
 cd frontend
-
-# Pruebas unitarias
-npm test
-
-# Pruebas con interfaz visual
-npm run test:ui
-
-# Coverage
-npm run test:coverage
+npm install
+cp .env.example .env
+npm run dev                   # http://localhost:5173
 ```
 
----
+**Crear un administrador:** en producción se crea automáticamente al arrancar si se definen `ADMIN_EMAIL` y `ADMIN_PASSWORD`. En local, registra un usuario desde la app y cámbiale el rol:
+
+```sql
+UPDATE usuarios SET rol = 'admin' WHERE email = 'tu_correo@ejemplo.com';
+```
+
+No hay credenciales de prueba precargadas: cada instalación crea sus propias cuentas.
 
 ## Variables de entorno
 
-| Variable | Descripción | Requerida |
+Las plantillas son `backend/.env.example` y `frontend/.env.example`. Los archivos `.env` reales **nunca** se suben al repositorio.
+
+**Backend**
+
+| Variable | Descripción | Obligatoria |
 |---|---|---|
-| `PORT` | Puerto del servidor | No (default: 3001) |
-| `DB_HOST` | Host de MySQL | Sí |
-| `DB_NAME` | Nombre de la base de datos | Sí |
-| `DB_USER` | Usuario de MySQL | Sí |
-| `DB_PASSWORD` | Contraseña de MySQL | Sí |
-| `JWT_SECRET` | Secreto para firmar tokens | Sí |
-| `CLOUDINARY_CLOUD_NAME` | Nombre del cloud en Cloudinary | Sí |
-| `CLOUDINARY_API_KEY` | API Key de Cloudinary | Sí |
-| `CLOUDINARY_API_SECRET` | API Secret de Cloudinary | Sí |
-| `EMAIL_USER` | Correo para envío de alertas | Sí |
-| `EMAIL_PASS` | Contraseña de aplicación Gmail | Sí |
-| `FRONTEND_URL` | URL del frontend (para CORS) | Sí |
+| `PORT` | Puerto del servidor (por defecto 3001) | No |
+| `NODE_ENV` | `development`, `test` o `production` | Sí |
+| `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASSWORD` | Conexión MySQL | Sí |
+| `JWT_SECRET` | Secreto de firma de tokens (≥ 32 caracteres aleatorios) | Sí |
+| `JWT_EXPIRES_IN` | Vigencia del token (24h según RNF-06) | No |
+| `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET` | Almacenamiento de fotos y videos | En producción |
+| `EMAIL_HOST`, `EMAIL_PORT`, `EMAIL_USER`, `EMAIL_PASS` | SMTP (Gmail con contraseña de aplicación) | En producción |
+| `TURNSTILE_SECRET_KEY` | Verificación anti-bots del login (solo producción) | No |
+| `FRONTEND_URL` | URL del frontend: CORS, enlaces de correos y QR | En producción |
+| `ADMIN_EMAIL`, `ADMIN_PASSWORD`, `ADMIN_NOMBRE` | Administrador inicial | No |
 
----
+El servidor no arranca si falta alguna variable obligatoria (`src/config/env.js`).
 
-## Autor
+**Frontend**
 
-**Victor Rosas**
-- GitHub: [@VictorRosas69](https://github.com/VictorRosas69)
+| Variable | Descripción |
+|---|---|
+| `VITE_API_URL` | URL de la API, terminada en `/api` |
+| `VITE_TURNSTILE_SITE_KEY` | Clave pública de Turnstile |
 
----
+## Base de datos
 
-<p align="center">Hecho con ❤️ para ayudar a reunir mascotas con sus familias</p>
+Siete tablas: `usuarios`, `mascotas`, `reportes`, `avistamientos`, `notificaciones`, `entidades_aliadas` y `SequelizeMeta` (control de migraciones). El esquema se reconstruye desde cero con `npm run migrate` y se revierte con `npx sequelize-cli db:migrate:undo:all`.
+
+Diagrama entidad-relación, claves e índices en [docs/BASE_DE_DATOS.md](docs/BASE_DE_DATOS.md).
+
+## API REST
+
+Base: `/api`. 🔒 = requiere `Authorization: Bearer <token>`; 👑 = solo administrador.
+
+| Módulo | Endpoints |
+|---|---|
+| Autenticación | `POST /auth/register` · `POST /auth/login` · 🔒`POST /auth/logout` · 🔒`GET /auth/me` · `POST /auth/forgot-password` · `POST /auth/verify-reset-code` · `POST /auth/reset-password` |
+| Usuario | 🔒`PUT /usuarios/perfil` · 🔒`PUT /usuarios/foto` · 🔒`PUT /usuarios/radio-alerta` · 🔒`PUT /usuarios/ubicacion` · 🔒`DELETE /usuarios/ubicacion` · 🔒`DELETE /usuarios/cuenta` |
+| Mascotas | 🔒`GET/POST /mascotas` · 🔒`GET/PUT/DELETE /mascotas/:id` · 🔒`POST /mascotas/:id/fotos` · 🔒`POST /mascotas/:id/video` · 🔒`GET /mascotas/:id/qr` · 🔒`GET /mascotas/:id/cartel-pdf` |
+| Reportes | `GET /reportes` (activos, público) · 🔒`GET /reportes/mis-reportes` · 🔒`POST /reportes` · 🔒`PUT /reportes/:id/estado` |
+| Avistamientos | `POST /avistamientos` (público, foto opcional) |
+| Perfil público | `GET /publico/mascotas/:id` · `GET /publico/compartir/mascotas/:id` (vista previa para redes) |
+| Notificaciones | 🔒`GET /notificaciones` · 🔒`PUT /notificaciones/:id/leer` · 🔒`PUT /notificaciones/leer-todas` · 🔒`GET /sse/eventos` (tiempo real) |
+| Entidades aliadas | `GET /entidades-aliadas` · 👑`POST` · 👑`PUT /:id` · 👑`DELETE /:id` |
+| Administración | 👑`GET /admin/estadisticas` · 👑`GET /admin/usuarios` · 👑`PUT /admin/usuarios/:id/estado` · 👑`GET /admin/reportes` · 👑`PUT /admin/reportes/:id/moderar` · 👑`GET /admin/reportes/semanal-pdf` |
+| Salud | `GET /health` |
+
+## Pruebas
+
+```bash
+cd backend && npm test          # 174 pruebas unitarias y de integración (sin BD real)
+cd frontend && npx vitest run   # 72 pruebas de componentes y páginas
+```
+
+**Prueba de extremo a extremo** (43 verificaciones de R1–R11 y RNF contra MySQL real). Con el backend corriendo sobre una base de datos de prueba:
+
+```bash
+cd backend && npm run test:e2e
+```
+
+Crea usuarios `@test.local`; **no la ejecutes contra producción**.
+
+## Despliegue
+
+- **Backend:** Railway (Nixpacks). `railway.json` ejecuta `npm run migrate && npm start` y usa `/health` como verificación.
+- **Base de datos:** MySQL de Railway.
+- **Frontend:** Vercel (`frontend/vercel.json`, build de Vite y reescritura de rutas a `index.html`).
+
+Guía paso a paso en [docs/DESPLIEGUE.md](docs/DESPLIEGUE.md).
+
+## Documentación técnica
+
+- [docs/ARQUITECTURA.md](docs/ARQUITECTURA.md): capas, módulos, flujos y seguridad
+- [docs/BASE_DE_DATOS.md](docs/BASE_DE_DATOS.md): modelo entidad-relación y migraciones
+- [docs/TRAZABILIDAD.md](docs/TRAZABILIDAD.md): requisitos de la tesis → código
+- [docs/DESPLIEGUE.md](docs/DESPLIEGUE.md): despliegue y verificación
+- [docs/DESIGN_SYSTEM.md](docs/DESIGN_SYSTEM.md) y [docs/diseno/](docs/diseno/): sistema de diseño y capturas
+
+## Autores
+
+- Juan José Portilla Martínez
+- Samuel Felipe Quintero Riobamba
+- Víctor Felipe Rosas Burbano
+
+Asesor: Mg. Danny Michael Cárdenas Martínez — Universidad Mariana, Facultad de Ingeniería.
