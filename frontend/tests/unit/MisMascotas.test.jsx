@@ -3,6 +3,7 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import MisMascotas from '../../src/pages/MisMascotas';
+import { ThemeProvider } from '../../src/providers/ThemeProvider';
 
 // ─── Mocks ────────────────────────────────────────────────────────────────────
 vi.mock('../../src/services/mascotaService', () => ({
@@ -30,9 +31,11 @@ function buildMascota(overrides = {}) {
 
 function renderPage() {
   return render(
-    <MemoryRouter>
-      <MisMascotas />
-    </MemoryRouter>
+    <ThemeProvider>
+      <MemoryRouter>
+        <MisMascotas />
+      </MemoryRouter>
+    </ThemeProvider>
   );
 }
 

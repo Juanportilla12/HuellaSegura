@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { MapContainer, TileLayer, Marker, useMapEvents, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -125,6 +125,8 @@ function FiltroChip({ activo, onClick, children }) {
 // ─── Página principal ─────────────────────────────────────────────────────────
 export default function MapaPrincipal() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const reporteParam = searchParams.get('reporte');
   const { coords: userCoords, obtenerUbicacion } = useGeolocalizacion();
 
   const [reportes,    setReportes]    = useState([]);
@@ -144,6 +146,16 @@ export default function MapaPrincipal() {
       .then(({ data }) => setReportes(data.reportes || []))
       .catch(() => {});
   }, []);
+
+  // Abre el reporte indicado en la URL (?reporte=ID), p. ej. desde una notificación
+  useEffect(() => {
+    if (!reporteParam || reportes.length === 0) return;
+    const r = reportes.find((x) => String(x.id) === reporteParam);
+    if (r) {
+      setSelected(r);
+      setCentrarEn({ lat: r.latitud, lng: r.longitud });
+    }
+  }, [reporteParam, reportes]);
 
   const filtrados = reportes.filter(r => {
     if (filtroEsp !== 'todos' && r.mascota?.especie !== filtroEsp) return false;

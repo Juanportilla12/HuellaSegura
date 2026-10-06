@@ -6,7 +6,8 @@ import {
   ChevronRight, LogOut, Home, Shield,
   TrendingUp, Activity, FileText,
 } from 'lucide-react';
-import { obtenerEstadisticas } from '../../services/adminService';
+import { obtenerEstadisticas, descargarReporteSemanal } from '../../services/adminService';
+import { toast } from 'sonner';
 import { useAuth } from '../../context/AuthContext';
 
 const stagger = { hidden: {}, show: { transition: { staggerChildren: 0.07 } } };
@@ -28,7 +29,7 @@ const ACCESOS = [
 function StatCard({ cfg, value, cargando }) {
   const pct = Math.min(100, Math.round(((value || 0) / cfg.max) * 100));
   return (
-    <motion.div variants={fadeUp}
+    <motion.div variants={fadeUp} data-testid="stat-card"
       className="rounded-2xl p-4 flex flex-col gap-3"
       style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}
     >
@@ -226,7 +227,7 @@ export default function Dashboard() {
             boxShadow: '0 8px 24px rgba(99,102,241,0.3)',
             color: 'white',
           }}
-          onClick={() => window.open('/api/admin/reportes/semanal-pdf', '_blank')}
+          onClick={() => descargarReporteSemanal().catch(() => toast.error('No se pudo generar el PDF.'))}
         >
           <FileText size={16} />
           Descargar reporte semanal PDF

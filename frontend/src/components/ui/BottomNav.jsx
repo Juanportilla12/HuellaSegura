@@ -2,6 +2,7 @@ import { NavLink, useNavigate } from 'react-router-dom';
 import { Home, Map, Plus, Bell, User } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useTokens } from '../../hooks/useTokens';
+import { useNotificaciones } from '../../context/NotificacionesContext';
 
 const NAV_ITEMS = [
   { to: '/',        icon: Home,  label: 'Inicio'  },
@@ -14,6 +15,7 @@ const NAV_ITEMS = [
 export default function BottomNav() {
   const navigate = useNavigate();
   const t        = useTokens();
+  const { noLeidas } = useNotificaciones();
 
   return (
     <nav
@@ -75,12 +77,15 @@ export default function BottomNav() {
                     ) : (
                       <Icon size={20} strokeWidth={1.8} style={{ color: t.textMuted }} />
                     )}
-                    {item.to === '/alertas' && (
+                    {item.to === '/alertas' && noLeidas > 0 && (
                       <span
-                        id="nav-badge-alertas"
-                        className="absolute -top-0.5 -right-0.5 hidden h-2.5 w-2.5 rounded-full border-2"
+                        data-testid="nav-badge-alertas"
+                        className="absolute -top-1.5 -right-2 min-w-[18px] h-[18px] px-1 rounded-full border-2 text-[10px] font-bold text-white flex items-center justify-center"
                         style={{ background: t.primary, borderColor: t.bg }}
-                      />
+                        aria-label={`${noLeidas} notificaciones sin leer`}
+                      >
+                        {noLeidas > 9 ? '9+' : noLeidas}
+                      </span>
                     )}
                   </motion.div>
                   <span className="text-[10px] font-semibold transition-colors duration-200"

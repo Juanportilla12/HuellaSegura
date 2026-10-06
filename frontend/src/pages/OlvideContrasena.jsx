@@ -2,7 +2,7 @@ import { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Mail, Lock, ArrowRight, ChevronLeft, CheckCircle, Eye, EyeOff } from 'lucide-react';
-import api from '../services/api';
+import * as authService from '../services/authService';
 
 // ── Orb decorativo ───────────────────────────────────────────
 function Orb({ style }) {
@@ -71,7 +71,7 @@ export default function OlvideContrasena() {
     if (!email) return setError('Ingresa tu correo electrónico.');
     setError(''); setLoading(true);
     try {
-      await api.post('/auth/forgot-password', { email });
+      await authService.solicitarCodigoRecuperacion(email);
       setStep(1);
     } catch (err) {
       setError(err.response?.data?.message || 'Error al enviar el código.');
@@ -94,7 +94,7 @@ export default function OlvideContrasena() {
     if (cod.length < 6) return setError('Ingresa los 6 dígitos del código.');
     setError(''); setLoading(true);
     try {
-      await api.post('/auth/verify-reset-code', { email, codigo: cod });
+      await authService.verificarCodigoRecuperacion(email, cod);
       setStep(2);
     } catch (err) {
       setError(err.response?.data?.message || 'Código inválido o expirado.');
@@ -106,11 +106,11 @@ export default function OlvideContrasena() {
   // ── Paso 3: nueva contraseña ──────────────────────────────
   async function handleResetear(e) {
     e.preventDefault();
-    if (pass.length < 6) return setError('La contraseña debe tener al menos 6 caracteres.');
+    if (pass.length < 8) return setError('La contraseña debe tener al menos 8 caracteres.');
     if (pass !== passConf) return setError('Las contraseñas no coinciden.');
     setError(''); setLoading(true);
     try {
-      await api.post('/auth/reset-password', { email, codigo: codigo.join(''), nuevaPassword: pass });
+      await authService.restablecerPassword(email, codigo.join(''), pass);
       setStep(3);
     } catch (err) {
       setError(err.response?.data?.message || 'Error al restablecer la contraseña.');
@@ -272,7 +272,7 @@ export default function OlvideContrasena() {
                             style={{ color: 'rgba(255,255,255,0.35)' }} />
                       <input type={showPass ? 'text' : 'password'} value={pass}
                         onChange={e => { setPass(e.target.value); setError(''); }}
-                        placeholder="Mínimo 6 caracteres"
+                        placeholder="Mínimo 8 caracteres"
                         className="w-full pl-11 pr-12 py-3.5 rounded-2xl text-sm text-white outline-none"
                         style={{ background: 'rgba(255,255,255,0.08)', border: '1.5px solid rgba(255,255,255,0.12)' }}
                         onFocus={e => { e.target.style.border = '1.5px solid rgba(249,123,98,0.7)'; e.target.style.background = 'rgba(249,123,98,0.08)'; }}

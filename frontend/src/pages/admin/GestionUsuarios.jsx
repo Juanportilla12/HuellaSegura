@@ -50,25 +50,27 @@ export default function GestionUsuarios() {
   const navigate = useNavigate();
   const [usuarios, setUsuarios] = useState([]);
   const [cargando, setCargando] = useState(true);
+  const [error,    setError]    = useState('');
   const [busqueda, setBusqueda] = useState('');
   const [filtro,   setFiltro]   = useState('todos');
 
   useEffect(() => {
     listarUsuarios()
-      .then(({ data }) => setUsuarios(data.usuarios))
-      .catch(() => {})
+      .then(({ data }) => setUsuarios(data.usuarios || []))
+      .catch(() => setError('No se pudieron cargar los usuarios. Intenta de nuevo.'))
       .finally(() => setCargando(false));
   }, []);
 
   async function handleToggle(u) {
     if (u.rol === 'admin') return;
-    try { await cambiarEstadoUsuario(u.id); } catch { /* optimistic */ }
-    setUsuarios(prev => prev.map(x => {
-      if (x.id !== u.id) return x;
-      const nuevo = !x.activo;
-      toast(nuevo ? `✅ ${x.nombre} activado` : `🚫 ${x.nombre} desactivado`);
-      return { ...x, activo: nuevo };
-    }));
+    try {
+      const { data } = await cambiarEstadoUsuario(u.id);
+      const nuevo = data?.activo ?? !u.activo;
+      setUsuarios(prev => prev.map(x => (x.id === u.id ? { ...x, activo: nuevo } : x)));
+      toast(nuevo ? `✅ ${u.nombre} activado` : `🚫 ${u.nombre} desactivado`);
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'No se pudo cambiar el estado del usuario.');
+    }
   }
 
   const filtrados = useMemo(() => {
@@ -157,8 +159,15 @@ export default function GestionUsuarios() {
       {/* ── Lista ──────────────────────────────────────────────────── */}
       <div className="px-5 pt-4 flex flex-col gap-3 pb-12">
 
+        {error && (
+          <div role="alert" className="rounded-2xl px-4 py-3 text-sm font-medium"
+               style={{ background: 'rgba(248,113,113,0.15)', color: '#F87171' }}>
+            {error}
+          </div>
+        )}
+
         {cargando && [1, 2, 3, 4].map(i => (
-          <div key={i} className="h-20 rounded-2xl animate-pulse"
+          <div key={i} data-testid="skeleton-usuario" className="h-20 rounded-2xl animate-pulse"
                style={{ background: 'rgba(255,255,255,0.05)' }} />
         ))}
 

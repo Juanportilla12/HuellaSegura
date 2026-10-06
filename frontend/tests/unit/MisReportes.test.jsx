@@ -3,6 +3,7 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import MisReportes from '../../src/pages/MisReportes';
+import { ThemeProvider } from '../../src/providers/ThemeProvider';
 
 // ─── Mocks ────────────────────────────────────────────────────────────────────
 vi.mock('../../src/services/reporteService', () => ({
@@ -28,7 +29,7 @@ function buildReporte(overrides = {}) {
 }
 
 function renderPage() {
-  return render(<MemoryRouter><MisReportes /></MemoryRouter>);
+  return render(<ThemeProvider><MemoryRouter><MisReportes /></MemoryRouter></ThemeProvider>);
 }
 
 // ─── Suite ────────────────────────────────────────────────────────────────────
@@ -58,10 +59,10 @@ describe('MisReportes', () => {
     });
   });
 
-  test('muestra spinner de carga mientras obtiene los reportes', () => {
+  test('muestra estado de carga mientras obtiene los reportes', () => {
     reporteService.misReportes.mockReturnValue(new Promise(() => {}));
     renderPage();
-    expect(document.querySelector('.spinner-border')).toBeInTheDocument();
+    expect(screen.getByText(/cargando/i)).toBeInTheDocument();
   });
 
   test('muestra mensaje de error si la petición falla', async () => {

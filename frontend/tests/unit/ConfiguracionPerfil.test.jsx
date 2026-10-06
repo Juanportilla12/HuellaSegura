@@ -17,9 +17,19 @@ vi.mock('../../src/providers/ThemeProvider', () => ({
   useThemeContext: () => ({ isDark: false, toggleTheme: vi.fn() }),
 }));
 
-vi.mock('../../src/services/notificacionService', () => ({
+vi.mock('../../src/services/usuarioService', () => ({
   actualizarRadioAlerta: vi.fn(),
-  listarNotificaciones:  vi.fn().mockResolvedValue({ data: { notificaciones: [], no_leidas: 0 } }),
+  actualizarUbicacion:   vi.fn(),
+  desactivarUbicacion:   vi.fn(),
+  actualizarPerfil:      vi.fn(),
+  actualizarFoto:        vi.fn(),
+  eliminarCuenta:        vi.fn(),
+}));
+
+vi.mock('../../src/services/reporteService', () => ({
+  misReportes: vi.fn().mockResolvedValue({ data: { reportes: [
+    { id: 1, estado: 'en_busqueda' }, { id: 2, estado: 'encontrada' },
+  ] } }),
 }));
 
 vi.mock('../../src/services/mascotaService', () => ({
@@ -34,7 +44,7 @@ vi.mock('sonner', () => ({
   }),
 }));
 
-import * as notificacionService from '../../src/services/notificacionService';
+import * as usuarioService from '../../src/services/usuarioService';
 import { toast } from 'sonner';
 
 function renderPage() {
@@ -65,17 +75,17 @@ describe('Sprint 5 — ConfiguracionPerfil (DoD)', () => {
   });
 
   test('Llama a actualizarRadioAlerta al guardar', async () => {
-    notificacionService.actualizarRadioAlerta.mockResolvedValue({ data: { radio_alerta: 5 } });
+    usuarioService.actualizarRadioAlerta.mockResolvedValue({ data: { radio_alerta: 5 } });
     renderPage();
     const user = userEvent.setup();
     await user.click(screen.getByTestId('btn-guardar-radio'));
     await waitFor(() => {
-      expect(notificacionService.actualizarRadioAlerta).toHaveBeenCalledWith(5);
+      expect(usuarioService.actualizarRadioAlerta).toHaveBeenCalledWith(5);
     });
   });
 
   test('Muestra toast de éxito tras guardar correctamente', async () => {
-    notificacionService.actualizarRadioAlerta.mockResolvedValue({ data: {} });
+    usuarioService.actualizarRadioAlerta.mockResolvedValue({ data: {} });
     renderPage();
     const user = userEvent.setup();
     await user.click(screen.getByTestId('btn-guardar-radio'));
@@ -87,7 +97,7 @@ describe('Sprint 5 — ConfiguracionPerfil (DoD)', () => {
   });
 
   test('Muestra toast de error si la actualización falla', async () => {
-    notificacionService.actualizarRadioAlerta.mockRejectedValue({
+    usuarioService.actualizarRadioAlerta.mockRejectedValue({
       response: { data: { message: 'Error al guardar.' } },
     });
     renderPage();
@@ -103,5 +113,24 @@ describe('Sprint 5 — ConfiguracionPerfil (DoD)', () => {
     renderPage();
     const btn = screen.getByTestId('btn-guardar-radio');
     expect(btn).not.toBeDisabled();
+  });
+
+  // ── Datos reales (antes había cifras fijas en el código) ──────────────────
+  test('Muestra conteos reales de reportes y encontradas', async () => {
+    renderPage();
+    expect(await screen.findByText('ENCONTRADAS')).toBeInTheDocument();
+    await waitFor(() => expect(screen.getAllByText('2').length).toBeGreaterThan(0));
+    expect(screen.queryByText('Vecino verificado · La Aurora')).not.toBeInTheDocument();
+  });
+
+  // ── R8/R9: activar alertas pide la ubicación y la envía con consentimiento ─
+  test('Activar alertas envía la ubicación del dispositivo', async () => {
+    global.navigator.geolocation = {
+      getCurrentPosition: (ok) => ok({ coords: { latitude: 1.21, longitude: -77.28 } }),
+    };
+    usuarioService.actualizarUbicacion.mockResolvedValue({});
+    renderPage();
+    await userEvent.setup().click(screen.getByRole('switch', { name: /alertas por proximidad/i }));
+    await waitFor(() => expect(usuarioService.actualizarUbicacion).toHaveBeenCalledWith(1.21, -77.28));
   });
 });

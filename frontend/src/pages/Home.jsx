@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Bell, MapPin, ChevronRight, Search, AlertTriangle, CheckCircle, Users } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { useNotificaciones } from '../context/NotificacionesContext';
 import { useTokens } from '../hooks/useTokens';
 import BottomNav from '../components/ui/BottomNav';
 import { listarReportesActivos } from '../services/reporteService';
@@ -21,6 +22,7 @@ const fadeUp  = { hidden: { opacity: 0, y: 18 }, show: { opacity: 1, y: 0, trans
 
 export default function Home() {
   const { usuario } = useAuth();
+  const { noLeidas } = useNotificaciones();
   const navigate    = useNavigate();
   const t           = useTokens();
   const [reportes, setReportes] = useState([]);
@@ -65,6 +67,12 @@ export default function Home() {
             className="relative h-11 w-11 rounded-2xl flex items-center justify-center"
             style={{ background: t.primaryBg, border: `1px solid ${t.primaryBorder}` }}>
             <Bell size={20} style={{ color: t.primary }} strokeWidth={1.8} />
+            {noLeidas > 0 && (
+              <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full text-[10px] font-bold text-white flex items-center justify-center"
+                    style={{ background: t.primary }}>
+                {noLeidas > 9 ? '9+' : noLeidas}
+              </span>
+            )}
           </motion.button>
         </div>
 

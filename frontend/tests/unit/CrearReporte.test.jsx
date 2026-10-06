@@ -1,6 +1,5 @@
 import { describe, test, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import CrearReporte from '../../src/pages/CrearReporte';
 
@@ -14,6 +13,10 @@ vi.mock('react-router-dom', async (importOriginal) => {
 
 vi.mock('../../src/services/reporteService', () => ({
   crearReporte: vi.fn(),
+}));
+
+vi.mock('../../src/services/mascotaService', () => ({
+  listarMascotas: vi.fn(),
 }));
 
 vi.mock('../../src/components/MapaSelector', () => ({
@@ -30,115 +33,92 @@ vi.mock('../../src/components/MapaSelector', () => ({
   ),
 }));
 
-vi.mock('sonner', () => ({
-  toast: Object.assign(vi.fn(), { success: vi.fn(), error: vi.fn() }),
-}));
-
 import * as reporteService from '../../src/services/reporteService';
+import * as mascotaService from '../../src/services/mascotaService';
 
-function renderPage() {
-  return render(<MemoryRouter><CrearReporte /></MemoryRouter>);
+const MASCOTAS = [
+  { id: 7, nombre: 'Luna', especie: 'perro', foto_principal: null },
+  { id: 9, nombre: 'Michi', especie: 'gato', foto_principal: null },
+];
+
+function renderPage(url = '/reportes/nuevo') {
+  return render(<MemoryRouter initialEntries={[url]}><CrearReporte /></MemoryRouter>);
 }
 
-// ─── Suite — Sprint 3 — Crear reporte (persona que vio mascota) ───────────────
-describe('Sprint 3 — CrearReporte (DoD)', () => {
-  beforeEach(() => vi.clearAllMocks());
+// ─── Suite — Sprint 3 — HU-09 Crear reporte de pérdida ────────────────────────
+describe('Sprint 3 — CrearReporte (HU-09 / R6)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    // Geolocalización denegada: el usuario debe marcar el punto en el mapa
+    global.navigator.geolocation = {
+      getCurrentPosition: (_ok, error) => error(new Error('denegado')),
+    };
+    fetch.mockResolvedValue({ json: async () => ({ address: { road: 'Calle 18' } }) });
+    mascotaService.listarMascotas.mockResolvedValue({ data: { mascotas: MASCOTAS } });
+  });
 
-  // ── C2: Formulario incluye mapa para marcar ubicación ────────────────────
-  test('Renderiza el selector de mapa', () => {
+  test('Lista las mascotas del usuario para elegir cuál se perdió', async () => {
+    renderPage();
+    expect(await screen.findByTestId('mascota-opcion-7')).toBeInTheDocument();
+    expect(screen.getByTestId('mascota-opcion-9')).toBeInTheDocument();
+  });
+
+  test('Renderiza el selector de mapa como alternativa al GPS', async () => {
     renderPage();
     expect(screen.getByTestId('mapa-selector')).toBeInTheDocument();
+    expect(await screen.findByText(/toca el mapa para marcar/i)).toBeInTheDocument();
   });
 
-  // ── C1: Selector de tipo de animal (especie) ──────────────────────────────
-  test('Muestra chips de selección de especie', () => {
+  test('No envía sin seleccionar mascota', async () => {
     renderPage();
-    expect(screen.getByText('Perro')).toBeInTheDocument();
-    expect(screen.getByText('Gato')).toBeInTheDocument();
-    expect(screen.getByText('Ave')).toBeInTheDocument();
+    await screen.findByTestId('mascota-opcion-7');
+    fireEvent.click(screen.getByTestId('simular-ubicacion'));
+    fireEvent.submit(screen.getByTestId('form-reporte'));
+    expect(await screen.findByText(/selecciona la mascota/i)).toBeInTheDocument();
+    expect(reporteService.crearReporte).not.toHaveBeenCalled();
   });
 
-  // ── Selector de tiempo ────────────────────────────────────────────────────
-  test('Muestra chips de tiempo (hace cuánto)', () => {
-    renderPage();
-    expect(screen.getByTestId('input-fecha')).toBeInTheDocument();
-  });
-
-  // ── Botón CTA visible ────────────────────────────────────────────────────
-  test('Muestra el botón para enviar alerta', () => {
-    renderPage();
-    expect(screen.getByTestId('btn-crear-reporte')).toBeInTheDocument();
-  });
-
-  // ── C2: Validación — requiere ubicación ──────────────────────────────────
   test('No envía sin ubicación marcada en el mapa', async () => {
     renderPage();
-    const user = userEvent.setup();
-
-    // Seleccionar especie
-    await user.click(screen.getByText('Perro'));
-    // Intentar enviar sin marcar mapa
-    await user.click(screen.getByTestId('btn-crear-reporte'));
-
-    await waitFor(() => {
-      expect(screen.getByText(/marca la ubicación/i)).toBeInTheDocument();
-    });
+    fireEvent.click(await screen.findByTestId('mascota-opcion-7'));
+    fireEvent.submit(screen.getByTestId('form-reporte'));
+    expect(await screen.findByText(/marca en el mapa/i)).toBeInTheDocument();
     expect(reporteService.crearReporte).not.toHaveBeenCalled();
   });
 
-  // ── C1: Validación — requiere tipo de animal ──────────────────────────────
-  test('No envía sin seleccionar especie', async () => {
+  test('Envía mascota_id, coordenadas y fecha al backend', async () => {
+    reporteService.crearReporte.mockResolvedValue({ data: { success: true } });
     renderPage();
-    const user = userEvent.setup();
+    fireEvent.click(await screen.findByTestId('mascota-opcion-7'));
+    fireEvent.click(screen.getByTestId('simular-ubicacion'));
+    fireEvent.change(screen.getByTestId('input-descripcion'), { target: { value: 'Collar rojo' } });
+    fireEvent.submit(screen.getByTestId('form-reporte'));
 
-    // Marcar ubicación pero no seleccionar especie
-    await user.click(screen.getByTestId('simular-ubicacion'));
-    await user.click(screen.getByTestId('btn-crear-reporte'));
-
-    await waitFor(() => {
-      expect(screen.getByText(/selecciona el tipo de animal/i)).toBeInTheDocument();
-    });
-    expect(reporteService.crearReporte).not.toHaveBeenCalled();
+    await waitFor(() => expect(reporteService.crearReporte).toHaveBeenCalledTimes(1));
+    const datos = reporteService.crearReporte.mock.calls[0][0];
+    expect(datos.mascota_id).toBe(7);
+    expect(datos.latitud).toBe(1.2136);
+    expect(datos.longitud).toBe(-77.2811);
+    expect(datos.fecha_perdida).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    expect(datos.descripcion).toBe('Collar rojo');
   });
 
-  // ── C1+C2: Envío válido con especie y ubicación ───────────────────────────
-  test('Llama a crearReporte con latitud y longitud al enviar correctamente', async () => {
-    reporteService.crearReporte.mockResolvedValue({ data: { reporte: { id: 1 } } });
-    renderPage();
-    const user = userEvent.setup();
-
-    await user.click(screen.getByText('Perro'));
-    await user.click(screen.getByTestId('simular-ubicacion'));
-    await user.click(screen.getByTestId('btn-crear-reporte'));
-
-    await waitFor(() => {
-      expect(reporteService.crearReporte).toHaveBeenCalledWith(
-        expect.objectContaining({ latitud: 1.2136, longitud: -77.2811 })
-      );
-    });
+  test('Preselecciona la mascota desde ?mascota_id= y muestra éxito', async () => {
+    reporteService.crearReporte.mockResolvedValue({ data: { success: true } });
+    renderPage('/reportes/nuevo?mascota_id=9');
+    await screen.findByTestId('mascota-opcion-9');
+    expect(screen.getByTestId('mascota-opcion-9')).toHaveAttribute('aria-checked', 'true');
+    fireEvent.click(screen.getByTestId('simular-ubicacion'));
+    fireEvent.submit(screen.getByTestId('form-reporte'));
+    expect(await screen.findByText(/reporte publicado/i)).toBeInTheDocument();
   });
 
-  // ── C3: Después de enviar exitosamente muestra pantalla de éxito ──────────
-  test('Muestra pantalla de éxito tras enviar correctamente', async () => {
-    reporteService.crearReporte.mockResolvedValue({ data: {} });
-    const { container } = renderPage();
-    const user = userEvent.setup();
-
-    await user.click(screen.getByText('Perro'));
-    await user.click(screen.getByTestId('simular-ubicacion'));
-
-    const form = container.querySelector('form');
-    fireEvent.submit(form);
-
-    await waitFor(() => {
-      expect(reporteService.crearReporte).toHaveBeenCalledWith(
-        expect.objectContaining({ latitud: 1.2136, longitud: -77.2811 })
-      );
-    });
-
-    // El componente muestra pantalla de éxito (no navega, muestra mensaje)
-    await waitFor(() => {
-      expect(screen.getByText(/gracias por ayudar/i)).toBeInTheDocument();
-    });
+  test('Muestra el error del servidor si falla la publicación', async () => {
+    reporteService.crearReporte.mockRejectedValue({ response: { data: { message: 'Mascota no encontrada.' } } });
+    renderPage('/reportes/nuevo?mascota_id=7');
+    await screen.findByTestId('mascota-opcion-7');
+    fireEvent.click(screen.getByTestId('simular-ubicacion'));
+    fireEvent.submit(screen.getByTestId('form-reporte'));
+    expect(await screen.findByRole('alert')).toHaveTextContent('Mascota no encontrada.');
   });
 });

@@ -203,7 +203,7 @@ export default function Login() {
 
             {/* Campo email */}
             <div className="flex flex-col gap-1.5">
-              <label className="text-xs font-bold tracking-wide uppercase"
+              <label htmlFor="email" className="text-xs font-bold tracking-wide uppercase"
                      style={{ color: 'rgba(255,255,255,0.5)' }}>
                 Correo electrónico
               </label>
@@ -232,7 +232,7 @@ export default function Login() {
             {/* Campo contraseña */}
             <div className="flex flex-col gap-1.5">
               <div className="flex items-center justify-between">
-                <label className="text-xs font-bold tracking-wide uppercase"
+                <label htmlFor="password" className="text-xs font-bold tracking-wide uppercase"
                        style={{ color: 'rgba(255,255,255,0.5)' }}>
                   Contraseña
                 </label>
@@ -301,7 +301,10 @@ export default function Login() {
               }}
             >
               {loading ? (
-                <div className="h-5 w-5 rounded-full border-2 border-white border-t-transparent animate-spin" />
+                <>
+                  <div className="h-5 w-5 rounded-full border-2 border-white border-t-transparent animate-spin" aria-hidden="true" />
+                  <span className="sr-only">Ingresando…</span>
+                </>
               ) : (
                 <>Iniciar sesión <ArrowRight size={18} strokeWidth={2.5} /></>
               )}

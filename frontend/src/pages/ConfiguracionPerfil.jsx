@@ -9,9 +9,9 @@ import { toast } from 'sonner';
 import { useAuth } from '../context/AuthContext';
 import { useTokens } from '../hooks/useTokens';
 import { useThemeContext } from '../providers/ThemeProvider';
-import api from '../services/api';
-import * as notificacionService from '../services/notificacionService';
-import * as mascotaService      from '../services/mascotaService';
+import * as usuarioService from '../services/usuarioService';
+import * as mascotaService from '../services/mascotaService';
+import * as reporteService from '../services/reporteService';
 import BottomNav from '../components/ui/BottomNav';
 
 // ─── Constantes ───────────────────────────────────────────────────────────────
@@ -25,9 +25,9 @@ const ESPECIE_COLORS = {
 };
 
 // ─── Toggle ───────────────────────────────────────────────────────────────────
-function Toggle({ on, onChange }) {
+function Toggle({ on, onChange, label }) {
   return (
-    <button type="button" onClick={() => onChange(!on)}
+    <button type="button" role="switch" aria-checked={on} aria-label={label} onClick={() => onChange(!on)}
       className="relative h-7 w-12 rounded-full transition-colors duration-200 shrink-0"
       style={{ background: on ? '#F97B62' : '#D1D5DB' }}>
       <div className="absolute top-0.5 h-6 w-6 rounded-full bg-white shadow-sm transition-all duration-200"
@@ -126,7 +126,14 @@ export default function ConfiguracionPerfil() {
   const [subiendoFoto, setSubiendoFoto] = useState(false);
 
   const [radioAlerta,  setRadioAlerta]  = useState(usuario?.radio_alerta || 5);
-  const [notifActiva,  setNotifActiva]  = useState(true);
+  const [alertasActivas, setAlertasActivas] = useState(!!usuario?.alertas_activas);
+  const [cambiandoAlertas, setCambiandoAlertas] = useState(false);
+  const [celular,      setCelular]      = useState(usuario?.celular || '');
+  const [guardandoCel, setGuardandoCel] = useState(false);
+  const [misReportes,  setMisReportes]  = useState([]);
+  const [confirmarBorrado, setConfirmarBorrado] = useState(false);
+  const [passwordBorrado,  setPasswordBorrado]  = useState('');
+  const [borrando,     setBorrando]     = useState(false);
   const [guardando,    setGuardando]    = useState(false);
   const [mensaje,      setMensaje]      = useState('');
   const [error,        setError]        = useState('');
@@ -138,13 +145,72 @@ export default function ConfiguracionPerfil() {
       .then(({ data }) => setMascotas(data.mascotas || []))
       .catch(() => {})
       .finally(() => setLoadMascotas(false));
+    reporteService.misReportes()
+      .then(({ data }) => setMisReportes(data.reportes || []))
+      .catch(() => {});
   }, []);
+
+  useEffect(() => { setAlertasActivas(!!usuario?.alertas_activas); }, [usuario?.alertas_activas]);
+
+  // R8/R9 + Ley 1581: la ubicación solo se guarda con el consentimiento explícito del usuario
+  async function handleToggleAlertas(activar) {
+    setCambiandoAlertas(true);
+    try {
+      if (activar) {
+        const pos = await new Promise((resolve, reject) => {
+          if (!navigator.geolocation) reject(new Error('sin-geo'));
+          else navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 10000 });
+        });
+        await usuarioService.actualizarUbicacion(pos.coords.latitude, pos.coords.longitude);
+        toast.success('Alertas activadas. Te avisaremos de mascotas perdidas cerca de ti.');
+      } else {
+        await usuarioService.desactivarUbicacion();
+        toast.success('Alertas desactivadas. Tu ubicación fue eliminada.');
+      }
+      setAlertasActivas(activar);
+      actualizarUsuario({ alertas_activas: activar });
+    } catch (err) {
+      toast.error(err?.response?.data?.message
+        || 'No se pudo obtener tu ubicación. Revisa los permisos del navegador.');
+    } finally {
+      setCambiandoAlertas(false);
+    }
+  }
+
+  async function handleGuardarCelular(e) {
+    e.preventDefault();
+    setGuardandoCel(true);
+    try {
+      const { data } = await usuarioService.actualizarPerfil({ celular: celular.trim() });
+      actualizarUsuario({ celular: data.usuario.celular });
+      toast.success('Celular actualizado.');
+    } catch (err) {
+      toast.error(err.response?.data?.errors?.[0]?.msg || err.response?.data?.message || 'No se pudo actualizar el celular.');
+    } finally {
+      setGuardandoCel(false);
+    }
+  }
+
+  async function handleEliminarCuenta(e) {
+    e.preventDefault();
+    setBorrando(true);
+    try {
+      await usuarioService.eliminarCuenta(passwordBorrado);
+      toast.success('Tu cuenta y tus datos fueron eliminados.');
+      localStorage.removeItem('token');
+      localStorage.removeItem('usuario');
+      window.location.assign('/login');
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'No se pudo eliminar la cuenta.');
+      setBorrando(false);
+    }
+  }
 
   async function handleGuardarRadio(e) {
     e.preventDefault();
     setGuardando(true);
     try {
-      await notificacionService.actualizarRadioAlerta(radioAlerta);
+      await usuarioService.actualizarRadioAlerta(radioAlerta);
       toast.success(`Radio actualizado a ${radioAlerta} km.`);
     } catch (err) {
       toast.error(err.response?.data?.message || 'No se pudo actualizar el radio.');
@@ -162,11 +228,7 @@ export default function ConfiguracionPerfil() {
     }
     setSubiendoFoto(true);
     try {
-      const formData = new FormData();
-      formData.append('foto', file);
-      const { data } = await api.put('/usuarios/foto', formData, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      });
+      const { data } = await usuarioService.actualizarFoto(file);
       actualizarUsuario({ foto_url: data.foto_url });
       toast.success('Foto de perfil actualizada.');
     } catch {
@@ -250,7 +312,7 @@ export default function ConfiguracionPerfil() {
              style={{ background: isDark ? 'rgba(0,196,180,0.12)' : '#E0F9F7' }}>
           <CheckCircle size={13} style={{ color: '#00C4B4' }} />
           <span className="text-xs font-semibold" style={{ color: '#00C4B4' }}>
-            Vecino verificado · La Aurora
+            {alertasActivas ? 'Alertas por proximidad activas' : 'Alertas por proximidad desactivadas'}
           </span>
         </div>
       </div>
@@ -260,8 +322,8 @@ export default function ConfiguracionPerfil() {
            style={{ background: surface, boxShadow: '0 4px 20px rgba(26,26,46,0.06)' }}>
         {[
           { value: mascotas.length || '—', label: 'MASCOTAS', color: '#F97B62'  },
-          { value: '12',                   label: 'REPORTES',  color: textPrimary },
-          { value: '7',                    label: 'AYUDADAS',  color: '#00C4B4'   },
+          { value: misReportes.length,     label: 'REPORTES',  color: textPrimary },
+          { value: misReportes.filter(r => r.estado === 'encontrada').length, label: 'ENCONTRADAS', color: '#00C4B4' },
         ].map(({ value, label, color }, i) => (
           <div key={label} className="flex flex-col items-center py-1"
                style={i < 2 ? { borderRight: `1px solid ${divider}` } : {}}>
@@ -418,9 +480,31 @@ export default function ConfiguracionPerfil() {
                  style={{ background: 'rgba(249,123,98,0.12)' }}>
               <Bell size={18} style={{ color: '#F97B62' }} />
             </div>
-            <span className="flex-1 font-medium text-[15px]" style={{ color: textPrimary }}>Notificaciones</span>
-            <Toggle on={notifActiva} onChange={setNotifActiva} />
+            <div className="flex-1">
+              <span className="block font-medium text-[15px]" style={{ color: textPrimary }}>Alertas por proximidad</span>
+              <span className="block text-xs" style={{ color: textMuted }}>
+                Comparte tu ubicación para recibir avisos de mascotas perdidas cerca de ti.
+              </span>
+            </div>
+            <Toggle label="Alertas por proximidad" on={alertasActivas} onChange={(v) => !cambiandoAlertas && handleToggleAlertas(v)} />
           </div>
+
+          {/* Celular de contacto (R1) */}
+          <form onSubmit={handleGuardarCelular} className="px-5 py-4 flex items-center gap-3"
+                style={{ borderBottom: `1px solid ${divider}` }}>
+            <label htmlFor="celular-perfil" className="text-sm font-medium shrink-0" style={{ color: textPrimary }}>
+              Celular
+            </label>
+            <input id="celular-perfil" type="tel" value={celular} onChange={e => setCelular(e.target.value)}
+              placeholder="300 123 4567" data-testid="input-celular"
+              className="flex-1 min-w-0 px-3 py-2 rounded-xl text-sm outline-none"
+              style={{ background: t.surface2, color: textPrimary, border: `1px solid ${divider}` }} />
+            <button type="submit" disabled={guardandoCel}
+              className="px-3 py-2 rounded-xl text-xs font-semibold text-white"
+              style={{ background: 'linear-gradient(135deg,#FF9280,#F97B62)', opacity: guardandoCel ? 0.7 : 1 }}>
+              {guardandoCel ? '…' : 'Guardar'}
+            </button>
+          </form>
 
           {/* Radio de alerta */}
           <div style={{ borderBottom: `1px solid ${divider}` }}>
@@ -459,7 +543,7 @@ export default function ConfiguracionPerfil() {
               <Moon size={18} style={{ color: isDark ? '#C7B2F5' : '#6B7280' }} />
             </div>
             <span className="flex-1 font-medium text-[15px]" style={{ color: textPrimary }}>Modo oscuro</span>
-            <Toggle on={isDark} onChange={toggleTheme} />
+            <Toggle label="Modo oscuro" on={isDark} onChange={toggleTheme} />
           </div>
         </div>
       </div>
@@ -490,6 +574,38 @@ export default function ConfiguracionPerfil() {
       >
         <LogOut size={16} /> Cerrar sesión
       </motion.button>
+
+      {/* ── Eliminar cuenta (Ley 1581 de 2012) ───────────────────────────── */}
+      <div className="mx-4 mt-3 mb-4">
+        {!confirmarBorrado ? (
+          <button onClick={() => setConfirmarBorrado(true)} data-testid="btn-eliminar-cuenta"
+            className="w-full py-3 text-xs font-semibold" style={{ color: textMuted }}>
+            Eliminar mi cuenta y mis datos
+          </button>
+        ) : (
+          <form onSubmit={handleEliminarCuenta} className="rounded-3xl p-4 flex flex-col gap-3"
+                style={{ background: surface, border: '1px solid rgba(239,68,68,0.3)' }}>
+            <p className="text-xs" style={{ color: textPrimary }}>
+              Se eliminarán tu cuenta, tus mascotas, reportes y notificaciones. Esta acción no se puede deshacer.
+              Confirma tu contraseña:
+            </p>
+            <input type="password" value={passwordBorrado} onChange={e => setPasswordBorrado(e.target.value)}
+              required autoComplete="current-password" data-testid="input-password-borrado"
+              className="px-3 py-2 rounded-xl text-sm outline-none"
+              style={{ background: t.surface2, color: textPrimary, border: `1px solid ${divider}` }} />
+            <div className="flex gap-2">
+              <button type="button" onClick={() => { setConfirmarBorrado(false); setPasswordBorrado(''); }}
+                className="flex-1 py-2.5 rounded-2xl text-xs font-semibold" style={{ color: textMuted, border: `1px solid ${divider}` }}>
+                Cancelar
+              </button>
+              <button type="submit" disabled={borrando}
+                className="flex-1 py-2.5 rounded-2xl text-xs font-semibold text-white" style={{ background: '#EF4444' }}>
+                {borrando ? 'Eliminando…' : 'Eliminar definitivamente'}
+              </button>
+            </div>
+          </form>
+        )}
+      </div>
 
       <BottomNav />
     </div>

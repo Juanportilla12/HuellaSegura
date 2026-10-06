@@ -68,19 +68,14 @@ describe('Sprint 7 — GestionUsuarios Admin (DoD)', () => {
     adminService.listarUsuarios.mockReturnValue(new Promise(() => {}));
     renderPage();
     // El nuevo diseño usa divs con clase skeleton
-    const skeletons = document.querySelectorAll('.skeleton');
+    const skeletons = screen.getAllByTestId('skeleton-usuario');
     expect(skeletons.length).toBeGreaterThan(0);
   });
 
   test('Muestra mensaje de error si la petición falla', async () => {
     adminService.listarUsuarios.mockRejectedValue(new Error('Network'));
     renderPage();
-    // Con mock data (MOCK_USUARIOS) el fallback está integrado en el componente
-    // El componente usa los datos mock al fallar y no muestra error visible
-    await waitFor(() => {
-      // Al menos debe renderizar sin crash
-      expect(screen.getByText(/gestión de usuarios/i)).toBeInTheDocument();
-    });
+    expect(await screen.findByRole('alert')).toHaveTextContent(/no se pudieron cargar los usuarios/i);
   });
 
   // ── C3: Activar / desactivar usuarios ─────────────────────────────────────

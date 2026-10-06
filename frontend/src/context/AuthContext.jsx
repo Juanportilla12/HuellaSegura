@@ -20,6 +20,16 @@ export function AuthProvider({ children }) {
       }
     }
     setCargando(false);
+
+    // Refresca los datos del usuario desde el servidor (p. ej. alertas_activas)
+    if (token) {
+      authService.getMe()
+        .then(({ data }) => {
+          localStorage.setItem('usuario', JSON.stringify(data.usuario));
+          setUsuario(data.usuario);
+        })
+        .catch(() => {});
+    }
   }, []);
 
   const login = useCallback(async (email, password, turnstileToken = '') => {
@@ -30,8 +40,8 @@ export function AuthProvider({ children }) {
     return data;
   }, []);
 
-  const register = useCallback(async (nombre, email, password) => {
-    const { data } = await authService.register(nombre, email, password);
+  const register = useCallback(async (datos) => {
+    const { data } = await authService.register(datos);
     localStorage.setItem('token', data.token);
     localStorage.setItem('usuario', JSON.stringify(data.usuario));
     setUsuario(data.usuario);

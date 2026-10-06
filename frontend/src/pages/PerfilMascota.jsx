@@ -31,7 +31,7 @@ export default function PerfilMascota() {
     ]).then(([{ data: dm }, { data: dr }]) => {
       setMascota(dm.mascota);
       const activo = (dr.reportes || []).find(
-        r => String(r.mascota_id) === String(id) && r.estado === 'activo'
+        r => String(r.mascota_id) === String(id) && r.estado === 'en_busqueda'
       );
       setReporteActivo(activo || null);
     }).catch(() => navigate(-1))
@@ -159,6 +159,17 @@ export default function PerfilMascota() {
             </div>
           )}
         </div>
+
+        {!reporteActivo && (
+          <div className="px-5 pb-3">
+            <motion.button whileTap={{ scale: 0.97 }} onClick={() => navigate(`/reportes/nuevo?mascota_id=${id}`)}
+              data-testid="btn-reportar-perdida"
+              className="w-full py-3 rounded-2xl text-sm font-bold flex items-center justify-center gap-2"
+              style={{ background: t.primaryBg, color: t.primary, border: `1px solid ${t.primaryBorder}` }}>
+              <MapPin size={16} /> Reportar como perdida
+            </motion.button>
+          </div>
+        )}
 
         <div className="px-5 pb-5 flex gap-3">
           <motion.button whileTap={{ scale: 0.97 }} onClick={() => navigate(`/mascotas/${id}/editar`)}

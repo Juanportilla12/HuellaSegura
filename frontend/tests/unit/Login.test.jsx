@@ -21,6 +21,17 @@ vi.mock('react-router-dom', async (importOriginal) => {
   };
 });
 
+// Turnstile no carga en jsdom: se simula una verificación exitosa inmediata
+vi.mock('@marsidev/react-turnstile', async () => {
+  const { useEffect } = await import('react');
+  return {
+    Turnstile: ({ onSuccess }) => {
+      useEffect(() => { onSuccess('token-prueba'); }, []);
+      return <div data-testid="turnstile" />;
+    },
+  };
+});
+
 // ─── Helper ───────────────────────────────────────────────────────────────────
 function renderLogin() {
   return render(
@@ -65,7 +76,7 @@ describe('Login Component', () => {
     await user.click(screen.getByRole('button', { name: /iniciar sesión/i }));
 
     await waitFor(() => {
-      expect(mockLogin).toHaveBeenCalledWith('ana@example.com', 'password123');
+      expect(mockLogin).toHaveBeenCalledWith('ana@example.com', 'password123', 'token-prueba');
     });
   });
 
@@ -85,7 +96,7 @@ describe('Login Component', () => {
 
   test('muestra mensaje de error si las credenciales son incorrectas', async () => {
     mockLogin.mockRejectedValueOnce({
-      response: { data: { message: 'Contraseña incorrecta.' } },
+      response: { data: { message: 'Correo o contraseña incorrectos.' } },
     });
     renderLogin();
     const user = userEvent.setup();
@@ -95,7 +106,7 @@ describe('Login Component', () => {
     await user.click(screen.getByRole('button', { name: /iniciar sesión/i }));
 
     await waitFor(() => {
-      expect(screen.getByText(/contraseña incorrecta/i)).toBeInTheDocument();
+      expect(screen.getByText(/correo o contraseña incorrectos/i)).toBeInTheDocument();
     });
   });
 
@@ -109,7 +120,7 @@ describe('Login Component', () => {
     await user.click(screen.getByRole('button', { name: /iniciar sesión/i }));
 
     await waitFor(() => {
-      expect(screen.getByRole('button')).toBeDisabled();
+      expect(screen.getByRole('button', { name: /ingresando|iniciar sesión|cargando/i })).toBeDisabled();
     });
   });
 });

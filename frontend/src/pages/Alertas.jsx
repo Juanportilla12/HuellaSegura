@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Bell, MapPin, Clock, SlidersHorizontal, X, Check } from 'lucide-react';
 import { useTokens } from '../hooks/useTokens';
 import BottomNav from '../components/ui/BottomNav';
 import { listarNotificaciones, marcarLeida, marcarTodasLeidas } from '../services/notificacionService';
+import { useNotificaciones } from '../context/NotificacionesContext';
 
 
 const TABS = [
@@ -23,6 +25,8 @@ function tiempoRelativo(isoStr) {
 
 export default function Alertas() {
   const t = useTokens();
+  const navigate = useNavigate();
+  const { refrescar } = useNotificaciones();
   const [notifs,     setNotifs]     = useState([]);
   const [tab,        setTab]        = useState(0);
   const [loading,    setLoading]    = useState(true);
@@ -37,8 +41,14 @@ export default function Alertas() {
       .finally(() => setLoading(false));
   }, []);
 
-  const handleRead    = async (id) => { try { await marcarLeida(id); } catch {} setNotifs(p => p.map(n => n.id===id ? {...n,leida:true} : n)); };
-  const handleReadAll = async ()    => { try { await marcarTodasLeidas(); } catch {} setNotifs(p => p.map(n => ({...n,leida:true}))); };
+  const handleRead    = async (id) => { try { await marcarLeida(id); } catch {} setNotifs(p => p.map(n => n.id===id ? {...n,leida:true} : n)); refrescar(); };
+  const handleReadAll = async ()    => { try { await marcarTodasLeidas(); } catch {} setNotifs(p => p.map(n => ({...n,leida:true}))); refrescar(); };
+
+  // DoD Sprint 5: la notificación lleva directamente al reporte en el mapa
+  const handleAbrir = async (notif) => {
+    if (!notif.leida) await handleRead(notif.id);
+    if (notif.reporte_id) navigate(`/mapa?reporte=${notif.reporte_id}`);
+  };
 
   const notifsFiltradas = notifs
     .filter(TABS[tab].filter)
@@ -131,7 +141,7 @@ export default function Alertas() {
             <motion.div key={notif.id}
               initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95 }} transition={{ delay: i * 0.04 }}
-              onClick={() => !notif.leida && handleRead(notif.id)}
+              onClick={() => handleAbrir(notif)}
               data-testid={`notif-item-${notif.id}`}
               className="rounded-2xl p-4 cursor-pointer"
               style={{

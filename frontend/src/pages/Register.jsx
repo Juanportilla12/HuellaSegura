@@ -1,7 +1,8 @@
 import { useState, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Mail, Lock, User, ArrowRight, MapPin, Eye, EyeOff, CheckCircle } from 'lucide-react';
+import { Mail, Lock, User, Phone, ArrowRight, MapPin, Eye, EyeOff, CheckCircle } from 'lucide-react';
+import { actualizarUbicacion } from '../services/usuarioService';
 import { useAuth } from '../context/AuthContext';
 
 function FloatingOrb({ style }) {
@@ -12,7 +13,7 @@ function PasswordStrength({ password }) {
   const strength = useMemo(() => {
     if (!password) return 0;
     let score = 0;
-    if (password.length >= 6)  score++;
+    if (password.length >= 8)  score++;
     if (password.length >= 10) score++;
     if (/[A-Z]/.test(password)) score++;
     if (/[0-9]/.test(password)) score++;
@@ -94,7 +95,9 @@ export default function Register() {
   const { register } = useAuth();
   const navigate     = useNavigate();
 
-  const [form,     setForm]     = useState({ nombre: '', email: '', password: '', confirmPassword: '' });
+  const [form,     setForm]     = useState({ nombre: '', email: '', celular: '', password: '', confirmPassword: '' });
+  const [aceptaDatos,     setAceptaDatos]     = useState(false);
+  const [aceptaUbicacion, setAceptaUbicacion] = useState(false);
   const [errors,   setErrors]   = useState({});
   const [apiError, setApiError] = useState('');
   const [loading,  setLoading]  = useState(false);
@@ -113,8 +116,11 @@ export default function Register() {
     else if (form.nombre.trim().length < 2)  e.nombre = 'Mínimo 2 caracteres.';
     if (!form.email)                         e.email  = 'El correo es obligatorio.';
     else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) e.email = 'Correo inválido.';
+    if (!form.celular.trim())                e.celular = 'El celular es obligatorio.';
+    else if (!/^\+?[0-9][0-9\s-]{6,18}$/.test(form.celular.trim())) e.celular = 'Celular inválido.';
     if (!form.password)                      e.password = 'La contraseña es obligatoria.';
-    else if (form.password.length < 6)       e.password = 'Mínimo 6 caracteres.';
+    else if (form.password.length < 8)       e.password = 'Mínimo 8 caracteres.';
+    if (!aceptaDatos)                        e.aceptaDatos = 'Debes autorizar el tratamiento de tus datos.';
     if (form.password !== form.confirmPassword) e.confirmPassword = 'Las contraseñas no coinciden.';
     setErrors(e);
     return !Object.keys(e).length;
@@ -125,7 +131,17 @@ export default function Register() {
     if (!validate()) return;
     setLoading(true);
     try {
-      await register(form.nombre.trim(), form.email, form.password);
+      await register({
+        nombre: form.nombre.trim(), email: form.email, celular: form.celular.trim(), password: form.password,
+      });
+      // Consentimiento explícito de ubicación para alertas por proximidad (Ley 1581)
+      if (aceptaUbicacion && navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+          ({ coords }) => actualizarUbicacion(coords.latitude, coords.longitude).catch(() => {}),
+          () => {},
+          { timeout: 10000 }
+        );
+      }
       navigate('/', { replace: true });
     } catch (err) {
       setApiError(err.response?.data?.message || 'Error al registrarse. Intenta de nuevo.');
@@ -277,6 +293,14 @@ export default function Register() {
               icon={Mail} autoComplete="email"
             />
 
+            {/* Celular (R1) */}
+            <Field
+              label="Celular" id="celular" name="celular" type="tel"
+              placeholder="300 123 4567"
+              value={form.celular} onChange={handleChange} error={errors.celular}
+              icon={Phone} autoComplete="tel"
+            />
+
             {/* Contraseña */}
             <div className="flex flex-col gap-1.5">
               <label htmlFor="password" className="text-xs font-bold tracking-wide uppercase"
@@ -289,7 +313,7 @@ export default function Register() {
                 <input
                   id="password" name="password"
                   type={showPass ? 'text' : 'password'}
-                  placeholder="Mínimo 6 caracteres"
+                  placeholder="Mínimo 8 caracteres"
                   value={form.password} onChange={handleChange}
                   autoComplete="new-password"
                   className="w-full pl-11 pr-12 py-3.5 rounded-2xl text-sm text-white outline-none transition-all"
@@ -342,6 +366,30 @@ export default function Register() {
               {errors.confirmPassword && (
                 <p className="text-xs pl-1" style={{ color: '#F87171' }}>{errors.confirmPassword}</p>
               )}
+            </div>
+
+            {/* Consentimientos (Ley 1581 de 2012) */}
+            <div className="flex flex-col gap-2 text-xs" style={{ color: 'rgba(255,255,255,0.65)' }}>
+              <label className="flex items-start gap-2 cursor-pointer">
+                <input type="checkbox" checked={aceptaDatos} data-testid="check-datos"
+                       onChange={e => { setAceptaDatos(e.target.checked); setErrors(p => ({ ...p, aceptaDatos: '' })); }}
+                       className="mt-0.5" style={{ accentColor: '#F97B62' }} />
+                <span>
+                  Autorizo el tratamiento de mis datos personales (nombre, correo y celular) conforme a la
+                  Ley 1581 de 2012. Mi celular solo se mostrará en el perfil público de mis mascotas y podré
+                  eliminar mi cuenta en cualquier momento.
+                </span>
+              </label>
+              {errors.aceptaDatos && <p className="pl-6" style={{ color: '#F87171' }}>{errors.aceptaDatos}</p>}
+              <label className="flex items-start gap-2 cursor-pointer">
+                <input type="checkbox" checked={aceptaUbicacion} data-testid="check-ubicacion"
+                       onChange={e => setAceptaUbicacion(e.target.checked)}
+                       className="mt-0.5" style={{ accentColor: '#F97B62' }} />
+                <span>
+                  Opcional: compartir mi ubicación para recibir alertas de mascotas perdidas cerca de mí
+                  (puedo desactivarlo desde mi perfil).
+                </span>
+              </label>
             </div>
 
             {/* Submit */}

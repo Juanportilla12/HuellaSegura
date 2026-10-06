@@ -2,6 +2,7 @@ import { lazy, Suspense } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AnimatePresence } from 'framer-motion';
 import { AuthProvider } from './context/AuthContext';
+import { NotificacionesProvider } from './context/NotificacionesContext';
 import ProtectedRoute   from './components/ProtectedRoute';
 import PageTransition   from './components/PageTransition';
 import LoadingSpinner   from './components/ui/LoadingSpinner';
@@ -87,9 +88,11 @@ export default function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
-        <Suspense fallback={<LoadingSpinner fullScreen />}>
-          <AnimatedRoutes />
-        </Suspense>
+        <NotificacionesProvider>
+          <Suspense fallback={<LoadingSpinner fullScreen />}>
+            <AnimatedRoutes />
+          </Suspense>
+        </NotificacionesProvider>
       </AuthProvider>
     </BrowserRouter>
   );
