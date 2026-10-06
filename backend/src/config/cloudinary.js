@@ -1,9 +1,12 @@
 const cloudinary = require('cloudinary').v2;
 
+// Se eliminan espacios accidentales al copiar los valores en el panel del hosting
+const limpiar = (valor) => (valor || '').trim();
+
 cloudinary.config({
-  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-  api_key: process.env.CLOUDINARY_API_KEY,
-  api_secret: process.env.CLOUDINARY_API_SECRET,
+  cloud_name: limpiar(process.env.CLOUDINARY_CLOUD_NAME),
+  api_key: limpiar(process.env.CLOUDINARY_API_KEY),
+  api_secret: limpiar(process.env.CLOUDINARY_API_SECRET),
 });
 
 function uploadBuffer(buffer, options = {}) {
