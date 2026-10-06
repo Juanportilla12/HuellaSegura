@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { MapContainer, TileLayer, Marker, Popup, useMapEvents, useMap } from 'react-leaflet';
 import L from 'leaflet';
+import { TILE_URL, TILE_ATTRIBUTION, CENTRO_PASTO } from '../config/mapa';
 import 'leaflet/dist/leaflet.css';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -21,7 +22,6 @@ L.Icon.Default.mergeOptions({
   shadowUrl:     new URL('leaflet/dist/images/marker-shadow.png',  import.meta.url).href,
 });
 
-const CENTRO_PASTO = [1.2136, -77.2811];
 const EMOJIS = { perro: '🐶', gato: '🐱', ave: '🐦', reptil: '🦎', otro: '🐾' };
 
 // ─── Opciones de filtro ───────────────────────────────────────────────────────
@@ -222,11 +222,11 @@ export default function MapaPrincipal() {
         style={{ height: '100%', width: '100%', zIndex: 0 }}
         zoomControl={false}
       >
-        {/* ── Tiles: CartoDB Voyager — colorido y moderno ── */}
+        {/* ── Capa base: OpenStreetMap ── */}
         <TileLayer
-          attribution='&copy; <a href="https://carto.com/">CARTO</a> &copy; <a href="https://www.openstreetmap.org/copyright">OSM</a>'
-          url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
-          maxZoom={20}
+          url={TILE_URL}
+          attribution={TILE_ATTRIBUTION}
+          maxZoom={19}
         />
         <CentrarMapa coords={centrarEn} />
         <MapClickHandler onMapClick={() => setSelected(null)} />

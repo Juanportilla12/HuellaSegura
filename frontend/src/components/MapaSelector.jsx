@@ -2,8 +2,8 @@ import { useEffect, useState } from 'react';
 import { MapContainer, TileLayer, Marker, useMapEvents, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
+import { TILE_URL, TILE_ATTRIBUTION, CENTRO_PASTO } from '../config/mapa';
 
-const CENTRO_PASTO = [1.2136, -77.2811];
 
 // Pin con efecto radar/pulso
 function crearPinRadar() {
@@ -68,11 +68,8 @@ export default function MapaSelector({ coords, onCoordsChange, address }) {
         zoom={14}
         style={{ height: '220px', width: '100%' }}
         zoomControl={false}
-        attributionControl={false}
       >
-        <TileLayer
-          url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
-        />
+        <TileLayer url={TILE_URL} attribution={TILE_ATTRIBUTION} />
         <ClickHandler onCoordsChange={onCoordsChange} />
         <FlyTo coords={coords} />
         {coords.lat && coords.lng && (

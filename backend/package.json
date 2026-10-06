@@ -8,10 +8,11 @@
     "dev": "nodemon server.js",
     "migrate": "sequelize-cli db:migrate",
     "migrate:undo": "sequelize-cli db:migrate:undo",
-    "test": "jest",
+    "test": "jest --testPathIgnorePatterns=/tests/e2e/",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
-    "test:integration": "jest --testPathPattern=integration"
+    "test:integration": "jest --testPathPattern=integration",
+    "test:e2e": "node tests/e2e/flujoCompleto.e2e.mjs"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
@@ -48,7 +49,8 @@
       }
     },
     "testPathIgnorePatterns": [
-      "/node_modules/"
+      "/node_modules/",
+      "/tests/e2e/"
     ]
   },
   "engines": {

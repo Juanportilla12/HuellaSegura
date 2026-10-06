@@ -69,6 +69,7 @@ export default function CrearReporte() {
 
   function handleCoordsChange(lat, lng) {
     setCoords({ lat, lng });
+    setAvisoGPS('');
     setErrores((p) => ({ ...p, coords: '' }));
     setDireccion('…');
     clearTimeout(geocodeTimer.current);

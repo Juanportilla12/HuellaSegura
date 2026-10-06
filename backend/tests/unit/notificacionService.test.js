@@ -13,7 +13,17 @@ jest.mock('../../src/config/connection', () => ({
   define: jest.fn(),
 }));
 
+jest.mock('../../src/services/emailService', () => ({
+  enviarCorreoAlertaProximidad: jest.fn().mockResolvedValue({}),
+}));
+
+jest.mock('../../src/services/tiempoRealService', () => ({
+  notificarUsuario: jest.fn(),
+}));
+
 const { generarNotificacionesProximidad } = require('../../src/services/notificacionService');
+const { enviarCorreoAlertaProximidad } = require('../../src/services/emailService');
+const { notificarUsuario } = require('../../src/services/tiempoRealService');
 const { Usuario, Notificacion } = require('../../src/models');
 
 // Reporte ubicado en el centro de Pasto
@@ -96,5 +106,30 @@ describe('notificacionService', () => {
 
     expect(Notificacion.bulkCreate).not.toHaveBeenCalled();
     expect(cantidad).toBe(0);
+  });
+
+  test('R8/R9: cada usuario cercano recibe evento en tiempo real y correo', async () => {
+    Usuario.findAll.mockResolvedValue([
+      { id: 1, nombre: 'Ana', email: 'ana@example.com', radio_alerta: 5, ubicacion_lat: 1.2236, ubicacion_lng: -77.2811 },
+      { id: 2, nombre: 'Leo', email: 'leo@example.com', radio_alerta: 1, ubicacion_lat: 1.1385, ubicacion_lng: -77.2590 },
+    ]);
+
+    const total = await generarNotificacionesProximidad(REPORTE_MOCK, 'Firulais');
+
+    expect(total).toBe(1);
+    expect(notificarUsuario).toHaveBeenCalledTimes(1);
+    expect(notificarUsuario).toHaveBeenCalledWith(1, 'notificacion', expect.objectContaining({ reporte_id: 10 }));
+    expect(enviarCorreoAlertaProximidad).toHaveBeenCalledTimes(1);
+    expect(enviarCorreoAlertaProximidad.mock.calls[0][0].destinatario.email).toBe('ana@example.com');
+  });
+
+  test('Usuarios sin ubicación (sin consentimiento) no reciben alertas', async () => {
+    Usuario.findAll.mockResolvedValue([
+      { id: 1, nombre: 'Ana', email: 'ana@example.com', radio_alerta: 10, ubicacion_lat: null, ubicacion_lng: null },
+    ]);
+    const total = await generarNotificacionesProximidad(REPORTE_MOCK, 'Firulais');
+    expect(total).toBe(0);
+    expect(Notificacion.bulkCreate).not.toHaveBeenCalled();
+    expect(enviarCorreoAlertaProximidad).not.toHaveBeenCalled();
   });
 });
