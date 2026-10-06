@@ -2,10 +2,10 @@ const { Router } = require('express');
 const { param } = require('express-validator');
 const adminController = require('../controllers/adminController');
 const { reporteSemanal } = require('../controllers/pdfController');
-const adminAuth = require('../middlewares/adminMiddleware');
+const { authenticate, requireAdmin } = require('../middlewares/authMiddleware');
 
 const router = Router();
-router.use(adminAuth);
+router.use(authenticate, requireAdmin);
 
 router.get('/estadisticas',          adminController.estadisticas);
 router.get('/usuarios',              adminController.listarUsuarios);

@@ -24,6 +24,19 @@ function errorHandler(err, req, res, next) {
     });
   }
 
+  // Errores de subida de archivos (tamaño, cantidad o tipo no permitido)
+  if (err.name === 'MulterError') {
+    const mensajes = {
+      LIMIT_FILE_SIZE: 'El archivo supera el tamaño máximo permitido.',
+      LIMIT_FILE_COUNT: 'Se enviaron demasiados archivos.',
+      LIMIT_UNEXPECTED_FILE: 'Se enviaron demasiados archivos o un campo no esperado.',
+    };
+    return res.status(400).json({ success: false, message: mensajes[err.code] || 'Archivo inválido.' });
+  }
+  if (err.tipoArchivoInvalido) {
+    return res.status(400).json({ success: false, message: err.message });
+  }
+
   const status = err.status || err.statusCode || 500;
   const message =
     process.env.NODE_ENV === 'production' && status === 500

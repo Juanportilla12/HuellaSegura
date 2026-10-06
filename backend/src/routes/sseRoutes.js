@@ -1,24 +1,12 @@
-'use strict';
 const { Router } = require('express');
-const { authenticate } = require('../middlewares/authMiddleware');
+const { authenticateSSE } = require('../middlewares/authMiddleware');
+const { registrarCliente, eliminarCliente, enviarEvento } = require('../services/tiempoRealService');
 
 const router = Router();
 
-// Mapa de clientes conectados: usuarioId -> res
-const clientes = new Map();
-
-// Función exportada para enviar eventos desde otros controladores
-function notificarUsuario(usuarioId, evento, datos) {
-  const res = clientes.get(String(usuarioId));
-  if (res) {
-    res.write(`event: ${evento}\n`);
-    res.write(`data: ${JSON.stringify(datos)}\n\n`);
-  }
-}
-
-// GET /api/sse/eventos — conexión SSE del cliente
-router.get('/eventos', authenticate, (req, res) => {
-  const usuarioId = String(req.usuario.id);
+// GET /api/sse/eventos — conexión de tiempo real del cliente
+router.get('/eventos', authenticateSSE, (req, res) => {
+  const usuarioId = req.usuario.id;
 
   res.setHeader('Content-Type',  'text/event-stream');
   res.setHeader('Cache-Control', 'no-cache');
@@ -31,16 +19,13 @@ router.get('/eventos', authenticate, (req, res) => {
     res.write(': ping\n\n');
   }, 25000);
 
-  // Mensaje de bienvenida
-  res.write(`event: conectado\n`);
-  res.write(`data: ${JSON.stringify({ mensaje: 'Conectado a HuellaSegura en tiempo real' })}\n\n`);
-
-  clientes.set(usuarioId, res);
+  enviarEvento(res, 'conectado', { mensaje: 'Conectado a HuellaSegura en tiempo real' });
+  registrarCliente(usuarioId, res);
 
   req.on('close', () => {
     clearInterval(heartbeat);
-    clientes.delete(usuarioId);
+    eliminarCliente(usuarioId, res);
   });
 });
 
-module.exports = { router, notificarUsuario };
+module.exports = router;

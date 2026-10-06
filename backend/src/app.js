@@ -14,6 +14,9 @@ app.use(helmet({
   contentSecurityPolicy: false, // El frontend maneja su propio CSP
 }));
 
+// Sin límite de peticiones en desarrollo ni en pruebas automatizadas
+const sinLimite = ['development', 'test'].includes(process.env.NODE_ENV);
+
 // Rate limiting global — 100 req / 15 min por IP
 app.use(rateLimit({
   windowMs: 15 * 60 * 1000,
@@ -21,7 +24,7 @@ app.use(rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   message: { success: false, message: 'Demasiadas solicitudes. Intenta en 15 minutos.' },
-  skip: (req) => process.env.NODE_ENV === 'development',
+  skip: () => sinLimite,
 }));
 
 // Rate limiting estricto para auth — 10 intentos / 15 min por IP
@@ -31,7 +34,7 @@ const authLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   message: { success: false, message: 'Demasiados intentos de autenticación. Espera 15 minutos.' },
-  skip: (req) => process.env.NODE_ENV === 'development',
+  skip: () => sinLimite,
 });
 
 // ── CORS ─────────────────────────────────────────────────────────────────────
@@ -53,6 +56,9 @@ app.use(cors({
 
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+
+// El token de la conexión SSE viaja en la URL: se oculta en los logs
+morgan.token('url', (req) => req.originalUrl.replace(/([?&]token=)[^&]+/, '$1***'));
 
 if (process.env.NODE_ENV !== 'test') {
   app.use(morgan(process.env.NODE_ENV === 'production' ? 'combined' : 'dev'));

@@ -47,3 +47,6 @@ desktop.ini
 
 # Vite
 frontend/.vite/
+
+# Configuración local de herramientas
+.claude/

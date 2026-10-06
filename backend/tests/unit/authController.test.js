@@ -151,7 +151,7 @@ describe('AuthController', () => {
       expect(res.body.success).toBe(false);
     });
 
-    test('404 si el correo no existe', async () => {
+    test('401 con mensaje genérico si el correo no existe (no revela cuentas)', async () => {
       Usuario.findOne.mockResolvedValue(null);
 
       const res = await request(app).post('/api/auth/login').send({
@@ -159,7 +159,8 @@ describe('AuthController', () => {
         password: 'password123',
       });
 
-      expect(res.status).toBe(404);
+      expect(res.status).toBe(401);
+      expect(res.body.message).toBe('Correo o contraseña incorrectos.');
     });
 
     test('400 si el body está vacío', async () => {

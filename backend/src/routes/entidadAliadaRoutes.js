@@ -1,7 +1,9 @@
 const { Router } = require('express');
 const { body } = require('express-validator');
 const entidadAliadaController = require('../controllers/entidadAliadaController');
-const adminAuth = require('../middlewares/adminMiddleware');
+const { authenticate, requireAdmin } = require('../middlewares/authMiddleware');
+
+const soloAdmin = [authenticate, requireAdmin];
 
 const router = Router();
 
@@ -11,7 +13,7 @@ const validators = [
 ];
 
 router.get('/', entidadAliadaController.listar);
-router.post('/', adminAuth, validators, entidadAliadaController.crear);
-router.put('/:id', adminAuth, entidadAliadaController.actualizar);
+router.post('/', soloAdmin, validators, entidadAliadaController.crear);
+router.put('/:id', soloAdmin, entidadAliadaController.actualizar);
 
 module.exports = router;

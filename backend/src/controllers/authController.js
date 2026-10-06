@@ -80,11 +80,13 @@ async function login(req, res, next) {
       }
     }
 
+    // Mismo mensaje si el correo no existe o la contraseña es incorrecta (no revela cuentas)
     const usuario = await Usuario.findOne({ where: { email } });
-    if (!usuario) {
-      return res.status(404).json({
+    const passwordValida = usuario ? await usuario.verificarPassword(password) : false;
+    if (!usuario || !passwordValida) {
+      return res.status(401).json({
         success: false,
-        message: 'No existe una cuenta con ese correo electrónico.',
+        message: 'Correo o contraseña incorrectos.',
       });
     }
 
@@ -92,14 +94,6 @@ async function login(req, res, next) {
       return res.status(403).json({
         success: false,
         message: 'Tu cuenta ha sido desactivada. Contacta al administrador.',
-      });
-    }
-
-    const passwordValida = await usuario.verificarPassword(password);
-    if (!passwordValida) {
-      return res.status(401).json({
-        success: false,
-        message: 'Contraseña incorrecta.',
       });
     }
 

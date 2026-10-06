@@ -6,7 +6,7 @@ const notificacionRoutes = require('./notificacionRoutes');
 const usuarioRoutes      = require('./usuarioRoutes');
 const avistamientoRoutes = require('./avistamientoRoutes');
 const perfilPublicoRoutes= require('./perfilPublicoRoutes');
-const { router: sseRouter } = require('./sseRoutes');
+const sseRouter          = require('./sseRoutes');
 
 const router = Router();
 

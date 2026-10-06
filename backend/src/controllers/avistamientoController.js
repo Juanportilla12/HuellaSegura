@@ -2,7 +2,7 @@ const { validationResult } = require('express-validator');
 const { Avistamiento, Mascota, Reporte, Notificacion, Usuario } = require('../models');
 const { uploadBuffer } = require('../config/cloudinary');
 const { enviarCorreoAvistamiento } = require('../services/emailService');
-const { notificarUsuario } = require('../routes/sseRoutes');
+const { notificarUsuario } = require('../services/tiempoRealService');
 
 async function crear(req, res, next) {
   try {

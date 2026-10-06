@@ -1,5 +1,15 @@
 const nodemailer = require('nodemailer');
 
+// Escapa texto ingresado por usuarios antes de insertarlo en el HTML del correo
+function esc(valor) {
+  return String(valor ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 function crearTransporte() {
   return nodemailer.createTransport({
     host: process.env.EMAIL_HOST || 'smtp.gmail.com',
@@ -15,7 +25,7 @@ function crearTransporte() {
 async function enviarCorreoReporteCreado({ propietario, mascota, reporte }) {
   const transporte = crearTransporte();
   const fotosHtml = mascota.foto_principal
-    ? `<img src="${mascota.foto_principal}" alt="${mascota.nombre}" style="max-width:200px;border-radius:8px;" />`
+    ? `<img src="${esc(mascota.foto_principal)}" alt="${esc(mascota.nombre)}" style="max-width:200px;border-radius:8px;" />`
     : '';
 
   const info = await transporte.sendMail({
@@ -25,13 +35,13 @@ async function enviarCorreoReporteCreado({ propietario, mascota, reporte }) {
     html: `
       <div style="font-family:sans-serif;max-width:500px;margin:auto;">
         <h2 style="color:#2563eb;">HuellaSegura</h2>
-        <p>Hola <strong>${propietario.nombre}</strong>,</p>
+        <p>Hola <strong>${esc(propietario.nombre)}</strong>,</p>
         <p>Tu reporte de pérdida ha sido publicado exitosamente.</p>
         ${fotosHtml}
         <table style="width:100%;border-collapse:collapse;margin-top:16px;">
-          <tr><td style="padding:6px;font-weight:bold;">Mascota</td><td>${mascota.nombre}</td></tr>
-          <tr><td style="padding:6px;font-weight:bold;">Especie</td><td>${mascota.especie}</td></tr>
-          <tr><td style="padding:6px;font-weight:bold;">Fecha</td><td>${reporte.fecha_perdida}</td></tr>
+          <tr><td style="padding:6px;font-weight:bold;">Mascota</td><td>${esc(mascota.nombre)}</td></tr>
+          <tr><td style="padding:6px;font-weight:bold;">Especie</td><td>${esc(mascota.especie)}</td></tr>
+          <tr><td style="padding:6px;font-weight:bold;">Fecha</td><td>${esc(reporte.fecha_perdida)}</td></tr>
         </table>
         <p style="margin-top:16px;color:#555;">
           La comunidad de HuellaSegura en Pasto ya puede ver tu alerta en el mapa.
@@ -46,7 +56,7 @@ async function enviarCorreoReporteCreado({ propietario, mascota, reporte }) {
 async function enviarCorreoAvistamiento({ propietario, mascota, avistamiento }) {
   const transporte = crearTransporte();
   const fotoHtml = avistamiento.foto_url
-    ? `<img src="${avistamiento.foto_url}" alt="Foto del avistamiento" style="max-width:200px;border-radius:8px;margin-top:8px;" />`
+    ? `<img src="${esc(avistamiento.foto_url)}" alt="Foto del avistamiento" style="max-width:200px;border-radius:8px;margin-top:8px;" />`
     : '';
 
   const info = await transporte.sendMail({
@@ -56,13 +66,13 @@ async function enviarCorreoAvistamiento({ propietario, mascota, avistamiento }) 
     html: `
       <div style="font-family:sans-serif;max-width:500px;margin:auto;">
         <h2 style="color:#F97B62;">HuellaSegura</h2>
-        <p>Hola <strong>${propietario.nombre}</strong>,</p>
-        <p>¡Buenas noticias! Alguien reportó un avistamiento de <strong>${mascota.nombre}</strong>.</p>
+        <p>Hola <strong>${esc(propietario.nombre)}</strong>,</p>
+        <p>¡Buenas noticias! Alguien reportó un avistamiento de <strong>${esc(mascota.nombre)}</strong>.</p>
         ${fotoHtml}
         <table style="width:100%;border-collapse:collapse;margin-top:16px;">
-          <tr style="background:#fff3ee;"><td style="padding:8px;font-weight:bold;">Testigo</td><td>${avistamiento.nombre_testigo || 'Anónimo'}</td></tr>
+          <tr style="background:#fff3ee;"><td style="padding:8px;font-weight:bold;">Testigo</td><td>${esc(avistamiento.nombre_testigo || 'Anónimo')}</td></tr>
           <tr><td style="padding:8px;font-weight:bold;">Ubicación</td><td>Lat: ${parseFloat(avistamiento.latitud).toFixed(5)}, Lng: ${parseFloat(avistamiento.longitud).toFixed(5)}</td></tr>
-          <tr style="background:#fff3ee;"><td style="padding:8px;font-weight:bold;">Descripción</td><td>${avistamiento.descripcion || 'Sin descripción adicional'}</td></tr>
+          <tr style="background:#fff3ee;"><td style="padding:8px;font-weight:bold;">Descripción</td><td>${esc(avistamiento.descripcion || 'Sin descripción adicional')}</td></tr>
           <tr><td style="padding:8px;font-weight:bold;">Fecha</td><td>${new Date().toLocaleString('es-CO', { timeZone: 'America/Bogota' })}</td></tr>
         </table>
         <p style="margin-top:16px;">Ingresa a HuellaSegura para ver la ubicación exacta en el mapa.</p>
@@ -86,7 +96,7 @@ async function enviarCorreoResetCodigo({ email, nombre, codigo }) {
           <h1 style="color:white;margin:0;font-size:24px;font-weight:800;">HuellaSegura</h1>
         </div>
         <div style="padding:32px;">
-          <p style="color:rgba(255,255,255,0.7);margin-top:0;">Hola <strong style="color:white;">${nombre}</strong>,</p>
+          <p style="color:rgba(255,255,255,0.7);margin-top:0;">Hola <strong style="color:white;">${esc(nombre)}</strong>,</p>
           <p style="color:rgba(255,255,255,0.7);">Recibiste este correo porque solicitaste restablecer tu contraseña.</p>
           <p style="color:rgba(255,255,255,0.7);">Tu código de verificación es:</p>
           <div style="background:rgba(249,123,98,0.15);border:2px solid rgba(249,123,98,0.4);border-radius:12px;padding:24px;text-align:center;margin:24px 0;">

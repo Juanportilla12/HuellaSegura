@@ -7,7 +7,9 @@ function fileFilter(req, file, cb) {
   if (ALLOWED_MIMETYPES.includes(file.mimetype)) {
     cb(null, true);
   } else {
-    cb(new Error('Solo se permiten archivos JPG y PNG.'), false);
+    const error = new Error('Solo se permiten archivos JPG y PNG.');
+    error.tipoArchivoInvalido = true;
+    cb(error, false);
   }
 }
 

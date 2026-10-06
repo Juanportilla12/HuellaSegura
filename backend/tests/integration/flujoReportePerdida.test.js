@@ -33,6 +33,7 @@ jest.mock('../../src/services/notificacionService', () => ({
 }));
 jest.mock('../../src/services/emailService', () => ({
   enviarCorreoReporteCreado: jest.fn().mockResolvedValue({ messageId: 'test' }),
+  enviarCorreoAvistamiento:  jest.fn().mockResolvedValue({ messageId: 'test' }),
 }));
 
 const { Usuario, Mascota, Reporte, Notificacion, Avistamiento } = require('../../src/models');
