@@ -1,5 +1,15 @@
 require('dotenv').config();
 
+// En producción la conexión debe venir completa del entorno. Sin esta
+// verificación, sequelize-cli intentaría conectarse a localhost y el error
+// (ECONNREFUSED ::1:3306) no diría qué falta.
+if (process.env.NODE_ENV === 'production') {
+  const faltantes = ['DB_HOST', 'DB_NAME', 'DB_USER', 'DB_PASSWORD'].filter((v) => !process.env[v]);
+  if (faltantes.length > 0) {
+    throw new Error(`Faltan variables de base de datos: ${faltantes.join(', ')}`);
+  }
+}
+
 module.exports = {
   development: {
     username: process.env.DB_USER || 'root',
