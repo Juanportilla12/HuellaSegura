@@ -49,7 +49,9 @@ app.use(cors({
     // Permitir peticiones sin origen (mobile, Postman, curl)
     if (!origin) return callback(null, true);
     if (originesPermitidos.includes(origin)) return callback(null, true);
-    callback(new Error(`CORS bloqueado para: ${origin}`));
+    const error = new Error('Origen no permitido por CORS.');
+    error.status = 403;
+    callback(error);
   },
   credentials: true,
 }));
