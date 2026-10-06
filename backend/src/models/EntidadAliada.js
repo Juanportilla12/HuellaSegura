@@ -9,6 +9,7 @@ const EntidadAliada = sequelize.define(
     tipo:        { type: DataTypes.ENUM('veterinaria', 'albergue', 'otro'), allowNull: false },
     direccion:   { type: DataTypes.STRING(255), allowNull: true },
     telefono:    { type: DataTypes.STRING(20),  allowNull: true },
+    horario:     { type: DataTypes.STRING(150), allowNull: true },
     latitud:     { type: DataTypes.DECIMAL(10, 8), allowNull: true },
     longitud:    { type: DataTypes.DECIMAL(11, 8), allowNull: true },
     descripcion: { type: DataTypes.TEXT, allowNull: true },

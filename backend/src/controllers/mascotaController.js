@@ -183,6 +183,38 @@ async function subirFotos(req, res, next) {
   }
 }
 
+// R5 cargaVideos: sube (o reemplaza) el video de la mascota en Cloudinary
+async function subirVideo(req, res, next) {
+  try {
+    const mascota = await Mascota.findOne({
+      where: { id: req.params.id, usuario_id: req.usuario.id },
+    });
+    if (!mascota) {
+      return res.status(404).json({ success: false, message: 'Mascota no encontrada.' });
+    }
+    if (!req.file) {
+      return res.status(400).json({ success: false, message: 'No se envió ningún video.' });
+    }
+
+    const resultado = await uploadBuffer(req.file.buffer, {
+      folder: 'huella-segura/videos',
+      public_id: `mascota-${mascota.id}`,
+      overwrite: true,
+      resource_type: 'video',
+    });
+
+    await mascota.update({ video_url: resultado.secure_url });
+
+    return res.status(200).json({
+      success: true,
+      message: 'Video subido exitosamente.',
+      video_url: resultado.secure_url,
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
 async function descargarQR(req, res, next) {
   try {
     const mascota = await Mascota.findOne({
@@ -202,4 +234,4 @@ async function descargarQR(req, res, next) {
   }
 }
 
-module.exports = { crear, listar, obtener, actualizar, eliminar, subirFotos, descargarQR };
+module.exports = { crear, listar, obtener, actualizar, eliminar, subirFotos, subirVideo, descargarQR };

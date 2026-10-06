@@ -1,7 +1,9 @@
-const { Op } = require('sequelize');
-const { Mascota, Reporte } = require('../models');
-const { generarCartelMascota, generarReporteSemanal } = require('../services/pdfService');
+const { Mascota } = require('../models');
+const { generarCartelMascota, descargarImagen } = require('../services/pdfService');
+const { generarQR } = require('../services/qrService');
+const { generarPdfSemanal } = require('../services/reporteSemanalService');
 
+// HU-31: cartel A4 con foto, datos y QR
 async function cartelMascota(req, res, next) {
   try {
     const mascota = await Mascota.findOne({
@@ -11,7 +13,13 @@ async function cartelMascota(req, res, next) {
       return res.status(404).json({ success: false, message: 'Mascota no encontrada.' });
     }
 
-    const buffer = await generarCartelMascota(mascota.toPublicJSON());
+    const datos = mascota.toPublicJSON();
+    const [{ buffer: qrBuffer }, fotoBuffer] = await Promise.all([
+      generarQR(mascota.id),
+      descargarImagen(datos.foto_principal),
+    ]);
+
+    const buffer = await generarCartelMascota(datos, { qrBuffer, fotoBuffer });
     res.set({
       'Content-Type': 'application/pdf',
       'Content-Disposition': `attachment; filename="cartel-${mascota.nombre.replace(/\s+/g, '-')}.pdf"`,
@@ -20,18 +28,10 @@ async function cartelMascota(req, res, next) {
   } catch (error) { next(error); }
 }
 
+// HU-30: reporte semanal bajo demanda (además del envío automático de los lunes)
 async function reporteSemanal(req, res, next) {
   try {
-    const hace7Dias = new Date();
-    hace7Dias.setDate(hace7Dias.getDate() - 7);
-
-    const reportes = await Reporte.findAll({
-      where: { created_at: { [Op.gte]: hace7Dias } },
-      include: [{ model: Mascota, as: 'mascota', attributes: ['id', 'nombre', 'especie', 'foto_urls'] }],
-      order: [['created_at', 'DESC']],
-    });
-
-    const buffer = await generarReporteSemanal(reportes.map((r) => r.toPublicJSON()));
+    const buffer = await generarPdfSemanal();
     res.set({
       'Content-Type': 'application/pdf',
       'Content-Disposition': 'attachment; filename="reporte-semanal-huellasegura.pdf"',

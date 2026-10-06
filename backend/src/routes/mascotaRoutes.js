@@ -5,6 +5,7 @@ const mascotaController = require('../controllers/mascotaController');
 const { cartelMascota } = require('../controllers/pdfController');
 const { authenticate } = require('../middlewares/authMiddleware');
 const upload = require('../middlewares/uploadMiddleware');
+const { uploadVideo } = require('../middlewares/uploadMiddleware');
 
 const router = Router();
 
@@ -41,6 +42,9 @@ router.delete('/:id', param('id').isInt({ min: 1 }), mascotaController.eliminar)
 
 // POST /api/mascotas/:id/fotos  (max 5 archivos por llamada)
 router.post('/:id/fotos', upload.array('fotos', 5), mascotaController.subirFotos);
+
+// POST /api/mascotas/:id/video  (1 video, máx. 30 MB)
+router.post('/:id/video', param('id').isInt({ min: 1 }), uploadVideo.single('video'), mascotaController.subirVideo);
 
 // GET /api/mascotas/:id/qr
 router.get('/:id/qr', param('id').isInt({ min: 1 }), mascotaController.descargarQR);

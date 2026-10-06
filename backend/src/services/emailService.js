@@ -131,6 +131,24 @@ async function enviarCorreoAlertaProximidad({ destinatario, mascotaNombre, dista
   });
 }
 
+async function enviarCorreoReporteSemanal({ destinatario, pdf }) {
+  const transporte = crearTransporte();
+  return transporte.sendMail({
+    from: `"HuellaSegura" <${process.env.EMAIL_USER}>`,
+    to: destinatario.email,
+    subject: '📄 Reporte semanal de casos — HuellaSegura',
+    html: `
+      <div style="font-family:sans-serif;max-width:500px;margin:auto;">
+        <h2 style="color:#2563eb;">HuellaSegura</h2>
+        <p>Hola <strong>${esc(destinatario.nombre)}</strong>,</p>
+        <p>Adjuntamos el reporte semanal con los casos activos y los casos resueltos en la última semana,
+           listo para imprimir y compartir con veterinarias y centros de bienestar animal.</p>
+      </div>`,
+    attachments: [{ filename: 'reporte-semanal-huellasegura.pdf', content: pdf, contentType: 'application/pdf' }],
+  });
+}
+
 module.exports = {
+  enviarCorreoReporteSemanal,
   enviarCorreoReporteCreado, enviarCorreoAvistamiento, enviarCorreoResetCodigo, enviarCorreoAlertaProximidad,
 };

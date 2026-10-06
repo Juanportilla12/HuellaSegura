@@ -14,7 +14,21 @@ const REPORTES_MOCK = [
   { id: 3, mascota_id: 3, estado: 'cerrado',     fecha_perdida: '2026-04-15', latitud: 1.2200, longitud: -77.2900 },
 ];
 
+const SEMANA_MOCK = {
+  activos:   REPORTES_MOCK.filter((r) => r.estado === 'en_busqueda'),
+  resueltos: REPORTES_MOCK.filter((r) => r.estado === 'encontrada'),
+};
+
 describe('pdfService', () => {
+  test('HU-31: el cartel incluye el QR cuando se proporciona', async () => {
+    const QRCode = require('qrcode');
+    const qrBuffer = await QRCode.toBuffer('https://example.com/publico/mascotas/1', { type: 'png' });
+    const sinQR = await generarCartelMascota(MASCOTA_MOCK);
+    const conQR = await generarCartelMascota(MASCOTA_MOCK, { qrBuffer });
+    expect(conQR.slice(0, 4).toString()).toBe('%PDF');
+    expect(conQR.length).toBeGreaterThan(sinQR.length);
+  });
+
   test('Genera un PDF válido con datos de la mascota', async () => {
     const buffer = await generarCartelMascota(MASCOTA_MOCK);
     expect(Buffer.isBuffer(buffer)).toBe(true);
@@ -24,7 +38,7 @@ describe('pdfService', () => {
   });
 
   test('El reporte semanal incluye todos los casos del período', async () => {
-    const buffer = await generarReporteSemanal(REPORTES_MOCK);
+    const buffer = await generarReporteSemanal(SEMANA_MOCK);
     expect(Buffer.isBuffer(buffer)).toBe(true);
     expect(buffer.slice(0, 4).toString()).toBe('%PDF');
     expect(buffer.length).toBeGreaterThan(100);
@@ -36,14 +50,14 @@ describe('pdfService', () => {
   });
 
   test('El reporte semanal se genera aunque no haya reportes', async () => {
-    const buffer = await generarReporteSemanal([]);
+    const buffer = await generarReporteSemanal({ activos: [], resueltos: [] });
     expect(Buffer.isBuffer(buffer)).toBe(true);
     expect(buffer.slice(0, 4).toString()).toBe('%PDF');
   });
 
   test('El cartel y el reporte semanal generan PDFs de tamaño diferente', async () => {
     const bufferCartel   = await generarCartelMascota(MASCOTA_MOCK);
-    const bufferReporte  = await generarReporteSemanal(REPORTES_MOCK);
+    const bufferReporte  = await generarReporteSemanal(SEMANA_MOCK);
     // Ambos son PDFs válidos pero de contenido diferente
     expect(bufferCartel.slice(0, 4).toString()).toBe('%PDF');
     expect(bufferReporte.slice(0, 4).toString()).toBe('%PDF');

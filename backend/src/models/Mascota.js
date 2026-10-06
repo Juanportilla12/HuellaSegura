@@ -67,6 +67,10 @@ const Mascota = sequelize.define(
       type: DataTypes.JSON,
       defaultValue: [],
     },
+    video_url: {
+      type: DataTypes.STRING(500),
+      allowNull: true,
+    },
   },
   {
     tableName: 'mascotas',
@@ -89,6 +93,7 @@ Mascota.prototype.toPublicJSON = function () {
     microchip: this.microchip,
     foto_urls: this.foto_urls || [],
     foto_principal: (this.foto_urls || [])[0] || null,
+    video_url: this.video_url || null,
     created_at: this.created_at,
   };
 };

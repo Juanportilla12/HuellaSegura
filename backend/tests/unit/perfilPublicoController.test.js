@@ -91,3 +91,27 @@ describe('PerfilPublico', () => {
     expect(res.body.reporte_activo).toBeNull();
   });
 });
+
+describe('HU-29 — Página para compartir con vista previa', () => {
+  test('Devuelve HTML con Open Graph y redirección al perfil público', async () => {
+    Mascota.findByPk.mockResolvedValue({
+      id: 5, nombre: 'Toby <b>', especie: 'perro', raza: null, color: 'café',
+      foto_urls: ['https://res.cloudinary.com/x/image/upload/toby.jpg'],
+    });
+    Reporte.findOne.mockResolvedValue({ id: 3 });
+
+    const res = await request(app).get('/api/publico/compartir/mascotas/5');
+    expect(res.status).toBe(200);
+    expect(res.headers['content-type']).toMatch(/text\/html/);
+    expect(res.text).toContain('og:image" content="https://res.cloudinary.com/x/image/upload/toby.jpg"');
+    expect(res.text).toContain('/publico/mascotas/5');
+    expect(res.text).toContain('Toby &lt;b&gt;');
+    expect(res.text).not.toContain('Toby <b>');
+  });
+
+  test('404 si la mascota no existe', async () => {
+    Mascota.findByPk.mockResolvedValue(null);
+    const res = await request(app).get('/api/publico/compartir/mascotas/999');
+    expect(res.status).toBe(404);
+  });
+});

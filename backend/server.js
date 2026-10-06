@@ -3,6 +3,7 @@ const { validarEntorno } = require('./src/config/env');
 const app           = require('./src/app');
 const sequelize     = require('./src/config/connection');
 const { seedAdmin } = require('./src/seeders/adminSeeder');
+const { programarReporteSemanal } = require('./src/services/reporteSemanalService');
 
 const PORT = process.env.PORT || 3001;
 
@@ -18,6 +19,9 @@ async function startServer() {
     if (process.env.NODE_ENV === 'production') {
       await seedAdmin(sequelize);
     }
+
+    // HU-30: PDF semanal automático cada lunes
+    programarReporteSemanal();
 
     app.listen(PORT, () => {
       console.log(`🚀 Servidor corriendo en puerto ${PORT} (${process.env.NODE_ENV})`);

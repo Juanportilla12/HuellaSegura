@@ -12,58 +12,85 @@ function crearBuffer(fn) {
   });
 }
 
-async function generarCartelMascota(mascota) {
+/**
+ * Descarga una imagen remota (Cloudinary) para incrustarla en el PDF.
+ * PDFKit no descarga URLs por sí mismo. Se pide a Cloudinary en JPG para
+ * garantizar un formato compatible. Si falla, el cartel se genera sin foto.
+ */
+async function descargarImagen(url) {
+  if (!url) return null;
+  try {
+    const urlJpg = url.includes('/upload/') ? url.replace('/upload/', '/upload/f_jpg,w_800/') : url;
+    const resp = await fetch(urlJpg, { signal: AbortSignal.timeout(8000) });
+    if (!resp.ok) return null;
+    return Buffer.from(await resp.arrayBuffer());
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * HU-31: cartel A4 imprimible con foto, datos y código QR de la mascota.
+ */
+async function generarCartelMascota(mascota, { qrBuffer = null, fotoBuffer = null } = {}) {
   return crearBuffer((doc) => {
+    const ancho = doc.page.width;
+
     // Encabezado
-    doc.rect(0, 0, doc.page.width, 80).fill('#dc3545');
+    doc.rect(0, 0, ancho, 80).fill('#dc3545');
     doc.fillColor('white').fontSize(28).font('Helvetica-Bold')
-      .text('¡MASCOTA PERDIDA!', 50, 22, { align: 'center' });
+      .text('¡MASCOTA PERDIDA!', 50, 24, { align: 'center' });
 
-    doc.fillColor('black').moveDown(2);
-
-    // Foto si existe
-    if (mascota.foto_principal) {
+    // Foto
+    let y = 100;
+    if (fotoBuffer) {
       try {
-        doc.image(mascota.foto_principal, {
-          fit: [300, 300], align: 'center', valign: 'center',
-        });
-      } catch { /* imagen no accesible — continúa sin foto */ }
-    } else {
-      doc.fontSize(80).text('🐾', { align: 'center' });
+        doc.image(fotoBuffer, (ancho - 300) / 2, y, { fit: [300, 260], align: 'center' });
+        y += 270;
+      } catch { /* formato no compatible: se continúa sin foto */ }
     }
 
     // Nombre
-    doc.moveDown(1)
-      .fontSize(32).font('Helvetica-Bold').fillColor('#dc3545')
-      .text(mascota.nombre, { align: 'center' });
+    doc.fontSize(32).font('Helvetica-Bold').fillColor('#dc3545')
+      .text(mascota.nombre, 50, y, { align: 'center' });
 
     // Detalles
-    doc.moveDown(0.5).fontSize(14).font('Helvetica').fillColor('#333');
-    const detalles = [
+    doc.moveDown(0.4).fontSize(14).font('Helvetica').fillColor('#333');
+    [
       `Especie: ${mascota.especie}`,
-      mascota.raza   ? `Raza: ${mascota.raza}`    : null,
+      mascota.raza ? `Raza: ${mascota.raza}` : null,
       `Sexo: ${mascota.sexo ?? 'N/A'}`,
       `Color: ${mascota.color}`,
-    ].filter(Boolean);
-
-    detalles.forEach((d) => doc.text(d, { align: 'center' }));
+    ].filter(Boolean).forEach((d) => doc.text(d, { align: 'center' }));
 
     if (mascota.descripcion) {
-      doc.moveDown(0.5).fontSize(12).fillColor('#555')
-        .text(mascota.descripcion, { align: 'center' });
+      doc.moveDown(0.4).fontSize(11).fillColor('#555')
+        .text(mascota.descripcion, { align: 'center', height: 60, ellipsis: true });
+    }
+
+    // QR al perfil público
+    if (qrBuffer) {
+      const ladoQR = 130;
+      const yQR = Math.min(doc.y + 15, doc.page.height - ladoQR - 110);
+      doc.image(qrBuffer, (ancho - ladoQR) / 2, yQR, { width: ladoQR });
+      doc.y = yQR + ladoQR + 5;
+      doc.fontSize(10).fillColor('#555')
+        .text('Escanea el código para ver su perfil y contactar a su familia', 50, doc.y, { align: 'center' });
     }
 
     // Pie
-    doc.moveDown(2).fontSize(16).font('Helvetica-Bold').fillColor('#2563eb')
-      .text('Si la encontraste, comunícate por HuellaSegura', { align: 'center' });
-    doc.fontSize(12).font('Helvetica').fillColor('#555')
+    doc.moveDown(0.8).fontSize(15).font('Helvetica-Bold').fillColor('#2563eb')
+      .text('Si la viste, repórtalo en HuellaSegura', { align: 'center' });
+    doc.fontSize(11).font('Helvetica').fillColor('#555')
       .text(`Pasto, Nariño — ${new Date().toLocaleDateString('es-CO')}`, { align: 'center' });
   });
 }
 
-async function generarReporteSemanal(reportes) {
+/**
+ * HU-30: reporte semanal con casos activos y casos resueltos en la semana.
+ */
+async function generarReporteSemanal({ activos, resueltos }) {
   return crearBuffer((doc) => {
-    // Encabezado
     doc.fontSize(22).font('Helvetica-Bold').fillColor('#2563eb')
       .text('HuellaSegura — Reporte Semanal', { align: 'center' });
     doc.fontSize(11).font('Helvetica').fillColor('#555')
@@ -72,60 +99,48 @@ async function generarReporteSemanal(reportes) {
     doc.moveDown(1).moveTo(50, doc.y).lineTo(545, doc.y).stroke('#ccc');
     doc.moveDown(0.5);
 
-    const activos   = reportes.filter((r) => r.estado === 'en_busqueda');
-    const resueltos = reportes.filter((r) => r.estado === 'encontrada');
-    const cerrados  = reportes.filter((r) => r.estado === 'cerrado');
-
-    // Resumen
-    doc.fontSize(13).font('Helvetica-Bold').fillColor('#333').text('Resumen del período');
+    doc.fontSize(13).font('Helvetica-Bold').fillColor('#333').text('Resumen');
     doc.moveDown(0.3).fontSize(11).font('Helvetica');
     doc.text(`• Casos activos (en búsqueda): ${activos.length}`);
-    doc.text(`• Mascotas encontradas: ${resueltos.length}`);
-    doc.text(`• Casos cerrados: ${cerrados.length}`);
-    doc.text(`• Total registros: ${reportes.length}`);
+    doc.text(`• Mascotas encontradas en los últimos 7 días: ${resueltos.length}`);
 
-    // Tabla activos
-    if (activos.length > 0) {
-      doc.moveDown(1).fontSize(13).font('Helvetica-Bold').fillColor('#dc3545')
-        .text(`Casos activos (${activos.length})`);
-      doc.moveDown(0.3);
-      tablaReportes(doc, activos);
-    }
+    doc.moveDown(1).fontSize(13).font('Helvetica-Bold').fillColor('#dc3545')
+      .text(`Casos activos (${activos.length})`);
+    doc.moveDown(0.3);
+    if (activos.length > 0) tablaReportes(doc, activos);
+    else doc.fontSize(10).font('Helvetica').fillColor('#555').text('No hay casos activos.');
 
-    // Tabla resueltos
-    if (resueltos.length > 0) {
-      doc.moveDown(1).fontSize(13).font('Helvetica-Bold').fillColor('#198754')
-        .text(`Mascotas encontradas (${resueltos.length})`);
-      doc.moveDown(0.3);
-      tablaReportes(doc, resueltos);
-    }
+    doc.moveDown(1).fontSize(13).font('Helvetica-Bold').fillColor('#198754')
+      .text(`Casos resueltos en la semana (${resueltos.length})`);
+    doc.moveDown(0.3);
+    if (resueltos.length > 0) tablaReportes(doc, resueltos);
+    else doc.fontSize(10).font('Helvetica').fillColor('#555').text('No hubo casos resueltos esta semana.');
   });
 }
 
 function tablaReportes(doc, reportes) {
   const cols = [50, 100, 200, 350, 450];
-  const headers = ['#', 'Mascota', 'Estado', 'Fecha pérdida', 'Coords'];
+  const headers = ['#', 'Mascota', 'Especie', 'Fecha pérdida', 'Coords'];
 
-  // Cabecera tabla
   doc.fontSize(9).font('Helvetica-Bold').fillColor('white');
   doc.rect(50, doc.y, 495, 16).fill('#2563eb');
   headers.forEach((h, i) => doc.text(h, cols[i] + 2, doc.y - 13, { width: 90 }));
   doc.moveDown(0.2);
 
-  // Filas
   doc.font('Helvetica').fillColor('#333');
   reportes.forEach((r, idx) => {
+    if (doc.y > doc.page.height - 70) doc.addPage();
     const y = doc.y;
     if (idx % 2 === 0) doc.rect(50, y, 495, 14).fill('#f8f9fa');
     doc.fillColor('#333');
-    doc.text(String(r.id ?? '—'),         cols[0] + 2, y + 2, { width: 45 });
-    doc.text(r.mascota?.nombre ?? `#${r.mascota_id}`, cols[1] + 2, y + 2, { width: 90 });
-    doc.text(r.estado ?? '—',             cols[2] + 2, y + 2, { width: 140 });
-    doc.text(r.fecha_perdida ?? '—',      cols[3] + 2, y + 2, { width: 90 });
+    doc.text(String(r.id ?? '—'),                       cols[0] + 2, y + 2, { width: 45 });
+    doc.text(r.mascota?.nombre ?? `#${r.mascota_id}`,   cols[1] + 2, y + 2, { width: 95 });
+    doc.text(r.mascota?.especie ?? '—',                 cols[2] + 2, y + 2, { width: 140 });
+    doc.text(r.fecha_perdida ?? '—',                    cols[3] + 2, y + 2, { width: 90 });
     doc.text(r.latitud ? `${parseFloat(r.latitud).toFixed(3)}, ${parseFloat(r.longitud).toFixed(3)}` : '—',
       cols[4] + 2, y + 2, { width: 80 });
     doc.moveDown(0.6);
   });
 }
 
-module.exports = { generarCartelMascota, generarReporteSemanal };
+module.exports = { generarCartelMascota, generarReporteSemanal, descargarImagen };
