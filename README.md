@@ -29,10 +29,10 @@
 
 <table>
   <tr>
-    <td><img src="docs/desing/splash.png" alt="Splash" width="200"/></td>
-    <td><img src="docs/desing/home.png" alt="Inicio" width="200"/></td>
-    <td><img src="docs/desing/mapa.png" alt="Mapa" width="200"/></td>
-    <td><img src="docs/desing/perfil-mascota.png" alt="Perfil Mascota" width="200"/></td>
+    <td><img src="docs/diseno/splash.png" alt="Splash" width="200"/></td>
+    <td><img src="docs/diseno/home.png" alt="Inicio" width="200"/></td>
+    <td><img src="docs/diseno/mapa.png" alt="Mapa" width="200"/></td>
+    <td><img src="docs/diseno/perfil-mascota.png" alt="Perfil Mascota" width="200"/></td>
   </tr>
   <tr>
     <td align="center">Splash</td>
@@ -41,10 +41,10 @@
     <td align="center">Perfil de mascota</td>
   </tr>
   <tr>
-    <td><img src="docs/desing/carnet-qr.png" alt="Carnet QR" width="200"/></td>
-    <td><img src="docs/desing/alertas-dark.png" alt="Alertas" width="200"/></td>
-    <td><img src="docs/desing/perfil-usuario.png" alt="Perfil Usuario" width="200"/></td>
-    <td><img src="docs/desing/veterinarias.png" alt="Directorio" width="200"/></td>
+    <td><img src="docs/diseno/carnet-qr.png" alt="Carnet QR" width="200"/></td>
+    <td><img src="docs/diseno/alertas-dark.png" alt="Alertas" width="200"/></td>
+    <td><img src="docs/diseno/perfil-usuario.png" alt="Perfil Usuario" width="200"/></td>
+    <td><img src="docs/diseno/veterinarias.png" alt="Directorio" width="200"/></td>
   </tr>
   <tr>
     <td align="center">Carnet QR</td>
@@ -250,7 +250,7 @@ HuellaSegura/
 │
 └── docs/
     ├── DESIGN_SYSTEM.md     # Sistema de diseño
-    └── desing/              # Mockups de interfaz
+    └── diseno/              # Mockups de interfaz
 ```
 
 ### Endpoints principales de la API
