@@ -1,4 +1,4 @@
-import api from './api';
+import api, { descargarArchivo } from './api';
 
 export function listarMascotas() {
   return api.get('/mascotas');
@@ -26,4 +26,18 @@ export function subirFotos(id, archivos) {
   return api.post(`/mascotas/${id}/fotos`, formData, {
     headers: { 'Content-Type': 'multipart/form-data' },
   });
+}
+
+// R5: un video por mascota (MP4, WebM o MOV, máx. 30 MB)
+export function subirVideo(id, archivo) {
+  const formData = new FormData();
+  formData.append('video', archivo);
+  return api.post(`/mascotas/${id}/video`, formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  });
+}
+
+// HU-31: cartel A4 en PDF con foto, datos y QR
+export function descargarCartel(id, nombre = 'mascota') {
+  return descargarArchivo(`/mascotas/${id}/cartel-pdf`, `cartel-${nombre.replace(/\s+/g, '-')}.pdf`);
 }

@@ -2,9 +2,10 @@ import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { QRCodeSVG } from 'qrcode.react';
 import { motion } from 'framer-motion';
-import { Share2, Download, Printer, CheckCircle, ChevronLeft, MessageCircle } from 'lucide-react';
+import { Share2, Download, Printer, CheckCircle, ChevronLeft } from 'lucide-react';
 import { useTokens } from '../hooks/useTokens';
 import { obtenerMascota } from '../services/mascotaService';
+import BotonesCompartir from '../components/BotonesCompartir';
 
 const ESPECIE_EMOJIS = { perro:'🐶', gato:'🐱', ave:'🐦', reptil:'🦎', otro:'🐾' };
 
@@ -37,11 +38,6 @@ export default function CarnetQR() {
       setCopiado(true);
       setTimeout(() => setCopiado(false), 2500);
     }
-  }
-
-  function handleWhatsApp() {
-    const msg = `🐾 *${mascota?.nombre}* está ${mascota?.especie === 'perro' ? 'registrado' : 'registrada'} en HuellaSegura.\n\nEscanea su QR o entra aquí para ver su perfil completo:\n${publicUrl}`;
-    window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, '_blank');
   }
 
   function handleImprimir() { window.print(); }
@@ -170,7 +166,7 @@ export default function CarnetQR() {
       </motion.div>
 
       {/* Botones */}
-      <div className="grid grid-cols-2 gap-3 mx-5 mt-5">
+      <div className="grid grid-cols-3 gap-3 mx-5 mt-5">
         <motion.button whileTap={{ scale: 0.97 }} onClick={handleDescargarPNG}
           className="flex items-center justify-center gap-2 py-3.5 rounded-2xl text-sm font-bold"
           style={{ background: t.surface, border: `1px solid ${t.border}`, color: t.textMuted }}>
@@ -181,17 +177,17 @@ export default function CarnetQR() {
           style={{ background: t.surface, border: `1px solid ${t.border}`, color: t.textMuted }}>
           <Printer size={16} /> Imprimir
         </motion.button>
-        <motion.button whileTap={{ scale: 0.97 }} onClick={handleWhatsApp}
-          className="flex items-center justify-center gap-2 py-3.5 rounded-2xl text-sm font-bold text-white col-span-1"
-          style={{ background: 'linear-gradient(135deg,#25D366,#128C7E)', boxShadow: '0 6px 20px rgba(37,211,102,0.4)' }}>
-          <MessageCircle size={16} /> Compartir por WhatsApp
-        </motion.button>
         <motion.button whileTap={{ scale: 0.97 }} onClick={handleCompartir}
           className="flex items-center justify-center gap-2 py-3.5 rounded-2xl text-sm font-bold text-white"
           style={{ background: 'linear-gradient(135deg,#FF9280,#F97B62)', boxShadow: '0 6px 20px rgba(249,123,98,0.4)' }}>
           <Share2 size={16} /> {copiado ? '¡Copiado!' : 'Compartir link'}
         </motion.button>
       </div>
+      {mascota && (
+        <div className="mx-5 mt-3">
+          <BotonesCompartir mascotaId={mascota.id} nombreMascota={mascota.nombre} />
+        </div>
+      )}
     </div>
   );
 }

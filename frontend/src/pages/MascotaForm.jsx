@@ -6,6 +6,8 @@ import { toast } from 'sonner';
 import * as mascotaService from '../services/mascotaService';
 
 const PASOS = ['Fotos', 'Básicos', 'Detalles', 'Confirmar'];
+const MAX_FOTOS = 5;      // HU-06
+const MAX_VIDEO_MB = 30;  // R5
 
 const FORM_INICIAL = {
   nombre: '', especie: '', raza: '', sexo: '', color: '',
@@ -58,10 +60,12 @@ export default function MascotaForm() {
   const navigate   = useNavigate();
   const esEdicion  = Boolean(id);
   const fileRef    = useRef(null);
+  const videoRef   = useRef(null);
 
   const [paso,          setPaso]          = useState(1);
   const [form,          setForm]          = useState(FORM_INICIAL);
   const [fotos,         setFotos]         = useState([]);
+  const [video,         setVideo]         = useState(null);
   const [errores,       setErrores]       = useState({});
   const [cargando,      setCargando]      = useState(false);
   const [cargandoDatos, setCargandoDatos] = useState(esEdicion);
@@ -87,8 +91,23 @@ export default function MascotaForm() {
 
   function handleFotos(e) {
     const validos = Array.from(e.target.files).filter(f => ['image/jpeg','image/png'].includes(f.type));
-    if (fotos.length + validos.length > 6) { toast.error('Máximo 6 fotos.'); return; }
+    if (fotos.length + validos.length > MAX_FOTOS) { toast.error(`Máximo ${MAX_FOTOS} fotos.`); return; }
     setFotos(p => [...p, ...validos.map(f => ({ archivo:f, preview:URL.createObjectURL(f) }))]);
+  }
+
+  // R5: un video corto de la mascota
+  function handleVideo(e) {
+    const archivo = e.target.files?.[0];
+    e.target.value = '';
+    if (!archivo) return;
+    if (!['video/mp4', 'video/webm', 'video/quicktime'].includes(archivo.type)) {
+      toast.error('Formato no permitido. Usa MP4, WebM o MOV.'); return;
+    }
+    if (archivo.size > MAX_VIDEO_MB * 1024 * 1024) {
+      toast.error(`El video no puede superar ${MAX_VIDEO_MB} MB.`); return;
+    }
+    if (video) URL.revokeObjectURL(video.preview);
+    setVideo({ archivo, preview: URL.createObjectURL(archivo) });
   }
 
   function quitarFoto(i) {
@@ -129,6 +148,7 @@ export default function MascotaForm() {
         const { data } = await mascotaService.crearMascota(payload); mascotaId = data.mascota.id;
       }
       if (fotos.length > 0) await mascotaService.subirFotos(mascotaId, fotos.map(f => f.archivo));
+      if (video) await mascotaService.subirVideo(mascotaId, video.archivo);
       toast.success(esEdicion ? '¡Perfil actualizado!' : `¡${form.nombre} registrado! 🐾`);
       navigate('/mascotas');
     } catch (err) {
@@ -246,7 +266,7 @@ export default function MascotaForm() {
                         </motion.button>
                       </motion.div>
                     ))}
-                    {fotos.length < 6 && (
+                    {fotos.length < MAX_FOTOS && (
                       <motion.button type="button" whileTap={{ scale:0.95 }}
                         onClick={() => fileRef.current?.click()}
                         className="h-20 w-20 rounded-2xl flex flex-col items-center justify-center gap-1"
@@ -259,6 +279,30 @@ export default function MascotaForm() {
 
                   <input ref={fileRef} type="file" accept="image/jpeg,image/png"
                     multiple className="hidden" onChange={handleFotos} data-testid="file-input" />
+
+                  {/* Video (R5) */}
+                  <div className="mt-4">
+                    <p className="text-xs font-semibold mb-2" style={{ color:'#6B7280' }}>
+                      Video opcional (MP4, WebM o MOV, máx. {MAX_VIDEO_MB} MB)
+                    </p>
+                    {video ? (
+                      <div className="flex items-center gap-3">
+                        <video src={video.preview} className="h-20 w-28 rounded-2xl object-cover" muted data-testid="video-preview" />
+                        <button type="button" onClick={() => { URL.revokeObjectURL(video.preview); setVideo(null); }}
+                          className="text-xs font-semibold" style={{ color:'#E8614A' }}>
+                          Quitar video
+                        </button>
+                      </div>
+                    ) : (
+                      <button type="button" onClick={() => videoRef.current?.click()}
+                        className="px-4 py-2 rounded-2xl text-xs font-semibold"
+                        style={{ border:'2px dashed #EDE5E1', background:'white', color:'#9CA3AF' }}>
+                        + Agregar video
+                      </button>
+                    )}
+                    <input ref={videoRef} type="file" accept="video/mp4,video/webm,video/quicktime"
+                      className="hidden" onChange={handleVideo} data-testid="video-input" />
+                  </div>
                 </div>
 
                 {/* Nombre */}

@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { MapContainer, TileLayer, Marker, useMapEvents, useMap } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup, useMapEvents, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import BottomNav from '../components/ui/BottomNav';
 import { listarReportesActivos } from '../services/reporteService';
+import { listarEntidades } from '../services/entidadService';
 import { useGeolocalizacion } from '../hooks/useGeolocalizacion';
 
 // ─── Fix iconos Leaflet con Vite ─────────────────────────────────────────────
@@ -83,6 +84,17 @@ function CentrarMapa({ coords }) {
   return null;
 }
 
+// HU-27 / DoD Sprint 7: entidades aliadas con ícono de corazón diferenciado
+const PIN_ENTIDAD = L.divIcon({
+  className: '',
+  html: `<div style="width:38px;height:38px;border-radius:50%;background:white;border:2px solid #EC4899;
+           box-shadow:0 4px 14px rgba(236,72,153,0.45);display:flex;align-items:center;justify-content:center;
+           font-size:18px;">❤️</div>`,
+  iconSize: [38, 38],
+  iconAnchor: [19, 19],
+  popupAnchor: [0, -18],
+});
+
 function MapClickHandler({ onMapClick }) {
   useMapEvents({ click: onMapClick });
   return null;
@@ -130,6 +142,7 @@ export default function MapaPrincipal() {
   const { coords: userCoords, obtenerUbicacion } = useGeolocalizacion();
 
   const [reportes,    setReportes]    = useState([]);
+  const [entidades,   setEntidades]   = useState([]);
   const [filtroEsp,   setFiltroEsp]   = useState('todos');
   const [filtroTmp,   setFiltroTmp]   = useState('todos');
   const [selected,    setSelected]    = useState(null);
@@ -144,6 +157,9 @@ export default function MapaPrincipal() {
   useEffect(() => {
     listarReportesActivos()
       .then(({ data }) => setReportes(data.reportes || []))
+      .catch(() => {});
+    listarEntidades()
+      .then(({ data }) => setEntidades((data.entidades || []).filter((e) => e.latitud && e.longitud)))
       .catch(() => {});
   }, []);
 
@@ -222,6 +238,17 @@ export default function MapaPrincipal() {
             icon={crearPin(r.mascota?.especie, selected?.id === r.id)}
             eventHandlers={{ click: e => { e.originalEvent.stopPropagation(); setSelected(r); } }}
           />
+        ))}
+
+        {entidades.map(e => (
+          <Marker key={`entidad-${e.id}`} position={[parseFloat(e.latitud), parseFloat(e.longitud)]} icon={PIN_ENTIDAD}>
+            <Popup>
+              <strong>{e.nombre}</strong><br />
+              {e.direccion && <>{e.direccion}<br /></>}
+              {e.horario && <>{e.horario}<br /></>}
+              {e.telefono && <a href={`tel:${e.telefono}`}>{e.telefono}</a>}
+            </Popup>
+          </Marker>
         ))}
       </MapContainer>
 

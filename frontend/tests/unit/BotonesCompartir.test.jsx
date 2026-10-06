@@ -28,7 +28,7 @@ describe('BotonesCompartir', () => {
     renderBotones();
     const btn = screen.getByTestId('btn-facebook');
     expect(btn.href).toContain('facebook.com/sharer');
-    expect(btn.href).toContain(encodeURIComponent('/publico/mascotas/1'));
+    expect(btn.href).toContain(encodeURIComponent('/publico/compartir/mascotas/1'));
   });
 
   test('El link de WhatsApp contiene el texto y la URL correctos', () => {
@@ -36,7 +36,7 @@ describe('BotonesCompartir', () => {
     const btn = screen.getByTestId('btn-whatsapp');
     expect(btn.href).toContain('wa.me');
     expect(decodeURIComponent(btn.href)).toContain('Firulais');
-    expect(decodeURIComponent(btn.href)).toContain('/publico/mascotas/1');
+    expect(decodeURIComponent(btn.href)).toContain('/publico/compartir/mascotas/1');
   });
 
   test('Los links abren en pestaña nueva (_blank)', () => {

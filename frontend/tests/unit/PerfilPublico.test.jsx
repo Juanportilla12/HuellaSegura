@@ -3,8 +3,9 @@ import { render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import PerfilPublico from '../../src/pages/PerfilPublico';
 
-vi.mock('../../src/services/avistamientoService', () => ({
+vi.mock('../../src/services/perfilPublicoService', () => ({
   obtenerPerfilPublico: vi.fn(),
+  urlCompartirMascota: (id) => `http://api.test/publico/compartir/mascotas/${id}`,
   crearAvistamiento:    vi.fn(),
 }));
 // Avatar mock
@@ -12,7 +13,7 @@ vi.mock('../../src/components/ui/Avatar', () => ({
   default: ({ name }) => <div data-testid="avatar">{name}</div>,
 }));
 
-import * as avistamientoService from '../../src/services/avistamientoService';
+import * as perfilPublicoService from '../../src/services/perfilPublicoService';
 
 function buildDatos(overrides = {}) {
   return {
@@ -43,7 +44,7 @@ describe('Sprint 6 — PerfilPublico (DoD)', () => {
 
   // ── C5: Accesible sin login — muestra nombre de mascota ───────────────────
   test('Muestra el nombre de la mascota en el perfil público', async () => {
-    avistamientoService.obtenerPerfilPublico.mockResolvedValue({ data: buildDatos() });
+    perfilPublicoService.obtenerPerfilPublico.mockResolvedValue({ data: buildDatos() });
     renderPage();
     await waitFor(() => {
       expect(screen.getByText('Firulais')).toBeInTheDocument();
@@ -51,7 +52,7 @@ describe('Sprint 6 — PerfilPublico (DoD)', () => {
   });
 
   test('Muestra la raza de la mascota (identificador de especie)', async () => {
-    avistamientoService.obtenerPerfilPublico.mockResolvedValue({ data: buildDatos() });
+    perfilPublicoService.obtenerPerfilPublico.mockResolvedValue({ data: buildDatos() });
     renderPage();
     // La raza "Labrador" identifica al animal y está en los chips del perfil
     await waitFor(() => {
@@ -61,7 +62,7 @@ describe('Sprint 6 — PerfilPublico (DoD)', () => {
 
   // ── C5: Propietario sin email (privacidad) ────────────────────────────────
   test('Muestra el nombre del propietario', async () => {
-    avistamientoService.obtenerPerfilPublico.mockResolvedValue({ data: buildDatos() });
+    perfilPublicoService.obtenerPerfilPublico.mockResolvedValue({ data: buildDatos() });
     renderPage();
     await waitFor(() => {
       // El nombre del propietario debe aparecer en algún lugar de la página
@@ -70,7 +71,7 @@ describe('Sprint 6 — PerfilPublico (DoD)', () => {
   });
 
   test('No muestra el email del propietario (privacidad)', async () => {
-    avistamientoService.obtenerPerfilPublico.mockResolvedValue({ data: buildDatos() });
+    perfilPublicoService.obtenerPerfilPublico.mockResolvedValue({ data: buildDatos() });
     renderPage();
     await waitFor(() => screen.getByText('Firulais'));
     expect(screen.queryByText(/@example\.com/)).not.toBeInTheDocument();
@@ -81,7 +82,7 @@ describe('Sprint 6 — PerfilPublico (DoD)', () => {
     const datos = buildDatos({
       reporte_activo: { id: 5, latitud: 1.21, longitud: -77.28, fecha_perdida: '2026-04-20', descripcion: null, created_at: new Date().toISOString() },
     });
-    avistamientoService.obtenerPerfilPublico.mockResolvedValue({ data: datos });
+    perfilPublicoService.obtenerPerfilPublico.mockResolvedValue({ data: datos });
     renderPage();
     await waitFor(() => {
       expect(screen.getByText(/perdido/i)).toBeInTheDocument();
@@ -89,7 +90,7 @@ describe('Sprint 6 — PerfilPublico (DoD)', () => {
   });
 
   test('Muestra badge "En casa" cuando NO hay reporte activo', async () => {
-    avistamientoService.obtenerPerfilPublico.mockResolvedValue({ data: buildDatos() });
+    perfilPublicoService.obtenerPerfilPublico.mockResolvedValue({ data: buildDatos() });
     renderPage();
     await waitFor(() => {
       expect(screen.getByText(/en casa/i)).toBeInTheDocument();
@@ -98,7 +99,7 @@ describe('Sprint 6 — PerfilPublico (DoD)', () => {
 
   // ── C1: Botón para reportar avistamiento ─────────────────────────────────
   test('Muestra botón para reportar avistamiento', async () => {
-    avistamientoService.obtenerPerfilPublico.mockResolvedValue({ data: buildDatos() });
+    perfilPublicoService.obtenerPerfilPublico.mockResolvedValue({ data: buildDatos() });
     renderPage();
     await waitFor(() => {
       expect(screen.getByText(/la vi/i)).toBeInTheDocument();
@@ -107,7 +108,7 @@ describe('Sprint 6 — PerfilPublico (DoD)', () => {
 
   // ── Mascota no encontrada ────────────────────────────────────────────────
   test('Muestra error si la mascota no existe', async () => {
-    avistamientoService.obtenerPerfilPublico.mockRejectedValue(new Error('404'));
+    perfilPublicoService.obtenerPerfilPublico.mockRejectedValue(new Error('404'));
     renderPage('999');
     await waitFor(() => {
       expect(screen.getByText(/no encontrada/i)).toBeInTheDocument();

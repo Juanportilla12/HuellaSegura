@@ -7,10 +7,6 @@ export function crearAvistamiento(datos, foto = null) {
   return api.post('/avistamientos', formData, { headers: { 'Content-Type': 'multipart/form-data' } });
 }
 
-export function obtenerPerfilPublico(mascotaId) {
-  return api.get(`/publico/mascotas/${mascotaId}`);
-}
-
 export function descargarQR(mascotaId) {
   return api.get(`/mascotas/${mascotaId}/qr`, { responseType: 'blob' });
 }

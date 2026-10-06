@@ -3,7 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Pencil, Trash2, QrCode, Printer, Eye } from 'lucide-react';
 import { useTokens } from '../hooks/useTokens';
-import CartelImpresion from './CartelImpresion';
+import { toast } from 'sonner';
+import { descargarCartel } from '../services/mascotaService';
 
 const ESPECIE_EMOJIS  = { perro:'🐶', gato:'🐱', ave:'🐦', reptil:'🦎', otro:'🐾' };
 const ESPECIE_COLORS  = {
@@ -18,14 +19,22 @@ const ESPECIE_LABELS  = { perro:'Perro', gato:'Gato', ave:'Ave', reptil:'Reptil'
 export default function MascotaCard({ mascota, onEliminar }) {
   const navigate = useNavigate();
   const t        = useTokens();
-  const [mostrarCartel, setMostrarCartel] = useState(false);
+  const [generandoCartel, setGenerandoCartel] = useState(false);
 
   const [c1, c2]      = ESPECIE_COLORS[mascota.especie] || ESPECIE_COLORS.otro;
   const emoji         = ESPECIE_EMOJIS[mascota.especie]  || '🐾';
   const fotoPrincipal = mascota.foto_urls?.[0] || null;
 
-  if (mostrarCartel) {
-    return <CartelImpresion mascota={{ ...mascota, foto_principal: fotoPrincipal }} onCerrar={() => setMostrarCartel(false)} />;
+  // HU-31: cartel A4 en PDF (foto, datos y QR) generado en el servidor
+  async function handleCartel() {
+    setGenerandoCartel(true);
+    try {
+      await descargarCartel(mascota.id, mascota.nombre);
+    } catch {
+      toast.error('No se pudo generar el cartel. Intenta de nuevo.');
+    } finally {
+      setGenerandoCartel(false);
+    }
   }
 
   return (
@@ -100,8 +109,8 @@ export default function MascotaCard({ mascota, onEliminar }) {
             style={{ background: t.secondaryBg, border: `1px solid ${t.secondaryBorder}` }}>
             <QrCode size={16} style={{ color: t.secondary }} />
           </motion.button>
-          <motion.button whileTap={{ scale: 0.95 }} onClick={() => setMostrarCartel(true)}
-            data-testid="btn-ver-cartel"
+          <motion.button whileTap={{ scale: 0.95 }} onClick={handleCartel} disabled={generandoCartel}
+            data-testid="btn-ver-cartel" aria-label={`Descargar cartel PDF de ${mascota.nombre}`}
             className="h-10 w-10 rounded-2xl flex items-center justify-center shrink-0"
             style={{ background: t.accentBg, border: `1px solid ${t.accentBorder}` }}>
             <Printer size={16} style={{ color: t.accent }} />

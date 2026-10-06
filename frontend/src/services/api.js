@@ -27,4 +27,15 @@ api.interceptors.response.use(
   }
 );
 
+// Descarga un archivo protegido (PDF, PNG) con el token JWT y lo guarda en el dispositivo
+export async function descargarArchivo(ruta, nombreArchivo) {
+  const { data } = await api.get(ruta, { responseType: 'blob' });
+  const url = URL.createObjectURL(data);
+  const enlace = document.createElement('a');
+  enlace.href = url;
+  enlace.download = nombreArchivo;
+  enlace.click();
+  URL.revokeObjectURL(url);
+}
+
 export default api;

@@ -158,6 +158,11 @@ export default function PerfilMascota() {
               ))}
             </div>
           )}
+
+          {mascota.video_url && (
+            <video src={mascota.video_url} controls playsInline preload="metadata"
+                   className="w-full rounded-2xl mb-5" data-testid="video-mascota" />
+          )}
         </div>
 
         {!reporteActivo && (

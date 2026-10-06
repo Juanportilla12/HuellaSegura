@@ -2,7 +2,8 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { ChevronLeft, Share2, MoreHorizontal, MapPin, Phone, Navigation, Eye } from 'lucide-react';
-import { obtenerPerfilPublico } from '../services/avistamientoService';
+import { obtenerPerfilPublico } from '../services/perfilPublicoService';
+import BotonesCompartir from '../components/BotonesCompartir';
 import Chip from '../components/ui/Chip';
 import Button from '../components/ui/Button';
 import Avatar from '../components/ui/Avatar';
@@ -226,6 +227,12 @@ export default function PerfilPublico() {
             </div>
           )}
 
+          {/* Video (R5) */}
+          {mascota.video_url && (
+            <video src={mascota.video_url} controls playsInline preload="metadata"
+                   className="w-full rounded-2xl mb-5" data-testid="video-mascota" />
+          )}
+
           {/* Separador */}
           <div className="h-px mb-4" style={{ background: '#EDE5E1' }} />
 
@@ -237,7 +244,9 @@ export default function PerfilPublico() {
                 <p className="font-semibold text-sm" style={{ color: '#1A1A2E' }}>
                   {propietario?.nombre ?? 'Propietario'}
                 </p>
-                <p className="text-xs" style={{ color: '#9CA3AF' }}>Dueño</p>
+                <p className="text-xs" style={{ color: '#9CA3AF' }}>
+                  {propietario?.telefono ? `Contacto: ${propietario.telefono}` : 'Dueño'}
+                </p>
               </div>
             </div>
 
@@ -245,6 +254,7 @@ export default function PerfilPublico() {
               {propietario?.telefono && (
                 <a
                   href={`tel:${propietario.telefono}`}
+                  aria-label={`Llamar al ${propietario.telefono}`}
                   className="h-11 w-11 rounded-full border flex items-center justify-center"
                   style={{ borderColor: '#EDE5E1' }}
                 >
@@ -277,6 +287,9 @@ export default function PerfilPublico() {
           >
             ¡La vi! Reportar avistamiento
           </Button>
+          <div className="mt-3">
+            <BotonesCompartir mascotaId={mascota.id} nombreMascota={mascota.nombre} buscando={Boolean(reporte_activo)} />
+          </div>
         </div>
       </motion.div>
 
