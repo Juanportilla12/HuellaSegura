@@ -247,7 +247,7 @@ Crea usuarios `@test.local`; **no la ejecutes contra producción**.
 
 ## Despliegue
 
-- **Backend:** Railway (Nixpacks). `railway.json` ejecuta `npm run migrate && npm start` y usa `/health` como verificación.
+- **Backend:** Railway (Railpack). `railway.json` ejecuta `npm run migrate && npm start` y usa `/health` como verificación.
 - **Base de datos:** MySQL de Railway.
 - **Frontend:** Vercel (`frontend/vercel.json`, build de Vite y reescritura de rutas a `index.html`).
 

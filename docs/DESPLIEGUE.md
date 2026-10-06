@@ -11,7 +11,7 @@ Arquitectura de producción: **frontend en Vercel**, **backend y MySQL en Railwa
 
 1. *New → GitHub Repo* → selecciona el repositorio y define **Root Directory = `backend`**.
 2. Railway lee `backend/railway.json`:
-   - build con Nixpacks (`npm install`);
+   - build con Railpack (`npm install`);
    - arranque: `npm run migrate && npm start` (aplica las migraciones pendientes y luego inicia);
    - verificación de salud: `GET /health`.
 3. Variables del servicio (*Variables*):
