@@ -1,3 +1,4 @@
+const { Op } = require('sequelize');
 const { validationResult } = require('express-validator');
 const { Avistamiento, Mascota, Reporte, Notificacion, Usuario } = require('../models');
 const { uploadBuffer } = require('../config/cloudinary');
@@ -22,6 +23,13 @@ async function crear(req, res, next) {
 
     const reporteActivo = await Reporte.findOne({
       where: { mascota_id, estado: 'en_busqueda' },
+    });
+
+    // Como máximo un correo por mascota cada 10 minutos: los avistamientos
+    // siguientes llegan como notificación interna (evita saturar al dueño).
+    const VENTANA_CORREO_MS = 10 * 60 * 1000;
+    const recientes = await Avistamiento.count({
+      where: { mascota_id, created_at: { [Op.gte]: new Date(Date.now() - VENTANA_CORREO_MS) } },
     });
 
     let foto_url = null;
@@ -58,7 +66,7 @@ async function crear(req, res, next) {
     });
 
     // Correo al propietario (no bloquea la respuesta)
-    enviarCorreoAvistamiento({
+    if (recientes === 0) enviarCorreoAvistamiento({
       propietario: { email: mascota.propietario.email, nombre: mascota.propietario.nombre },
       mascota: { nombre: mascota.nombre },
       avistamiento: { latitud, longitud, descripcion, nombre_testigo, foto_url },

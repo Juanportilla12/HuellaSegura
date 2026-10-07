@@ -2,6 +2,7 @@ const { Router } = require('express');
 const { body } = require('express-validator');
 const avistamientoController = require('../controllers/avistamientoController');
 const upload = require('../middlewares/uploadMiddleware');
+const { limitadorAvistamientos } = require('../middlewares/rateLimiters');
 
 const router = Router();
 
@@ -13,6 +14,6 @@ const crearValidators = [
 ];
 
 // POST /api/avistamientos — público, sin autenticación
-router.post('/', upload.single('foto'), crearValidators, avistamientoController.crear);
+router.post('/', limitadorAvistamientos, upload.single('foto'), crearValidators, avistamientoController.crear);
 
 module.exports = router;

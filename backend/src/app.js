@@ -2,8 +2,8 @@ const express    = require('express');
 const cors       = require('cors');
 const morgan     = require('morgan');
 const helmet     = require('helmet');
-const rateLimit  = require('express-rate-limit');
 const routes     = require('./routes');
+const { limitadorGlobal, limitadorAuth } = require('./middlewares/rateLimiters');
 const { errorHandler, notFound } = require('./middlewares/errorMiddleware');
 
 const app = express();
@@ -21,28 +21,8 @@ app.use(helmet({
   contentSecurityPolicy: false, // El frontend maneja su propio CSP
 }));
 
-// Sin límite de peticiones en desarrollo ni en pruebas automatizadas
-const sinLimite = ['development', 'test'].includes(process.env.NODE_ENV);
-
-// Rate limiting global — 100 req / 15 min por IP
-app.use(rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 100,
-  standardHeaders: true,
-  legacyHeaders: false,
-  message: { success: false, message: 'Demasiadas solicitudes. Intenta en 15 minutos.' },
-  skip: () => sinLimite,
-}));
-
-// Rate limiting estricto para auth — 10 intentos / 15 min por IP
-const authLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 10,
-  standardHeaders: true,
-  legacyHeaders: false,
-  message: { success: false, message: 'Demasiados intentos de autenticación. Espera 15 minutos.' },
-  skip: () => sinLimite,
-});
+// Límite de peticiones por IP (ver middlewares/rateLimiters.js)
+app.use(limitadorGlobal);
 
 // ── CORS ─────────────────────────────────────────────────────────────────────
 const originesPermitidos = [
@@ -79,7 +59,7 @@ app.get('/health', (_req, res) => {
 });
 
 // ── Rutas principales ────────────────────────────────────────────────────────
-app.use('/api/auth', authLimiter); // Rate limit estricto solo en auth
+app.use('/api/auth', limitadorAuth); // Límite estricto en autenticación
 app.use('/api', routes);
 
 app.use(notFound);

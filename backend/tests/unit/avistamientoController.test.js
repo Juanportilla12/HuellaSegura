@@ -9,7 +9,7 @@ jest.mock('../../src/models', () => ({
   Mascota:      { findOne: jest.fn(), findAll: jest.fn(), findByPk: jest.fn(), create: jest.fn() },
   Reporte:      { findOne: jest.fn(), findAll: jest.fn(), findByPk: jest.fn(), create: jest.fn() },
   Notificacion: { findAll: jest.fn(), findOne: jest.fn(), create: jest.fn(), update: jest.fn(), bulkCreate: jest.fn() },
-  Avistamiento: { create: jest.fn() },
+  Avistamiento: { create: jest.fn(), count: jest.fn().mockResolvedValue(0) },
 }));
 
 jest.mock('../../src/config/connection', () => ({
