@@ -56,16 +56,16 @@ Las verificaciones E2E corresponden a `backend/tests/e2e/flujoCompleto.e2e.mjs` 
 
 | RNF | Estado | Nota |
 |---|---|---|
-| RNF-01 Carga < 3 s en 4G | PENDIENTE | No medido; build de 820 KB precacheado por la PWA. Medir con Lighthouse sobre el despliegue |
+| RNF-01 Carga < 3 s en 4G | IMPLEMENTADO | Lighthouse móvil sobre producción (mediana): **4G típica** (9 Mbps) rendimiento 99, LCP 1,65 s ✅; **4G lenta** (1,6 Mbps, predeterminado de Lighthouse) rendimiento 75, LCP 4,5 s. Carga diferida: JS inicial 231 → 133 KB comprimido. Accesibilidad 100, buenas prácticas 100 |
 | RNF-02 Consultas < 500 ms | IMPLEMENTADO | 19 ms en E2E con índices |
 | RNF-03 Disponibilidad 99 % | PENDIENTE | Operativo; depende del plan de Railway/Vercel |
 | RNF-04 HTTPS | IMPLEMENTADO en despliegue | Vercel y Railway sirven HTTPS |
 | RNF-05 bcrypt costo ≥ 10 | IMPLEMENTADO | Verificado en la BD (E2E) |
 | RNF-06 JWT ≤ 24 h | IMPLEMENTADO | Verificado (E2E) |
 | RNF-07 SUS ≥ 70 | PENDIENTE | Evaluación con usuarios (objetivo 3 de la tesis) |
-| RNF-08 Chrome, Firefox, Safari | PENDIENTE | Probado en Chromium; falta Firefox y Safari |
+| RNF-08 Chrome, Firefox, Safari | PENDIENTE | Probado en Chromium (Chrome); falta Firefox y Safari |
 | RNF-09 Responsive 320–1920 px | IMPLEMENTADO | Diseño móvil; en escritorio se muestra centrado en una columna |
-| RNF-10 GitHub con ramas por sprint | PARCIAL | Commits descriptivos en `main`; no hay ramas por sprint en el historial |
+| RNF-10 GitHub con ramas por sprint | PARCIAL | Commits descriptivos e integración continua (GitHub Actions: lint, pruebas, build y E2E con MySQL en cada push); no hay ramas por sprint en el historial |
 | RNF-11 Ley 1581 | IMPLEMENTADO | Consentimientos, perfil público mínimo y no enumerable (código aleatorio en el QR), retiro de ubicación y eliminación de cuenta que también borra fotos y videos en Cloudinary |
 
 ## Diferencias entre el documento de la tesis y el sistema

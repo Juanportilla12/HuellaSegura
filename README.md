@@ -3,6 +3,7 @@
 <h4 align="center">Prototipo de aplicación web para la localización y recuperación de mascotas perdidas en Pasto, Nariño</h4>
 
 <p align="center">
+  <a href="https://github.com/Juanportilla12/HuellaSegura/actions/workflows/ci.yml"><img src="https://github.com/Juanportilla12/HuellaSegura/actions/workflows/ci.yml/badge.svg" alt="CI" /></a>
   <img src="https://img.shields.io/badge/Node.js-18+-339933?style=for-the-badge&logo=node.js&logoColor=white" />
   <img src="https://img.shields.io/badge/React-18-61DAFB?style=for-the-badge&logo=react&logoColor=black" />
   <img src="https://img.shields.io/badge/MySQL-8-4479A1?style=for-the-badge&logo=mysql&logoColor=white" />
@@ -234,7 +235,7 @@ Base: `/api`. 🔒 = requiere `Authorization: Bearer <token>`; 👑 = solo admin
 
 ```bash
 cd backend && npm test          # 195 pruebas unitarias y de integración (sin BD real)
-cd frontend && npx vitest run   # 86 pruebas de componentes y páginas
+cd frontend && npx vitest run   # 87 pruebas de componentes y páginas
 ```
 
 **Estilo de código (ESLint):**
@@ -251,6 +252,8 @@ cd backend && npm run test:e2e
 ```
 
 Crea usuarios `@test.local`; **no la ejecutes contra producción**.
+
+**Integración continua:** GitHub Actions (`.github/workflows/ci.yml`) ejecuta en cada push a `main` el lint y las pruebas del backend y del frontend, el build, y la prueba de extremo a extremo contra un MySQL 8 creado para la ocasión (migraciones desde cero, reversión completa y reaplicación).
 
 ## Despliegue
 
