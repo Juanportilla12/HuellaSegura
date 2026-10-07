@@ -558,7 +558,7 @@ export default function MascotaForm() {
 
                     {form.descripcion && (
                       <p className="text-sm leading-relaxed italic mb-4" style={{ color:'#9CA3AF' }}>
-                        "{form.descripcion}"
+                        &ldquo;{form.descripcion}&rdquo;
                       </p>
                     )}
 

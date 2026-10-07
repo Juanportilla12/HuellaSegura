@@ -26,6 +26,8 @@ vi.mock('@marsidev/react-turnstile', async () => {
   const { useEffect } = await import('react');
   return {
     Turnstile: ({ onSuccess }) => {
+      // Simula que el widget se verifica una sola vez al cargar
+      // eslint-disable-next-line react-hooks/exhaustive-deps
       useEffect(() => { onSuccess('token-prueba'); }, []);
       return <div data-testid="turnstile" />;
     },

@@ -26,7 +26,6 @@ const { Usuario, Mascota } = require('../../src/models');
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 const TOKEN_USUARIO_1 = sign({ id: 1, rol: 'usuario', tokenVersion: 0 });
-const TOKEN_USUARIO_2 = sign({ id: 2, rol: 'usuario', tokenVersion: 0 });
 
 const mockUsuario1 = {
   id: 1, nombre: 'Ana García', email: 'ana@example.com',

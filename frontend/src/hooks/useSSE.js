@@ -22,11 +22,11 @@ export function useSSE(onEvento) {
     esRef.current = es;
 
     es.addEventListener('avistamiento', (e) => {
-      try { cbRef.current?.('avistamiento', JSON.parse(e.data)); } catch {}
+      try { cbRef.current?.('avistamiento', JSON.parse(e.data)); } catch { /* evento mal formado: se ignora */ }
     });
 
     es.addEventListener('notificacion', (e) => {
-      try { cbRef.current?.('notificacion', JSON.parse(e.data)); } catch {}
+      try { cbRef.current?.('notificacion', JSON.parse(e.data)); } catch { /* evento mal formado: se ignora */ }
     });
 
     es.onerror = () => {

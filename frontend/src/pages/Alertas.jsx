@@ -41,8 +41,8 @@ export default function Alertas() {
       .finally(() => setLoading(false));
   }, []);
 
-  const handleRead    = async (id) => { try { await marcarLeida(id); } catch {} setNotifs(p => p.map(n => n.id===id ? {...n,leida:true} : n)); refrescar(); };
-  const handleReadAll = async ()    => { try { await marcarTodasLeidas(); } catch {} setNotifs(p => p.map(n => ({...n,leida:true}))); refrescar(); };
+  const handleRead    = async (id) => { try { await marcarLeida(id); } catch { /* se reintenta al refrescar */ } setNotifs(p => p.map(n => n.id===id ? {...n,leida:true} : n)); refrescar(); };
+  const handleReadAll = async ()    => { try { await marcarTodasLeidas(); } catch { /* se reintenta al refrescar */ } setNotifs(p => p.map(n => ({...n,leida:true}))); refrescar(); };
 
   // DoD Sprint 5: la notificación lleva directamente al reporte en el mapa
   const handleAbrir = async (notif) => {

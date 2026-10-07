@@ -27,7 +27,6 @@ jest.mock('nodemailer', () => ({
 const { Usuario, Mascota, Reporte } = require('../../src/models');
 
 const TOKEN_U1 = sign({ id: 1, rol: 'usuario', tokenVersion: 0 });
-const TOKEN_U2 = sign({ id: 2, rol: 'usuario', tokenVersion: 0 });
 
 const mockUsuario1 = {
   id: 1, nombre: 'Ana', email: 'ana@test.com',

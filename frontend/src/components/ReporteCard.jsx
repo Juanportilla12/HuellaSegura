@@ -83,7 +83,7 @@ export default function ReporteCard({ reporte, onCambiarEstado }) {
 
             {reporte.descripcion && (
               <p className="text-xs mt-1.5 line-clamp-2 italic" style={{ color: t.textMuted }}>
-                "{reporte.descripcion}"
+                &ldquo;{reporte.descripcion}&rdquo;
               </p>
             )}
           </div>

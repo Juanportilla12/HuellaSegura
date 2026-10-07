@@ -32,7 +32,7 @@ export default function CarnetQR() {
 
   async function handleCompartir() {
     if (navigator.share) {
-      try { await navigator.share({ title: `${mascota?.nombre} — HuellaSegura`, url: publicUrl }); } catch {}
+      try { await navigator.share({ title: `${mascota?.nombre} — HuellaSegura`, url: publicUrl }); } catch { /* el usuario canceló */ }
     } else {
       await navigator.clipboard.writeText(publicUrl);
       setCopiado(true);

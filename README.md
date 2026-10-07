@@ -101,7 +101,7 @@ Dentro del backend cada petición recorre: **rutas → middlewares (autenticaci�
 | Backend | Node.js ≥ 18, Express 4, Sequelize 6 + sequelize-cli, mysql2, JWT, bcryptjs, express-validator, Helmet, express-rate-limit, Multer, Nodemailer, PDFKit, qrcode, node-cron |
 | Datos | MySQL 8 |
 | Servicios | Cloudinary, Gmail SMTP, OpenStreetMap / Nominatim, Cloudflare Turnstile |
-| Pruebas | Jest + Supertest (backend), Vitest + Testing Library (frontend), prueba E2E contra MySQL real |
+| Calidad | Jest + Supertest (backend), Vitest + Testing Library (frontend), prueba E2E contra MySQL real, ESLint |
 
 > Nota: la tesis menciona Bootstrap 5 para la interfaz; la implementación final usa **Tailwind CSS**.
 
@@ -233,8 +233,15 @@ Base: `/api`. 🔒 = requiere `Authorization: Bearer <token>`; 👑 = solo admin
 ## Pruebas
 
 ```bash
-cd backend && npm test          # 174 pruebas unitarias y de integración (sin BD real)
-cd frontend && npx vitest run   # 72 pruebas de componentes y páginas
+cd backend && npm test          # 190 pruebas unitarias y de integración (sin BD real)
+cd frontend && npx vitest run   # 78 pruebas de componentes y páginas
+```
+
+**Estilo de código (ESLint):**
+
+```bash
+cd backend && npm run lint
+cd frontend && npm run lint
 ```
 
 **Prueba de extremo a extremo** (43 verificaciones de R1–R11 y RNF contra MySQL real). Con el backend corriendo sobre una base de datos de prueba:

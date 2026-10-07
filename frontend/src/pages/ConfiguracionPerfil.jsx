@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import {
   ChevronLeft, MoreHorizontal, CheckCircle, Bell,
   MapPin, Moon, LogOut, Plus, ChevronRight, QrCode, Pencil, LayoutDashboard, Camera,
@@ -135,8 +135,6 @@ export default function ConfiguracionPerfil() {
   const [passwordBorrado,  setPasswordBorrado]  = useState('');
   const [borrando,     setBorrando]     = useState(false);
   const [guardando,    setGuardando]    = useState(false);
-  const [mensaje,      setMensaje]      = useState('');
-  const [error,        setError]        = useState('');
   const [mascotas,     setMascotas]     = useState([]);
   const [loadMascotas, setLoadMascotas] = useState(true);
 
@@ -448,24 +446,6 @@ export default function ConfiguracionPerfil() {
           </button>
         )}
       </div>
-
-      {/* ── Alertas de estado ────────────────────────────────────────────── */}
-      <AnimatePresence>
-        {mensaje && (
-          <motion.div role="alert" initial={{ opacity:0, y:-8 }} animate={{ opacity:1, y:0 }} exit={{ opacity:0 }}
-            className="mx-4 mb-3 px-4 py-3 rounded-2xl text-sm font-medium"
-            style={{ background: '#E0F9F7', color: '#00A890' }}>
-            {mensaje}
-          </motion.div>
-        )}
-        {error && (
-          <motion.div role="alert" initial={{ opacity:0, y:-8 }} animate={{ opacity:1, y:0 }} exit={{ opacity:0 }}
-            className="mx-4 mb-3 px-4 py-3 rounded-2xl text-sm font-medium"
-            style={{ background: '#FFF0EE', color: '#E8614A' }}>
-            {error}
-          </motion.div>
-        )}
-      </AnimatePresence>
 
       {/* ── Configuración ────────────────────────────────────────────────── */}
       <div className="mx-4 mb-4">

@@ -56,7 +56,7 @@ export default function PerfilMascota() {
   async function handleCompartir() {
     const url = `${window.location.origin}/publico/mascotas/${id}`;
     if (navigator.share) {
-      try { await navigator.share({ title: `${mascota.nombre} — HuellaSegura`, url }); } catch {}
+      try { await navigator.share({ title: `${mascota.nombre} — HuellaSegura`, url }); } catch { /* el usuario canceló */ }
     } else {
       await navigator.clipboard.writeText(url);
     }

@@ -35,7 +35,7 @@ async function req(metodo, ruta, { token, body, raw } = {}) {
     body: body ? JSON.stringify(body) : undefined,
   });
   if (raw) return r;
-  let data = null; try { data = await r.json(); } catch {}
+  let data = null; try { data = await r.json(); } catch { /* respuesta sin JSON */ }
   return { status: r.status, data };
 }
 const esperar = (ms) => new Promise((r) => setTimeout(r, ms));

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Bell, MapPin, ChevronRight, Search, AlertTriangle, CheckCircle, Users } from 'lucide-react';
+import { Bell, ChevronRight, Search, AlertTriangle, CheckCircle, Users } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useNotificaciones } from '../context/NotificacionesContext';
 import { useTokens } from '../hooks/useTokens';

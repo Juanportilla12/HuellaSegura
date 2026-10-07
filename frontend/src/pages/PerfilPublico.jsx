@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { ChevronLeft, Share2, MoreHorizontal, MapPin, Phone, Navigation, Eye } from 'lucide-react';
+import { toast } from 'sonner';
 import { obtenerPerfilPublico } from '../services/perfilPublicoService';
 import BotonesCompartir from '../components/BotonesCompartir';
 import Chip from '../components/ui/Chip';
@@ -24,7 +25,6 @@ export default function PerfilPublico() {
   const [datos,    setDatos]    = useState(null);
   const [cargando, setCargando] = useState(true);
   const [error,    setError]    = useState('');
-  const [copiado,  setCopiado]  = useState(false);
 
   useEffect(() => {
     obtenerPerfilPublico(id)
@@ -39,8 +39,7 @@ export default function PerfilPublico() {
       try { await navigator.share({ title: 'HuellaSegura', url }); } catch { /* cancelado */ }
     } else {
       await navigator.clipboard.writeText(url);
-      setCopiado(true);
-      setTimeout(() => setCopiado(false), 2000);
+      toast.success('Enlace copiado.');
     }
   }
 

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronLeft, CheckCircle, Crosshair, Plus } from 'lucide-react';
@@ -67,7 +67,7 @@ export default function CrearReporte() {
       .finally(() => setCargandoMasc(false));
   }, []);
 
-  function handleCoordsChange(lat, lng) {
+  const handleCoordsChange = useCallback((lat, lng) => {
     setCoords({ lat, lng });
     setAvisoGPS('');
     setErrores((p) => ({ ...p, coords: '' }));
@@ -76,10 +76,10 @@ export default function CrearReporte() {
     geocodeTimer.current = setTimeout(async () => {
       setDireccion(await geocodificarReversa(lat, lng));
     }, 600);
-  }
+  }, []);
 
   // Sugiere la ubicación actual; si el usuario la niega, puede marcarla en el mapa
-  function usarMiUbicacion() {
+  const usarMiUbicacion = useCallback(() => {
     if (!navigator.geolocation) {
       setAvisoGPS('Tu navegador no permite obtener la ubicación. Márcala en el mapa.');
       return;
@@ -97,9 +97,10 @@ export default function CrearReporte() {
       },
       { timeout: 10000, enableHighAccuracy: true }
     );
-  }
+  }, [handleCoordsChange]);
 
-  useEffect(() => { usarMiUbicacion(); }, []);
+  // Al abrir la página se sugiere la ubicación actual del dispositivo
+  useEffect(() => { usarMiUbicacion(); }, [usarMiUbicacion]);
 
   function validar() {
     const e = {};

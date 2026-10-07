@@ -30,7 +30,6 @@ export default function Login() {
   const [turnstileError,  setTurnstileError]  = useState(false);
   const turnstileRef = useRef(null);
 
-  const isDev = import.meta.env.DEV;
   // Puede enviar si: pasó Turnstile, o si hubo error de carga (graceful fallback)
   const puedeEnviar = turnstileOk || turnstileError;
 

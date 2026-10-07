@@ -223,7 +223,7 @@ async function descargarQR(req, res, next) {
     if (!mascota) {
       return res.status(404).json({ success: false, message: 'Mascota no encontrada.' });
     }
-    const { buffer, url } = await generarQR(mascota.id);
+    const { buffer } = await generarQR(mascota.id);
     res.set({
       'Content-Type': 'image/png',
       'Content-Disposition': `attachment; filename="qr-${mascota.nombre.replace(/\s+/g, '-')}.png"`,

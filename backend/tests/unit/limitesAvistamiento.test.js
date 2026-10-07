@@ -59,7 +59,6 @@ describe('Límite de avistamientos por IP', () => {
     const enviar = () => request(app).post('/api/avistamientos').set('X-Forwarded-For', '10.0.0.50').send(AVISTAMIENTO);
 
     for (let i = 0; i < 5; i += 1) {
-      // eslint-disable-next-line no-await-in-loop
       expect((await enviar()).status).toBe(201);
     }
     const bloqueada = await enviar();
