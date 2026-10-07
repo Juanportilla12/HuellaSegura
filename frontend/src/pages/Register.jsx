@@ -325,7 +325,8 @@ export default function Register() {
                   onBlur={e => { e.target.style.border = errors.password ? '1.5px solid rgba(248,113,113,0.6)' : '1.5px solid rgba(255,255,255,0.1)'; e.target.style.background = errors.password ? 'rgba(248,113,113,0.1)' : 'rgba(255,255,255,0.07)'; }}
                 />
                 <button type="button" onClick={() => setShowPass(p => !p)}
-                        className="absolute right-4 top-1/2 -translate-y-1/2"
+                        aria-label={showPass ? 'Ocultar la contraseña' : 'Mostrar la contraseña'} aria-pressed={showPass}
+                        className="absolute right-2 top-1/2 -translate-y-1/2 h-10 w-10 flex items-center justify-center rounded-xl"
                         style={{ color: 'rgba(255,255,255,0.35)' }}>
                   {showPass ? <EyeOff size={16} /> : <Eye size={16} />}
                 </button>
@@ -358,7 +359,8 @@ export default function Register() {
                   onBlur={e => { e.target.style.border = errors.confirmPassword ? '1.5px solid rgba(248,113,113,0.6)' : '1.5px solid rgba(255,255,255,0.1)'; e.target.style.background = errors.confirmPassword ? 'rgba(248,113,113,0.1)' : 'rgba(255,255,255,0.07)'; }}
                 />
                 <button type="button" onClick={() => setShowConf(p => !p)}
-                        className="absolute right-4 top-1/2 -translate-y-1/2"
+                        aria-label={showConf ? 'Ocultar la confirmación' : 'Mostrar la confirmación'} aria-pressed={showConf}
+                        className="absolute right-2 top-1/2 -translate-y-1/2 h-10 w-10 flex items-center justify-center rounded-xl"
                         style={{ color: 'rgba(255,255,255,0.35)' }}>
                   {showConf ? <EyeOff size={16} /> : <Eye size={16} />}
                 </button>

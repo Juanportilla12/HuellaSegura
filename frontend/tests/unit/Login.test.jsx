@@ -52,7 +52,7 @@ describe('Login Component', () => {
   test('renderiza el formulario con campos correo y contraseña', () => {
     renderLogin();
     expect(screen.getByLabelText(/correo electrónico/i)).toBeInTheDocument();
-    expect(screen.getByLabelText(/contraseña/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/^contraseña$/i)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /iniciar sesión/i })).toBeInTheDocument();
   });
 
@@ -74,7 +74,7 @@ describe('Login Component', () => {
     const user = userEvent.setup();
 
     await user.type(screen.getByLabelText(/correo electrónico/i), 'ana@example.com');
-    await user.type(screen.getByLabelText(/contraseña/i), 'password123');
+    await user.type(screen.getByLabelText(/^contraseña$/i), 'password123');
     await user.click(screen.getByRole('button', { name: /iniciar sesión/i }));
 
     await waitFor(() => {
@@ -88,7 +88,7 @@ describe('Login Component', () => {
     const user = userEvent.setup();
 
     await user.type(screen.getByLabelText(/correo electrónico/i), 'ana@example.com');
-    await user.type(screen.getByLabelText(/contraseña/i), 'password123');
+    await user.type(screen.getByLabelText(/^contraseña$/i), 'password123');
     await user.click(screen.getByRole('button', { name: /iniciar sesión/i }));
 
     await waitFor(() => {
@@ -104,7 +104,7 @@ describe('Login Component', () => {
     const user = userEvent.setup();
 
     await user.type(screen.getByLabelText(/correo electrónico/i), 'ana@example.com');
-    await user.type(screen.getByLabelText(/contraseña/i), 'wrongpassword');
+    await user.type(screen.getByLabelText(/^contraseña$/i), 'wrongpassword');
     await user.click(screen.getByRole('button', { name: /iniciar sesión/i }));
 
     await waitFor(() => {
@@ -118,11 +118,21 @@ describe('Login Component', () => {
     const user = userEvent.setup();
 
     await user.type(screen.getByLabelText(/correo electrónico/i), 'ana@example.com');
-    await user.type(screen.getByLabelText(/contraseña/i), 'password123');
+    await user.type(screen.getByLabelText(/^contraseña$/i), 'password123');
     await user.click(screen.getByRole('button', { name: /iniciar sesión/i }));
 
     await waitFor(() => {
       expect(screen.getByRole('button', { name: /ingresando|iniciar sesión|cargando/i })).toBeDisabled();
     });
+  });
+
+  test('el botón para ver la contraseña tiene nombre accesible y cambia de estado', async () => {
+    renderLogin();
+    const user = userEvent.setup();
+    const boton = screen.getByRole('button', { name: /mostrar la contraseña/i });
+    expect(boton).toHaveAttribute('aria-pressed', 'false');
+    await user.click(boton);
+    expect(screen.getByRole('button', { name: /ocultar la contraseña/i })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByLabelText(/^contraseña$/i)).toHaveAttribute('type', 'text');
   });
 });
