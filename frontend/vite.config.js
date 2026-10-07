@@ -94,6 +94,18 @@ export default defineConfig({
       },
     }),
   ],
+  build: {
+    rollupOptions: {
+      output: {
+        // Librerías grandes en archivos propios: cambian poco y el navegador las conserva en caché
+        manualChunks: {
+          'vendor-react': ['react', 'react-dom', 'react-router-dom'],
+          'vendor-animacion': ['framer-motion'],
+          'vendor-mapa': ['leaflet', 'react-leaflet'],
+        },
+      },
+    },
+  },
   server: {
     port: 5173,
     proxy: {

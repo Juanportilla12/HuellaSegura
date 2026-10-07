@@ -7,31 +7,29 @@ import ProtectedRoute   from './components/ProtectedRoute';
 import PageTransition   from './components/PageTransition';
 import LoadingSpinner   from './components/ui/LoadingSpinner';
 
-// Páginas públicas
-import Splash               from './pages/Splash';
-import Login                from './pages/Login';
-import Register             from './pages/Register';
-import PerfilPublico        from './pages/PerfilPublico';
-import ReportarAvistamiento from './pages/ReportarAvistamiento';
-import OlvideContrasena     from './pages/OlvideContrasena';
+// RNF-01: carga diferida. La primera visita solo descarga el inicio de sesión y la
+// página de inicio; el resto de pantallas (mapa, formularios, admin) se descarga al abrirlas.
+import Splash from './pages/Splash';
+import Login  from './pages/Login';
+import Home   from './pages/Home';
 
-// Páginas protegidas
-import Home                from './pages/Home';
-import MapaPrincipal       from './pages/MapaPrincipal';
-import MisMascotas         from './pages/MisMascotas';
-import MascotaForm         from './pages/MascotaForm';
-import PerfilMascota       from './pages/PerfilMascota';
-import CarnetQR            from './pages/CarnetQR';
-import MisReportes         from './pages/MisReportes';
-import CrearReporte        from './pages/CrearReporte';
-import ConfiguracionPerfil from './pages/ConfiguracionPerfil';
-import Directorio          from './pages/Directorio';
-
-// Lazy
-const AlertasPage        = lazy(() => import('./pages/Alertas'));
-const Dashboard          = lazy(() => import('./pages/admin/Dashboard'));
-const GestionUsuarios    = lazy(() => import('./pages/admin/GestionUsuarios'));
-const ModeracionReportes = lazy(() => import('./pages/admin/ModeracionReportes'));
+const Register             = lazy(() => import('./pages/Register'));
+const PerfilPublico        = lazy(() => import('./pages/PerfilPublico'));
+const ReportarAvistamiento = lazy(() => import('./pages/ReportarAvistamiento'));
+const OlvideContrasena     = lazy(() => import('./pages/OlvideContrasena'));
+const MapaPrincipal        = lazy(() => import('./pages/MapaPrincipal'));
+const MisMascotas          = lazy(() => import('./pages/MisMascotas'));
+const MascotaForm          = lazy(() => import('./pages/MascotaForm'));
+const PerfilMascota        = lazy(() => import('./pages/PerfilMascota'));
+const CarnetQR             = lazy(() => import('./pages/CarnetQR'));
+const MisReportes          = lazy(() => import('./pages/MisReportes'));
+const CrearReporte         = lazy(() => import('./pages/CrearReporte'));
+const ConfiguracionPerfil  = lazy(() => import('./pages/ConfiguracionPerfil'));
+const Directorio           = lazy(() => import('./pages/Directorio'));
+const AlertasPage          = lazy(() => import('./pages/Alertas'));
+const Dashboard            = lazy(() => import('./pages/admin/Dashboard'));
+const GestionUsuarios      = lazy(() => import('./pages/admin/GestionUsuarios'));
+const ModeracionReportes   = lazy(() => import('./pages/admin/ModeracionReportes'));
 
 // Wrapper que aplica AnimatePresence por ruta
 function AnimatedRoutes() {
@@ -42,6 +40,9 @@ function AnimatedRoutes() {
   return (
     <AnimatePresence mode="wait" initial={false}>
       <PageTransition key={routeKey}>
+        {/* La carga de cada pantalla diferida se resuelve dentro de su propia transición;
+            si el límite de Suspense quedara fuera de AnimatePresence, la animación se bloquea */}
+        <Suspense fallback={<LoadingSpinner fullScreen />}>
         <Routes location={location}>
           {/* ── Públicas ─────────────────────────────────────────── */}
           <Route path="/splash"               element={<Splash />} />
@@ -79,6 +80,7 @@ function AnimatedRoutes() {
 
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
+        </Suspense>
       </PageTransition>
     </AnimatePresence>
   );
