@@ -47,7 +47,7 @@ router.post('/forgot-password',
 router.post('/verify-reset-code',
   [
     body('email').isEmail().normalizeEmail().withMessage('Correo inválido.'),
-    body('codigo').isLength({ min: 6, max: 6 }).withMessage('El código debe tener 6 dígitos.'),
+    body('codigo').isLength({ min: 6, max: 6 }).isNumeric().withMessage('El código debe tener 6 dígitos.'),
   ],
   authController.verifyResetCode
 );
@@ -56,7 +56,7 @@ router.post('/verify-reset-code',
 router.post('/reset-password',
   [
     body('email').isEmail().normalizeEmail().withMessage('Correo inválido.'),
-    body('codigo').isLength({ min: 6, max: 6 }).withMessage('Código inválido.'),
+    body('codigo').isLength({ min: 6, max: 6 }).isNumeric().withMessage('Código inválido.'),
     body('nuevaPassword').isLength({ min: 8 }).withMessage('La contraseña debe tener al menos 8 caracteres.'),
   ],
   authController.resetPassword

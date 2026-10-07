@@ -63,12 +63,17 @@ const Usuario = sequelize.define(
       allowNull: true,
     },
     reset_code: {
-      type: DataTypes.STRING(6),
+      // Hash bcrypt del código de 6 dígitos (nunca el código en claro)
+      type: DataTypes.STRING(100),
       allowNull: true,
     },
     reset_code_expires: {
       type: DataTypes.DATE,
       allowNull: true,
+    },
+    reset_intentos: {
+      type: DataTypes.INTEGER,
+      defaultValue: 0,
     },
     foto_url: {
       type: DataTypes.STRING(500),

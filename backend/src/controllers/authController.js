@@ -1,5 +1,6 @@
 const { validationResult } = require('express-validator');
 const crypto = require('crypto');
+const bcrypt = require('bcryptjs');
 const { Usuario } = require('../models');
 const { sign } = require('../config/jwt');
 const { enviarCorreoResetCodigo } = require('../services/emailService');
@@ -156,7 +157,8 @@ async function forgotPassword(req, res, next) {
     const codigo = String(crypto.randomInt(100000, 999999));
     const expira = new Date(Date.now() + 15 * 60 * 1000); // 15 minutos
 
-    await usuario.update({ reset_code: codigo, reset_code_expires: expira });
+    const codigoHash = await bcrypt.hash(codigo, 10);
+    await usuario.update({ reset_code: codigoHash, reset_code_expires: expira, reset_intentos: 0 });
 
     enviarCorreoResetCodigo({ email: usuario.email, nombre: usuario.nombre, codigo }).catch(console.error);
 
@@ -169,6 +171,42 @@ async function forgotPassword(req, res, next) {
   }
 }
 
+const MAX_INTENTOS_CODIGO = 5;
+
+/**
+ * Valida el código de recuperación: existe, no expiró, no superó 5 intentos
+ * y coincide con el hash guardado. Cada intento fallido se cuenta; al llegar
+ * al máximo el código se invalida y hay que solicitar uno nuevo.
+ */
+async function validarCodigoRecuperacion(usuario, codigo) {
+  const invalido = { ok: false, status: 400, message: 'Código inválido o expirado. Solicita uno nuevo.' };
+
+  if (!usuario || !usuario.reset_code || !usuario.reset_code_expires) return invalido;
+  if (new Date() > new Date(usuario.reset_code_expires)) return invalido;
+
+  if ((usuario.reset_intentos || 0) >= MAX_INTENTOS_CODIGO) {
+    await usuario.update({ reset_code: null, reset_code_expires: null, reset_intentos: 0 });
+    return { ok: false, status: 429, message: 'Demasiados intentos. Solicita un código nuevo.' };
+  }
+
+  const coincide = await bcrypt.compare(String(codigo), usuario.reset_code);
+  if (!coincide) {
+    const intentos = (usuario.reset_intentos || 0) + 1;
+    if (intentos >= MAX_INTENTOS_CODIGO) {
+      await usuario.update({ reset_code: null, reset_code_expires: null, reset_intentos: 0 });
+      return { ok: false, status: 429, message: 'Demasiados intentos. Solicita un código nuevo.' };
+    }
+    await usuario.update({ reset_intentos: intentos });
+    return {
+      ok: false,
+      status: 400,
+      message: `Código incorrecto. Te quedan ${MAX_INTENTOS_CODIGO - intentos} intento(s).`,
+    };
+  }
+
+  return { ok: true };
+}
+
 async function verifyResetCode(req, res, next) {
   try {
     const errors = validationResult(req);
@@ -178,13 +216,9 @@ async function verifyResetCode(req, res, next) {
 
     const { email, codigo } = req.body;
     const usuario = await Usuario.findOne({ where: { email } });
-
-    if (!usuario || usuario.reset_code !== codigo) {
-      return res.status(400).json({ success: false, message: 'Código inválido.' });
-    }
-
-    if (new Date() > new Date(usuario.reset_code_expires)) {
-      return res.status(400).json({ success: false, message: 'El código ha expirado. Solicita uno nuevo.' });
+    const resultado = await validarCodigoRecuperacion(usuario, codigo);
+    if (!resultado.ok) {
+      return res.status(resultado.status).json({ success: false, message: resultado.message });
     }
 
     return res.status(200).json({ success: true, message: 'Código verificado correctamente.' });
@@ -202,17 +236,20 @@ async function resetPassword(req, res, next) {
 
     const { email, codigo, nuevaPassword } = req.body;
     const usuario = await Usuario.findOne({ where: { email } });
-
-    if (!usuario || usuario.reset_code !== codigo) {
-      return res.status(400).json({ success: false, message: 'Código inválido.' });
+    const resultado = await validarCodigoRecuperacion(usuario, codigo);
+    if (!resultado.ok) {
+      return res.status(resultado.status).json({ success: false, message: resultado.message });
     }
 
-    if (new Date() > new Date(usuario.reset_code_expires)) {
-      return res.status(400).json({ success: false, message: 'El código ha expirado. Solicita uno nuevo.' });
-    }
-
-    // El hook beforeUpdate de Sequelize hashea la contraseña automáticamente
-    await usuario.update({ password: nuevaPassword, reset_code: null, reset_code_expires: null });
+    // El hook beforeUpdate hashea la contraseña. Se incrementa token_version
+    // para cerrar las sesiones abiertas con la contraseña anterior.
+    await usuario.update({
+      password: nuevaPassword,
+      reset_code: null,
+      reset_code_expires: null,
+      reset_intentos: 0,
+      token_version: (usuario.token_version || 0) + 1,
+    });
 
     return res.status(200).json({ success: true, message: 'Contraseña restablecida exitosamente.' });
   } catch (error) {
