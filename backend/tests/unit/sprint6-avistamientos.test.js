@@ -132,32 +132,32 @@ describe('Sprint 6 — Avistamientos, QR y perfil público (DoD)', () => {
   }
 
   test('C5 — Perfil público accesible sin Authorization header → 200', async () => {
-    Mascota.findByPk.mockResolvedValue(buildMascotaPublica());
+    Mascota.findOne.mockResolvedValue(buildMascotaPublica());
     Reporte.findOne.mockResolvedValue(null);
-    const res = await request(app).get('/api/publico/mascotas/1');
+    const res = await request(app).get('/api/publico/mascotas/11111111-1111-4111-8111-111111111111');
     expect(res.status).toBe(200);
     expect(res.body.mascota).toBeDefined();
   });
 
   test('C5 — Perfil público incluye info del propietario', async () => {
-    Mascota.findByPk.mockResolvedValue(buildMascotaPublica());
+    Mascota.findOne.mockResolvedValue(buildMascotaPublica());
     Reporte.findOne.mockResolvedValue(null);
-    const res = await request(app).get('/api/publico/mascotas/1');
+    const res = await request(app).get('/api/publico/mascotas/11111111-1111-4111-8111-111111111111');
     expect(res.status).toBe(200);
     expect(res.body.propietario).toBeDefined();
     expect(res.body.propietario.nombre).toBe('Ana');
   });
 
   test('C5 — Perfil público de mascota inexistente → 404', async () => {
-    Mascota.findByPk.mockResolvedValue(null);
-    const res = await request(app).get('/api/publico/mascotas/999');
+    Mascota.findOne.mockResolvedValue(null);
+    const res = await request(app).get('/api/publico/mascotas/99999999-9999-4999-8999-999999999999');
     expect(res.status).toBe(404);
   });
 
   test('C5 — Perfil público muestra reporte_activo si hay pérdida activa', async () => {
-    Mascota.findByPk.mockResolvedValue(buildMascotaPublica());
+    Mascota.findOne.mockResolvedValue(buildMascotaPublica());
     Reporte.findOne.mockResolvedValue(buildReporte());
-    const res = await request(app).get('/api/publico/mascotas/1');
+    const res = await request(app).get('/api/publico/mascotas/11111111-1111-4111-8111-111111111111');
     expect(res.status).toBe(200);
     expect(res.body.reporte_activo).not.toBeNull();
   });

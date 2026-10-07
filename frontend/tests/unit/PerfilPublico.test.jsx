@@ -33,7 +33,7 @@ function renderPage(id = '1') {
   return render(
     <MemoryRouter initialEntries={[`/publico/mascotas/${id}`]}>
       <Routes>
-        <Route path="/publico/mascotas/:id" element={<PerfilPublico />} />
+        <Route path="/publico/mascotas/:codigo" element={<PerfilPublico />} />
       </Routes>
     </MemoryRouter>
   );

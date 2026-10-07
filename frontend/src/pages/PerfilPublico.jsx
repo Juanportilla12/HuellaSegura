@@ -19,7 +19,7 @@ const ESPECIE_COLORS = {
 };
 
 export default function PerfilPublico() {
-  const { id }   = useParams();
+  const { codigo } = useParams();
   const navigate = useNavigate();
 
   const [datos,    setDatos]    = useState(null);
@@ -27,11 +27,11 @@ export default function PerfilPublico() {
   const [error,    setError]    = useState('');
 
   useEffect(() => {
-    obtenerPerfilPublico(id)
+    obtenerPerfilPublico(codigo)
       .then(({ data }) => setDatos(data))
       .catch(() => setError('Mascota no encontrada.'))
       .finally(() => setCargando(false));
-  }, [id]);
+  }, [codigo]);
 
   async function handleCompartir() {
     const url = window.location.href;
@@ -281,13 +281,13 @@ export default function PerfilPublico() {
             variant="primary"
             size="lg"
             fullWidth
-            onClick={() => window.location.assign(`/avistamientos/nuevo?mascota_id=${mascota.id}`)}
+            onClick={() => window.location.assign(`/avistamientos/nuevo?mascota=${mascota.codigo_publico}`)}
             iconLeft={<Eye size={18} />}
           >
             ¡La vi! Reportar avistamiento
           </Button>
           <div className="mt-3">
-            <BotonesCompartir mascotaId={mascota.id} nombreMascota={mascota.nombre} buscando={Boolean(reporte_activo)} />
+            <BotonesCompartir codigoPublico={mascota.codigo_publico} nombreMascota={mascota.nombre} buscando={Boolean(reporte_activo)} />
           </div>
         </div>
       </motion.div>

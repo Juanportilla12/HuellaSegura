@@ -15,7 +15,7 @@ async function cartelMascota(req, res, next) {
 
     const datos = mascota.toPublicJSON();
     const [{ buffer: qrBuffer }, fotoBuffer] = await Promise.all([
-      generarQR(mascota.id),
+      generarQR(mascota.codigo_publico),
       descargarImagen(datos.foto_principal),
     ]);
 

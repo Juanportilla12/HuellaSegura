@@ -57,7 +57,7 @@ async function listarActivos(req, res, next) {
     const reportes = await Reporte.findAll({
       where: { estado: 'en_busqueda', moderado: false },
       include: [
-        { model: Mascota,  as: 'mascota',    attributes: ['id', 'nombre', 'especie', 'raza', 'sexo', 'color', 'foto_urls'] },
+        { model: Mascota,  as: 'mascota',    attributes: ['id', 'codigo_publico', 'nombre', 'especie', 'raza', 'sexo', 'color', 'foto_urls'] },
         { model: Usuario,  as: 'reportante', attributes: ['id', 'nombre'] },
       ],
       order: [['created_at', 'DESC']],
@@ -76,7 +76,7 @@ async function misReportes(req, res, next) {
   try {
     const reportes = await Reporte.findAll({
       where: { usuario_id: req.usuario.id },
-      include: [{ model: Mascota, as: 'mascota', attributes: ['id', 'nombre', 'especie', 'foto_urls'] }],
+      include: [{ model: Mascota, as: 'mascota', attributes: ['id', 'codigo_publico', 'nombre', 'especie', 'foto_urls'] }],
       order: [['created_at', 'DESC']],
     });
 

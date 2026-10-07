@@ -47,7 +47,7 @@ function AnimatedRoutes() {
           <Route path="/splash"               element={<Splash />} />
           <Route path="/login"                element={<Login />} />
           <Route path="/register"             element={<Register />} />
-          <Route path="/publico/mascotas/:id"  element={<PerfilPublico />} />
+          <Route path="/publico/mascotas/:codigo"  element={<PerfilPublico />} />
           <Route path="/avistamientos/nuevo"  element={<ReportarAvistamiento />} />
           <Route path="/olvide-contrasena"    element={<OlvideContrasena />} />
 

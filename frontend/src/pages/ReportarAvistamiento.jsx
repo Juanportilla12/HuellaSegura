@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronLeft, User, Mail, Eye, CheckCircle } from 'lucide-react';
@@ -20,13 +20,15 @@ const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const MAX_DESC = 500;
 const TEAL = 'linear-gradient(135deg,#26D6CD,#00C4B4)';
 
-function MascotaDesdeQR({ mascotaId }) {
+function MascotaDesdeQR({ codigo, onResuelta, onNoEncontrada }) {
   const t = useTokens();
   const [mascota, setMascota] = useState(null);
 
   useEffect(() => {
-    obtenerPerfilPublico(mascotaId).then(({ data }) => setMascota(data.mascota)).catch(() => {});
-  }, [mascotaId]);
+    obtenerPerfilPublico(codigo)
+      .then(({ data }) => { setMascota(data.mascota); onResuelta(String(data.mascota.id)); })
+      .catch(() => onNoEncontrada());
+  }, [codigo, onResuelta, onNoEncontrada]);
 
   return (
     <div className="flex items-center gap-3 p-2.5 rounded-2xl" style={{ background: t.secondaryBg }}
@@ -81,10 +83,11 @@ export default function ReportarAvistamiento() {
   const t = useTokens();
   const navigate = useNavigate();
   const [params] = useSearchParams();
-  const mascotaDesdeUrl = params.get('mascota_id') || '';
+  const codigoDesdeUrl = params.get('mascota') || '';
   const geocodeTimer = useRef(null);
 
-  const [mascotaId,   setMascotaId]   = useState(mascotaDesdeUrl);
+  const [mascotaId,   setMascotaId]   = useState('');
+  const [codigo,      setCodigo]      = useState(codigoDesdeUrl);
   const [coords,      setCoords]      = useState({ lat: null, lng: null });
   const [direccion,   setDireccion]   = useState('');
   const [descripcion, setDescripcion] = useState('');
@@ -95,6 +98,8 @@ export default function ReportarAvistamiento() {
   const [errorGlobal, setErrorGlobal] = useState('');
   const [enviando,    setEnviando]    = useState(false);
   const [exito,       setExito]       = useState(false);
+
+  const mascotaNoEncontrada = useCallback(() => setErrorGlobal('No encontramos esa mascota. Elige una de la lista.'), []);
 
   function handleCoordsChange(lat, lng) {
     setCoords({ lat, lng });
@@ -143,7 +148,7 @@ export default function ReportarAvistamiento() {
   if (exito) {
     return (
       <PantallaExito
-        onVerPerfil={() => navigate(`/publico/mascotas/${mascotaId}`)}
+        onVerPerfil={() => navigate(`/publico/mascotas/${codigo}`)}
         onInicio={() => navigate('/')} />
     );
   }
@@ -180,10 +185,10 @@ export default function ReportarAvistamiento() {
           </AnimatePresence>
 
           <SeccionFormulario paso={1} titulo="¿Qué mascota viste?">
-            {mascotaDesdeUrl
-              ? <MascotaDesdeQR mascotaId={mascotaDesdeUrl} />
+            {codigoDesdeUrl
+              ? <MascotaDesdeQR codigo={codigoDesdeUrl} onResuelta={setMascotaId} onNoEncontrada={mascotaNoEncontrada} />
               : <SelectorMascotaPerdida valor={mascotaId} error={errores.mascota}
-                  onCambio={(id) => { setMascotaId(id); setErrores((p) => ({ ...p, mascota: '' })); }} />}
+                  onCambio={(id, cod) => { setMascotaId(id); setCodigo(cod); setErrores((p) => ({ ...p, mascota: '' })); }} />}
           </SeccionFormulario>
 
           <SeccionFormulario paso={2} titulo="¿Dónde la viste?" sinRelleno>

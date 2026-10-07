@@ -13,6 +13,13 @@ const Mascota = sequelize.define(
       type: DataTypes.INTEGER.UNSIGNED,
       allowNull: false,
     },
+    // Identificador público no adivinable (QR y enlaces compartidos)
+    codigo_publico: {
+      type: DataTypes.CHAR(36),
+      allowNull: false,
+      unique: true,
+      defaultValue: DataTypes.UUIDV4,
+    },
     nombre: {
       type: DataTypes.STRING(100),
       allowNull: false,
@@ -81,6 +88,7 @@ const Mascota = sequelize.define(
 Mascota.prototype.toPublicJSON = function () {
   return {
     id: this.id,
+    codigo_publico: this.codigo_publico,
     usuario_id: this.usuario_id,
     nombre: this.nombre,
     especie: this.especie,

@@ -2,6 +2,7 @@ const { validationResult } = require('express-validator');
 const { Mascota } = require('../models');
 const { uploadBuffer } = require('../config/cloudinary');
 const { generarQR } = require('../services/qrService');
+const { eliminarArchivos, archivosDeMascotas } = require('../services/archivosService');
 
 const MAX_FOTOS = 5;
 
@@ -129,7 +130,10 @@ async function eliminar(req, res, next) {
       });
     }
 
+    // Se reúnen los archivos antes de borrar (los avistamientos se eliminan en cascada)
+    const archivos = await archivosDeMascotas([mascota]).catch(() => []);
     await mascota.destroy();
+    eliminarArchivos(archivos).catch(() => {});
 
     return res.status(200).json({ success: true, message: 'Mascota eliminada correctamente.' });
   } catch (error) {
@@ -223,7 +227,7 @@ async function descargarQR(req, res, next) {
     if (!mascota) {
       return res.status(404).json({ success: false, message: 'Mascota no encontrada.' });
     }
-    const { buffer } = await generarQR(mascota.id);
+    const { buffer } = await generarQR(mascota.codigo_publico);
     res.set({
       'Content-Type': 'image/png',
       'Content-Disposition': `attachment; filename="qr-${mascota.nombre.replace(/\s+/g, '-')}.png"`,

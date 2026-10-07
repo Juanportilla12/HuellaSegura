@@ -66,7 +66,7 @@ Las verificaciones E2E corresponden a `backend/tests/e2e/flujoCompleto.e2e.mjs` 
 | RNF-08 Chrome, Firefox, Safari | PENDIENTE | Probado en Chromium; falta Firefox y Safari |
 | RNF-09 Responsive 320–1920 px | IMPLEMENTADO | Diseño móvil; en escritorio se muestra centrado en una columna |
 | RNF-10 GitHub con ramas por sprint | PARCIAL | Commits descriptivos en `main`; no hay ramas por sprint en el historial |
-| RNF-11 Ley 1581 | IMPLEMENTADO | Consentimientos, perfil público mínimo, retiro de ubicación y eliminación de cuenta |
+| RNF-11 Ley 1581 | IMPLEMENTADO | Consentimientos, perfil público mínimo y no enumerable (código aleatorio en el QR), retiro de ubicación y eliminación de cuenta que también borra fotos y videos en Cloudinary |
 
 ## Diferencias entre el documento de la tesis y el sistema
 

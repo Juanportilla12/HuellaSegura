@@ -82,6 +82,8 @@ check('alertas_activas = true tras consentir', r.data.usuario.alertas_activas ==
 r = await req('POST', '/mascotas', { token: tDueno, body: { nombre: 'Luna', especie: 'perro', sexo: 'hembra', color: 'negro', raza: 'Criolla' } });
 check('R3 registro de mascota', r.status === 201);
 const mascotaId = r.data.mascota.id;
+const codigo = r.data.mascota.codigo_publico;
+check('Mascota con código público aleatorio (UUID)', /^[0-9a-f-]{36}$/.test(codigo || ''));
 r = await req('GET', `/mascotas/${mascotaId}`, { token: tVecino });
 check('Otro usuario no ve la mascota privada', r.status === 404);
 
@@ -107,7 +109,8 @@ const enMapa = (r.data.reportes || []).find((x) => x.id === reporteId);
 check('R10 reporte visible en listado público', Boolean(enMapa) && enMapa.mascota.nombre === 'Luna');
 
 // HU-23 perfil público + Ley 1581
-r = await req('GET', `/publico/mascotas/${mascotaId}`);
+r = await req('GET', `/publico/mascotas/${codigo}`);
+check('Ley 1581: el id numérico no abre el perfil (no enumerable)', (await req('GET', `/publico/mascotas/${mascotaId}`)).status === 404);
 check('HU-23 perfil público sin login', r.status === 200 && r.data.reporte_activo?.id === reporteId);
 check('Ley 1581: solo primer nombre y teléfono', r.data.propietario?.nombre === 'Ana' && r.data.propietario?.telefono === dueno.celular);
 check('Ley 1581: sin correo en el perfil público', !JSON.stringify(r.data).includes(dueno.email));
@@ -128,9 +131,9 @@ buf = Buffer.from(await bin.arrayBuffer());
 check('HU-31 cartel PDF', bin.status === 200 && buf.slice(0, 4).toString() === '%PDF');
 
 // HU-29 compartir con vista previa
-bin = await fetch(`${API}/publico/compartir/mascotas/${mascotaId}`);
+bin = await fetch(`${API}/publico/compartir/mascotas/${codigo}`);
 const html = await bin.text();
-check('HU-29 página Open Graph', bin.status === 200 && html.includes('og:title') && html.includes(`/publico/mascotas/${mascotaId}`));
+check('HU-29 página Open Graph', bin.status === 200 && html.includes('og:title') && html.includes(`/publico/mascotas/${codigo}`));
 
 // Admin
 await sql(`UPDATE usuarios SET rol='admin' WHERE email='${admin.email}'`);

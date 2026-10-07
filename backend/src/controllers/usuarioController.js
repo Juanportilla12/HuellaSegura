@@ -1,5 +1,6 @@
 const { validationResult } = require('express-validator');
 const { uploadBuffer } = require('../config/cloudinary');
+const { eliminarArchivos, archivosDeUsuario } = require('../services/archivosService');
 
 async function actualizarRadioAlerta(req, res, next) {
   try {
@@ -93,7 +94,10 @@ async function eliminarCuenta(req, res, next) {
     if (!passwordValida) {
       return res.status(401).json({ success: false, message: 'Contraseña incorrecta.' });
     }
+    const archivos = await archivosDeUsuario(req.usuario).catch(() => []);
     await req.usuario.destroy();
+    // Fotos y videos en Cloudinary (no bloquea la respuesta)
+    eliminarArchivos(archivos).catch(() => {});
     return res.status(200).json({ success: true, message: 'Tu cuenta y tus datos fueron eliminados.' });
   } catch (error) { next(error); }
 }

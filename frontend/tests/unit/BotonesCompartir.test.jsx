@@ -12,7 +12,7 @@ Object.defineProperty(window, 'location', {
 function renderBotones(props = {}) {
   return render(
     <MemoryRouter>
-      <BotonesCompartir mascotaId={1} nombreMascota="Firulais" {...props} />
+      <BotonesCompartir codigoPublico="11111111-1111-4111-8111-111111111111" nombreMascota="Firulais" {...props} />
     </MemoryRouter>
   );
 }
@@ -28,7 +28,7 @@ describe('BotonesCompartir', () => {
     renderBotones();
     const btn = screen.getByTestId('btn-facebook');
     expect(btn.href).toContain('facebook.com/sharer');
-    expect(btn.href).toContain(encodeURIComponent('/publico/compartir/mascotas/1'));
+    expect(btn.href).toContain(encodeURIComponent('/publico/compartir/mascotas/11111111-1111-4111-8111-111111111111'));
   });
 
   test('El link de WhatsApp contiene el texto y la URL correctos', () => {
@@ -36,7 +36,7 @@ describe('BotonesCompartir', () => {
     const btn = screen.getByTestId('btn-whatsapp');
     expect(btn.href).toContain('wa.me');
     expect(decodeURIComponent(btn.href)).toContain('Firulais');
-    expect(decodeURIComponent(btn.href)).toContain('/publico/compartir/mascotas/1');
+    expect(decodeURIComponent(btn.href)).toContain('/publico/compartir/mascotas/11111111-1111-4111-8111-111111111111');
   });
 
   test('Los links abren en pestaña nueva (_blank)', () => {
@@ -52,12 +52,12 @@ describe('BotonesCompartir', () => {
   });
 
   test('Genera URLs distintas para mascotas distintas', () => {
-    const { rerender } = renderBotones({ mascotaId: 5, nombreMascota: 'Luna' });
+    const { rerender } = renderBotones({ codigoPublico: '55555555-5555-4555-8555-555555555555', nombreMascota: 'Luna' });
     const fb5 = screen.getByTestId('btn-facebook').href;
 
     rerender(
       <MemoryRouter>
-        <BotonesCompartir mascotaId={99} nombreMascota="Rocky" />
+        <BotonesCompartir codigoPublico="99999999-9999-4999-8999-999999999999" nombreMascota="Rocky" />
       </MemoryRouter>
     );
     const fb99 = screen.getByTestId('btn-facebook').href;

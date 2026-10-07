@@ -7,7 +7,7 @@ npm run migrate                              # crear/actualizar el esquema
 npx sequelize-cli db:migrate:undo:all        # revertir todo
 ```
 
-Las 15 migraciones se probaron desde una base vacía en MySQL 8: se aplican, se revierten completas y se vuelven a aplicar sin errores.
+Las 17 migraciones se probaron desde una base vacía en MySQL 8: se aplican, se revierten completas y se vuelven a aplicar sin errores.
 
 ## Modelo entidad-relación (implementado)
 
@@ -33,13 +33,15 @@ erDiagram
     bool activo
     decimal ubicacion_lat "solo con consentimiento"
     decimal ubicacion_lng
-    varchar reset_code
+    varchar reset_code "hash bcrypt"
+    int reset_intentos
     datetime reset_code_expires
     varchar foto_url
   }
   MASCOTAS {
     int id PK
     int usuario_id FK
+    char codigo_publico UK "UUID v4 del QR"
     varchar nombre
     enum especie "perro|gato|ave|reptil|otro"
     varchar raza
@@ -114,7 +116,7 @@ Todas las tablas tienen `created_at` y `updated_at`.
 | Tabla | Índice | Uso |
 |---|---|---|
 | `usuarios` | `email` (único) | Login y registro |
-| `mascotas` | `usuario_id`, `especie`, `microchip` (único) | "Mis mascotas", filtro por especie |
+| `mascotas` | `usuario_id`, `especie`, `microchip` (único), `codigo_publico` (único) | "Mis mascotas", filtro por especie |
 | `reportes` | `estado`, `usuario_id`, `mascota_id`, `(estado, moderado, created_at)`, `(latitud, longitud)` | Mapa de reportes activos, "mis reportes", reporte semanal |
 | `notificaciones` | `(usuario_id, leida)` | Panel y contador de no leídas |
 | `avistamientos` | `mascota_id`, `created_at` | Historial y estadísticas del mes |
@@ -137,6 +139,8 @@ En la prueba E2E, el listado de reportes activos respondió en 19 ms (RNF-02 exi
 | 13 | add-video-to-mascotas | R5: video |
 | 14 | add-indices-consultas | Índices del Sprint 9 |
 | 15 | fix-fk-duplicada-notificaciones | Corrige el resultado de la migración 7 |
+| 16 | reset-code-cifrado-e-intentos | Código de recuperación cifrado (bcrypt) y máximo 5 intentos |
+| 17 | add-codigo-publico-to-mascotas | Código público aleatorio (UUID v4) para el QR y los enlaces: los perfiles no se pueden recorrer por id |
 
 **Sobre la migración 15:** la migración 7 intentaba borrar la clave foránea `notificaciones_ibfk_3`, pero MySQL la había creado como `notificaciones_ibfk_2` y el error se ignoraba. `reporte_id` quedaba con dos claves (CASCADE y SET NULL) y prevalecía CASCADE. La migración 7 no se modificó porque ya estaba aplicada en producción; la 15 elimina la clave sobrante sin depender de su nombre.
 

@@ -1,9 +1,17 @@
 const { Mascota, Usuario, Reporte } = require('../models');
 
+// Formato del código público (UUID). Cualquier otro valor se trata como inexistente.
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+function buscarPorCodigo(codigo, opciones) {
+  if (!UUID_REGEX.test(codigo || '')) return null;
+  return Mascota.findOne({ where: { codigo_publico: codigo.toLowerCase() }, ...opciones });
+}
+
 async function obtenerPerfil(req, res, next) {
   try {
-    const mascota = await Mascota.findByPk(req.params.id, {
-      attributes: ['id', 'nombre', 'especie', 'raza', 'sexo', 'color', 'descripcion', 'microchip', 'foto_urls', 'video_url'],
+    const mascota = await buscarPorCodigo(req.params.codigo, {
+      attributes: ['id', 'codigo_publico', 'nombre', 'especie', 'raza', 'sexo', 'color', 'descripcion', 'microchip', 'foto_urls', 'video_url'],
       include: [{ model: Usuario, as: 'propietario', attributes: ['id', 'nombre', 'celular'] }],
     });
 
@@ -20,6 +28,7 @@ async function obtenerPerfil(req, res, next) {
       success: true,
       mascota: {
         id: mascota.id,
+        codigo_publico: mascota.codigo_publico,
         nombre: mascota.nombre,
         especie: mascota.especie,
         raza: mascota.raza,
@@ -63,8 +72,8 @@ function esc(valor) {
  */
 async function paginaCompartir(req, res, next) {
   try {
-    const mascota = await Mascota.findByPk(req.params.id, {
-      attributes: ['id', 'nombre', 'especie', 'raza', 'color', 'foto_urls'],
+    const mascota = await buscarPorCodigo(req.params.codigo, {
+      attributes: ['id', 'codigo_publico', 'nombre', 'especie', 'raza', 'color', 'foto_urls'],
     });
     if (!mascota) return res.status(404).send('Mascota no encontrada.');
 
@@ -74,7 +83,7 @@ async function paginaCompartir(req, res, next) {
     });
 
     const frontend = process.env.FRONTEND_URL || 'http://localhost:5173';
-    const destino = `${frontend}/publico/mascotas/${mascota.id}`;
+    const destino = `${frontend}/publico/mascotas/${mascota.codigo_publico}`;
     const titulo = reporteActivo
       ? `¡Se busca a ${mascota.nombre}! — HuellaSegura`
       : `${mascota.nombre} — HuellaSegura`;

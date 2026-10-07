@@ -12,8 +12,8 @@ import { urlCompartirMascota } from '../services/perfilPublicoService';
 
 // HU-29: compartir en Facebook y WhatsApp sin iniciar sesión.
 // El enlace apunta a la API, que entrega la vista previa (foto y nombre) y redirige al perfil.
-export default function BotonesCompartir({ mascotaId, nombreMascota, buscando = false }) {
-  const urlCompartir = urlCompartirMascota(mascotaId);
+export default function BotonesCompartir({ codigoPublico, nombreMascota, buscando = false }) {
+  const urlCompartir = urlCompartirMascota(codigoPublico);
   const texto = buscando
     ? `🐾 ¡Ayúdame a encontrar a ${nombreMascota}! Se perdió en Pasto. Mira su perfil en HuellaSegura:`
     : `🐾 Conoce a ${nombreMascota} en HuellaSegura:`;

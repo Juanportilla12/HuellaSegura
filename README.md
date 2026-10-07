@@ -56,7 +56,7 @@ HuellaSegura reúne en una sola plataforma web (instalable como PWA) el registro
 | HU-22, HU-23 | Código QR único por mascota (descargable en PNG) que lleva a un perfil público sin inicio de sesión. |
 | HU-25 a HU-28 | Panel de administración: estadísticas, activación/desactivación de usuarios, moderación de reportes y gestión del directorio de entidades aliadas (también visibles en el mapa). |
 | HU-29 a HU-31 | Compartir en Facebook y WhatsApp con vista previa, reporte semanal en PDF (automático cada lunes y bajo demanda) y cartel A4 en PDF con foto, datos y QR. |
-| RNF-11 (Ley 1581 de 2012) | Autorización de tratamiento de datos al registrarse, perfil público con solo el primer nombre y el teléfono, retiro del consentimiento de ubicación y eliminación de la cuenta. |
+| RNF-11 (Ley 1581 de 2012) | Autorización de tratamiento de datos al registrarse, perfil público con solo el primer nombre y el teléfono, al que solo se llega con el código aleatorio del QR; retiro del consentimiento de ubicación y eliminación de la cuenta (incluidas fotos y videos). |
 
 La correspondencia completa requisito → código está en [docs/TRAZABILIDAD.md](docs/TRAZABILIDAD.md).
 
@@ -112,7 +112,7 @@ HuellaSegura/
 ├── backend/
 │   ├── server.js                 # Arranque: valida entorno, conecta BD, programa tareas
 │   ├── railway.json              # Configuración de despliegue (migra y arranca)
-│   ├── migrations/               # 15 migraciones Sequelize (esquema completo)
+│   ├── migrations/               # 17 migraciones Sequelize (esquema completo)
 │   ├── src/
 │   │   ├── app.js                # Express: seguridad, CORS, rate limit, rutas, errores
 │   │   ├── config/               # BD, JWT, Cloudinary, validación de variables de entorno
@@ -224,7 +224,7 @@ Base: `/api`. 🔒 = requiere `Authorization: Bearer <token>`; 👑 = solo admin
 | Mascotas | 🔒`GET/POST /mascotas` · 🔒`GET/PUT/DELETE /mascotas/:id` · 🔒`POST /mascotas/:id/fotos` · 🔒`POST /mascotas/:id/video` · 🔒`GET /mascotas/:id/qr` · 🔒`GET /mascotas/:id/cartel-pdf` |
 | Reportes | `GET /reportes` (activos, público) · 🔒`GET /reportes/mis-reportes` · 🔒`POST /reportes` · 🔒`PUT /reportes/:id/estado` |
 | Avistamientos | `POST /avistamientos` (público, foto opcional) |
-| Perfil público | `GET /publico/mascotas/:id` · `GET /publico/compartir/mascotas/:id` (vista previa para redes) |
+| Perfil público | `GET /publico/mascotas/:codigo` · `GET /publico/compartir/mascotas/:codigo` (vista previa para redes); `:codigo` es el UUID del QR |
 | Notificaciones | 🔒`GET /notificaciones` · 🔒`PUT /notificaciones/:id/leer` · 🔒`PUT /notificaciones/leer-todas` · 🔒`GET /sse/eventos` (tiempo real) |
 | Entidades aliadas | `GET /entidades-aliadas` · 👑`POST` · 👑`PUT /:id` · 👑`DELETE /:id` |
 | Administración | 👑`GET /admin/estadisticas` · 👑`GET /admin/usuarios` · 👑`PUT /admin/usuarios/:id/estado` · 👑`GET /admin/reportes` · 👑`PUT /admin/reportes/:id/moderar` · 👑`GET /admin/reportes/semanal-pdf` |
@@ -233,8 +233,8 @@ Base: `/api`. 🔒 = requiere `Authorization: Bearer <token>`; 👑 = solo admin
 ## Pruebas
 
 ```bash
-cd backend && npm test          # 190 pruebas unitarias y de integración (sin BD real)
-cd frontend && npx vitest run   # 78 pruebas de componentes y páginas
+cd backend && npm test          # 195 pruebas unitarias y de integración (sin BD real)
+cd frontend && npx vitest run   # 86 pruebas de componentes y páginas
 ```
 
 **Estilo de código (ESLint):**
@@ -244,7 +244,7 @@ cd backend && npm run lint
 cd frontend && npm run lint
 ```
 
-**Prueba de extremo a extremo** (43 verificaciones de R1–R11 y RNF contra MySQL real). Con el backend corriendo sobre una base de datos de prueba:
+**Prueba de extremo a extremo** (45 verificaciones de R1–R11 y RNF contra MySQL real). Con el backend corriendo sobre una base de datos de prueba:
 
 ```bash
 cd backend && npm run test:e2e

@@ -59,14 +59,14 @@ describe('Autenticación — el token en la URL solo se acepta en /sse', () => {
 
 describe('Ley 1581 — privacidad y derechos del titular', () => {
   test('El perfil público muestra solo primer nombre y teléfono, nunca el correo', async () => {
-    Mascota.findByPk.mockResolvedValue({
+    Mascota.findOne.mockResolvedValue({
       id: 4, nombre: 'Luna', especie: 'perro', raza: null, sexo: 'hembra', color: 'negro',
       descripcion: null, foto_urls: [], video_url: null,
       propietario: { id: 2, nombre: 'Ana García', celular: '3001234567', email: 'ana@example.com' },
     });
     Reporte.findOne.mockResolvedValue(null);
 
-    const res = await request(app).get('/api/publico/mascotas/4');
+    const res = await request(app).get('/api/publico/mascotas/44444444-4444-4444-8444-444444444444');
     expect(res.status).toBe(200);
     expect(res.body.propietario).toEqual({ nombre: 'Ana', telefono: '3001234567' });
     expect(JSON.stringify(res.body)).not.toContain('ana@example.com');
@@ -205,5 +205,19 @@ describe('Servicio de almacenamiento', () => {
 
     expect(res.status).toBe(502);
     expect(res.body.message).toMatch(/servicio de almacenamiento/);
+  });
+});
+
+describe('Ley 1581 — perfiles públicos no enumerables', () => {
+  test('Un id numérico ya no abre ningún perfil (no se puede recorrer 1, 2, 3…)', async () => {
+    const res = await request(app).get('/api/publico/mascotas/1');
+    expect(res.status).toBe(404);
+    expect(Mascota.findOne).not.toHaveBeenCalled();
+  });
+
+  test('El perfil se busca por el código público (UUID)', async () => {
+    Mascota.findOne.mockResolvedValue(null);
+    await request(app).get('/api/publico/mascotas/0F8FAD5B-D9CB-469F-A165-70867728950E');
+    expect(Mascota.findOne.mock.calls[0][0].where).toEqual({ codigo_publico: '0f8fad5b-d9cb-469f-a165-70867728950e' });
   });
 });

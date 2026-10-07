@@ -33,7 +33,7 @@ describe('Sprint 6 — Reportar avistamiento (R7 / R11)', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     listarReportesActivos.mockResolvedValue({ data: { reportes: REPORTES } });
-    obtenerPerfilPublico.mockResolvedValue({ data: { mascota: { id: 5, nombre: 'Luna', especie: 'perro' } } });
+    obtenerPerfilPublico.mockResolvedValue({ data: { mascota: { id: 5, codigo_publico: '55555555-5555-4555-8555-555555555555', nombre: 'Luna', especie: 'perro' } } });
   });
 
   test('Sin QR, muestra la lista de mascotas perdidas para elegir (no pide un ID)', async () => {
@@ -65,16 +65,17 @@ describe('Sprint 6 — Reportar avistamiento (R7 / R11)', () => {
 
   test('Desde el QR la mascota ya viene elegida', async () => {
     crearAvistamiento.mockResolvedValue({ data: { success: true } });
-    renderPage('/avistamientos/nuevo?mascota_id=5');
+    renderPage('/avistamientos/nuevo?mascota=55555555-5555-4555-8555-555555555555');
     expect(await screen.findByTestId('mascota-desde-qr')).toHaveTextContent('Luna');
     fireEvent.click(screen.getByTestId('simular-ubicacion'));
     fireEvent.submit(screen.getByTestId('form-avistamiento'));
     await waitFor(() => expect(crearAvistamiento.mock.calls[0][0].mascota_id).toBe(5));
+    expect(obtenerPerfilPublico).toHaveBeenCalledWith('55555555-5555-4555-8555-555555555555');
   });
 
   test('Si el servidor falla NO muestra éxito falso', async () => {
     crearAvistamiento.mockRejectedValue({ response: { status: 500, data: { message: 'Error interno del servidor.' } } });
-    renderPage('/avistamientos/nuevo?mascota_id=5');
+    renderPage('/avistamientos/nuevo?mascota=55555555-5555-4555-8555-555555555555');
     await screen.findByTestId('mascota-desde-qr');
     fireEvent.click(screen.getByTestId('simular-ubicacion'));
     fireEvent.submit(screen.getByTestId('form-avistamiento'));
@@ -84,7 +85,7 @@ describe('Sprint 6 — Reportar avistamiento (R7 / R11)', () => {
 
   test('Muestra el mensaje del límite de envíos (429)', async () => {
     crearAvistamiento.mockRejectedValue({ response: { status: 429, data: { message: 'Has enviado varios avistamientos seguidos.' } } });
-    renderPage('/avistamientos/nuevo?mascota_id=5');
+    renderPage('/avistamientos/nuevo?mascota=55555555-5555-4555-8555-555555555555');
     await screen.findByTestId('mascota-desde-qr');
     fireEvent.click(screen.getByTestId('simular-ubicacion'));
     fireEvent.submit(screen.getByTestId('form-avistamiento'));

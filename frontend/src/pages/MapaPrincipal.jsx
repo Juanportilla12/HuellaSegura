@@ -124,8 +124,8 @@ export default function MapaPrincipal() {
         {seleccion && (
           <FichaReporte reporte={seleccion} ubicacionUsuario={ubicacionUsuario}
             onCerrar={() => setSeleccion(null)}
-            onVerDetalles={() => navigate(`/publico/mascotas/${seleccion.mascota_id}`)}
-            onReportarAvistamiento={() => navigate(`/avistamientos/nuevo?mascota_id=${seleccion.mascota_id}`)} />
+            onVerDetalles={() => navigate(`/publico/mascotas/${seleccion.mascota?.codigo_publico}`)}
+            onReportarAvistamiento={() => navigate(`/avistamientos/nuevo?mascota=${seleccion.mascota?.codigo_publico}`)} />
         )}
       </AnimatePresence>
 

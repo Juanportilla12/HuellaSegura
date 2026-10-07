@@ -69,6 +69,7 @@ Reporte.prototype.toPublicJSON = function () {
     created_at: this.created_at,
     mascota: this.mascota ? {
       id: this.mascota.id,
+      codigo_publico: this.mascota.codigo_publico,
       nombre: this.mascota.nombre,
       especie: this.mascota.especie,
       raza: this.mascota.raza || null,

@@ -6,6 +6,7 @@ import { Share2, Download, Printer, CheckCircle, ChevronLeft } from 'lucide-reac
 import { useTokens } from '../hooks/useTokens';
 import { obtenerMascota } from '../services/mascotaService';
 import BotonesCompartir from '../components/BotonesCompartir';
+import { urlPerfilPublico } from '../services/perfilPublicoService';
 
 const ESPECIE_EMOJIS = { perro:'🐶', gato:'🐱', ave:'🐦', reptil:'🦎', otro:'🐾' };
 
@@ -26,7 +27,8 @@ export default function CarnetQR() {
       .finally(() => setCargando(false));
   }, [id, navigate]);
 
-  const publicUrl = `${window.location.origin}/publico/mascotas/${id}`;
+  // El QR usa el código público aleatorio de la mascota, no su id interno
+  const publicUrl = mascota ? urlPerfilPublico(mascota.codigo_publico) : '';
   const hsId      = `HS-PT-${String(id).padStart(5, '0')}`;
   const emoji     = ESPECIE_EMOJIS[mascota?.especie] || '🐾';
 
@@ -185,7 +187,7 @@ export default function CarnetQR() {
       </div>
       {mascota && (
         <div className="mx-5 mt-3">
-          <BotonesCompartir mascotaId={mascota.id} nombreMascota={mascota.nombre} />
+          <BotonesCompartir codigoPublico={mascota.codigo_publico} nombreMascota={mascota.nombre} />
         </div>
       )}
     </div>

@@ -75,11 +75,11 @@ describe('Flujo completo: QR público', () => {
   });
 
   test('3. Perfil público es accesible sin autenticación (sin token JWT)', async () => {
-    Mascota.findByPk.mockResolvedValue(MASCOTA_MOCK);
+    Mascota.findOne.mockResolvedValue(MASCOTA_MOCK);
     Reporte.findOne.mockResolvedValue(null);
 
     const res = await request(app)
-      .get('/api/publico/mascotas/7');
+      .get('/api/publico/mascotas/77777777-7777-4777-8777-777777777777');
       // IMPORTANTE: sin header Authorization
 
     expect(res.status).toBe(200);
@@ -88,11 +88,11 @@ describe('Flujo completo: QR público', () => {
   });
 
   test('4. Perfil público NO expone datos privados del propietario (Ley 1581)', async () => {
-    Mascota.findByPk.mockResolvedValue(MASCOTA_MOCK);
+    Mascota.findOne.mockResolvedValue(MASCOTA_MOCK);
     Reporte.findOne.mockResolvedValue(null);
 
     const res = await request(app)
-      .get('/api/publico/mascotas/7');
+      .get('/api/publico/mascotas/77777777-7777-4777-8777-777777777777');
 
     expect(res.status).toBe(200);
     // El propietario debe aparecer con nombre pero SIN email

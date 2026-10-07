@@ -60,7 +60,7 @@ export default function SelectorMascotaPerdida({ valor, onCambio, error }) {
           return (
             <button key={r.id} type="button" role="radio" aria-checked={activo}
               data-testid={`opcion-mascota-${m.id}`}
-              onClick={() => onCambio(String(m.id))}
+              onClick={() => onCambio(String(m.id), m.codigo_publico)}
               className="flex items-center gap-3 p-2.5 rounded-2xl text-left"
               style={{
                 background: activo ? t.secondaryBg : t.surface2,

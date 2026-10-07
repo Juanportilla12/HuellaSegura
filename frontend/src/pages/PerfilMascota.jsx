@@ -5,6 +5,7 @@ import { ChevronLeft, MapPin, QrCode, Share2 } from 'lucide-react';
 import { useTokens } from '../hooks/useTokens';
 import { obtenerMascota } from '../services/mascotaService';
 import { misReportes } from '../services/reporteService';
+import { urlPerfilPublico } from '../services/perfilPublicoService';
 import BottomNav from '../components/ui/BottomNav';
 
 const ESPECIE_EMOJIS = { perro:'🐶', gato:'🐱', ave:'🐦', reptil:'🦎', otro:'🐾' };
@@ -54,7 +55,7 @@ export default function PerfilMascota() {
   const chips     = [mascota.raza, mascota.edad ? `${mascota.edad} ${mascota.edad_unidad || 'años'}` : null, mascota.sexo, mascota.color].filter(Boolean);
 
   async function handleCompartir() {
-    const url = `${window.location.origin}/publico/mascotas/${id}`;
+    const url = urlPerfilPublico(mascota.codigo_publico);
     if (navigator.share) {
       try { await navigator.share({ title: `${mascota.nombre} — HuellaSegura`, url }); } catch { /* el usuario canceló */ }
     } else {
