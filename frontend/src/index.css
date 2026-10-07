@@ -3,7 +3,7 @@
 @tailwind utilities;
 
 /* ─── Google Fonts ──────────────────────────────────────────────────────────── */
-/* Las fuentes se cargan desde index.html sin bloquear el primer render (RNF-01) */
+/* Las fuentes se cargan una sola vez desde index.html (RNF-01) */
 
 /* ─── CSS Variables (design tokens) ─────────────────────────────────────────── */
 @layer base {
