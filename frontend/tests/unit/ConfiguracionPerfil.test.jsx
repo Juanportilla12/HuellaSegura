@@ -9,6 +9,7 @@ vi.mock('../../src/context/AuthContext', () => ({
   useAuth: () => ({
     usuario: { id: 1, nombre: 'Ana García', email: 'ana@example.com', radio_alerta: 5 },
     logout: vi.fn(),
+    actualizarUsuario: vi.fn(),
   }),
 }));
 

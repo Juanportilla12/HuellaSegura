@@ -3,6 +3,7 @@ import { MapContainer, TileLayer, Marker, useMapEvents, useMap } from 'react-lea
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { TILE_URL, TILE_ATTRIBUTION, CENTRO_PASTO } from '../config/mapa';
+import { useTokens } from '../hooks/useTokens';
 
 
 // Pin con efecto radar/pulso
@@ -61,6 +62,7 @@ function FlyTo({ coords }) {
 }
 
 export default function MapaSelector({ coords, onCoordsChange, address }) {
+  const t = useTokens();
   return (
     <div data-testid="mapa-selector" style={{ width: '100%' }}>
       <MapContainer
@@ -81,9 +83,9 @@ export default function MapaSelector({ coords, onCoordsChange, address }) {
       {address && (
         <div
           className="px-4 py-2.5 flex items-center gap-2"
-          style={{ background: '#FFF0EA', borderTop: '1px solid #EDE5E1' }}
+          style={{ background: t.primaryBg, borderTop: `1px solid ${t.border}` }}
         >
-          <span className="text-xs font-bold uppercase tracking-widest" style={{ color: '#F97B62' }}>
+          <span className="text-xs font-bold uppercase tracking-widest" style={{ color: t.primary }}>
             📍 {address}
           </span>
         </div>

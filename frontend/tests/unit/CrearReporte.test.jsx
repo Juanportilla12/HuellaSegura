@@ -2,6 +2,7 @@ import { describe, test, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import CrearReporte from '../../src/pages/CrearReporte';
+import { ThemeProvider } from '../../src/providers/ThemeProvider';
 
 // ─── Mocks ────────────────────────────────────────────────────────────────────
 const mockNavigate = vi.fn();
@@ -42,7 +43,7 @@ const MASCOTAS = [
 ];
 
 function renderPage(url = '/reportes/nuevo') {
-  return render(<MemoryRouter initialEntries={[url]}><CrearReporte /></MemoryRouter>);
+  return render(<ThemeProvider><MemoryRouter initialEntries={[url]}><CrearReporte /></MemoryRouter></ThemeProvider>);
 }
 
 // ─── Suite — Sprint 3 — HU-09 Crear reporte de pérdida ────────────────────────
