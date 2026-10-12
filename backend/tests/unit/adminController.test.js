@@ -124,7 +124,33 @@ describe('adminController', () => {
 
     expect(res.status).toBe(200);
     expect(res.body.success).toBe(true);
+    expect(res.body.moderado).toBe(true);
     expect(mockReporte.update).toHaveBeenCalledWith({ moderado: true });
+  });
+
+  test('PUT /admin/reportes/:id/moderar sobre un reporte oculto → lo vuelve a mostrar', async () => {
+    const mockReporte = { id: 3, moderado: true, update: jest.fn().mockResolvedValue({}) };
+    Reporte.findByPk.mockResolvedValue(mockReporte);
+
+    const res = await request(app)
+      .put('/api/admin/reportes/3/moderar')
+      .set('Authorization', `Bearer ${TOKEN_ADMIN}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body.moderado).toBe(false);
+    expect(mockReporte.update).toHaveBeenCalledWith({ moderado: false });
+  });
+
+  test('GET /admin/reportes incluye la mascota y quién lo publicó', async () => {
+    Reporte.findAll.mockResolvedValue([]);
+
+    const res = await request(app)
+      .get('/api/admin/reportes')
+      .set('Authorization', `Bearer ${TOKEN_ADMIN}`);
+
+    expect(res.status).toBe(200);
+    const { include } = Reporte.findAll.mock.calls[0][0];
+    expect(include.map((i) => i.as)).toEqual(['mascota', 'reportante']);
   });
 
   test('401 si intenta moderar sin token', async () => {

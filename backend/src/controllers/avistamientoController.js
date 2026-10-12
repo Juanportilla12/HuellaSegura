@@ -12,7 +12,7 @@ async function crear(req, res, next) {
       return res.status(400).json({ success: false, errors: errors.array() });
     }
 
-    const { mascota_id, latitud, longitud, descripcion, nombre_testigo, email_testigo } = req.body;
+    const { mascota_id, latitud, longitud, descripcion, nombre_testigo, email_testigo, telefono_testigo } = req.body;
 
     const mascota = await Mascota.findByPk(mascota_id, {
       include: [{ model: Usuario, as: 'propietario', attributes: ['id', 'nombre', 'email'] }],
@@ -47,13 +47,14 @@ async function crear(req, res, next) {
       foto_url,
       nombre_testigo: nombre_testigo || null,
       email_testigo: email_testigo || null,
+      telefono_testigo,
     });
 
     // Notificación in-app al propietario
     await Notificacion.create({
       usuario_id: mascota.propietario.id,
       reporte_id: reporteActivo?.id || null,
-      mensaje: `¡Alguien vio a ${mascota.nombre}! Se registró un avistamiento cerca de lat:${parseFloat(latitud).toFixed(4)}, lng:${parseFloat(longitud).toFixed(4)}.`,
+      mensaje: `¡Alguien vio a ${mascota.nombre}! Contacta a quien la vio al ${telefono_testigo}. Revisa el mapa para ver dónde.`,
       tipo: 'avistamiento',
     });
 
@@ -69,7 +70,7 @@ async function crear(req, res, next) {
     if (recientes === 0) enviarCorreoAvistamiento({
       propietario: { email: mascota.propietario.email, nombre: mascota.propietario.nombre },
       mascota: { nombre: mascota.nombre },
-      avistamiento: { latitud, longitud, descripcion, nombre_testigo, foto_url },
+      avistamiento: { latitud, longitud, descripcion, nombre_testigo, telefono_testigo, foto_url },
     }).catch(console.error);
 
     return res.status(201).json({

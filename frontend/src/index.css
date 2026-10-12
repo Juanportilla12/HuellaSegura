@@ -2,34 +2,9 @@
 @tailwind components;
 @tailwind utilities;
 
-/* ─── Google Fonts ──────────────────────────────────────────────────────────── */
 /* Las fuentes se cargan una sola vez desde index.html (RNF-01) */
 
-/* ─── CSS Variables (design tokens) ─────────────────────────────────────────── */
 @layer base {
-  :root {
-    --primary:        #F97B62;
-    --primary-light:  #FFD0BF;
-    --primary-dark:   #E8614A;
-    --teal:           #00C4B4;
-    --teal-light:     #E0F9F7;
-    --warm-bg:        #FFF8F5;
-    --warm-border:    #EDE5E1;
-    --text-primary:   #1A1A2E;
-    --text-secondary: #6B7280;
-    --text-muted:     #9CA3AF;
-    --surface:        #FFFFFF;
-  }
-
-  .dark {
-    --warm-bg:        #161622;
-    --warm-border:    #323250;
-    --text-primary:   #F1F0FF;
-    --text-secondary: #9CA3AF;
-    --text-muted:     #6B7280;
-    --surface:        #1E1E30;
-  }
-
   *, *::before, *::after { box-sizing: border-box; }
 
   html {
@@ -50,173 +25,37 @@
   }
 
   input, textarea, select, button { font-family: inherit; }
+
+  /* Edge agrega su propio botón para ver la contraseña; la app ya tiene uno accesible */
+  input::-ms-reveal, input::-ms-clear { display: none; }
 }
 
-/* ─── Component layer ─────────────────────────────────────────────────────────── */
-@layer components {
-  .page-wrapper {
-    @apply min-h-screen w-full max-w-mobile mx-auto relative;
-  }
-
-  .card {
-    @apply bg-white dark:bg-dark-700 rounded-3xl shadow-card;
-  }
-
-  .input-base {
-    @apply w-full bg-warm-50 dark:bg-dark-600
-           border border-warm-border dark:border-dark-500
-           rounded-2xl px-4 py-3.5
-           text-dark-900 dark:text-white
-           placeholder-warm-400
-           outline-none
-           transition-all duration-150
-           focus:border-primary focus:ring-2 focus:ring-primary/20
-           disabled:opacity-50 disabled:cursor-not-allowed;
-  }
-
-  .chip {
-    @apply inline-flex items-center gap-1 px-3 py-1
-           rounded-full text-sm font-medium
-           transition-all duration-150;
-  }
-
-  .nav-item {
-    @apply flex flex-col items-center justify-center gap-0.5
-           flex-1 py-2 text-xs font-medium
-           text-dark-300 dark:text-dark-400
-           transition-colors duration-150
-           select-none;
-  }
-
-  .nav-item.active { @apply text-primary; }
-
-  .glass {
-    @apply backdrop-blur-xl bg-white/85 dark:bg-dark-700/85
-           border border-white/30 dark:border-dark-500/30;
-  }
-
-  .text-gradient {
-    @apply bg-primary-gradient bg-clip-text text-transparent;
-  }
-}
-
-/* ─── Utility layer ──────────────────────────────────────────────────────────── */
-@layer utilities {
-  .pb-safe { padding-bottom: max(env(safe-area-inset-bottom, 0px), 1rem); }
-  .pt-safe  { padding-top: env(safe-area-inset-top, 0px); }
-
-  .no-scrollbar::-webkit-scrollbar { display: none; }
-  .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
-
-  .tap-target { min-height: 44px; min-width: 44px; }
-  .no-select  { user-select: none; -webkit-user-select: none; }
-}
-
-/* ─── Leaflet overrides ──────────────────────────────────────────────────────── */
+/* ─── Mapas (Leaflet y mapa estático) ───────────────────────────────────────── */
 .leaflet-container { font-family: 'Inter', sans-serif; }
 
-.leaflet-popup-content-wrapper {
-  border-radius: 1.5rem !important;
-  padding: 0 !important;
-  overflow: hidden;
-  box-shadow: 0 8px 32px rgba(26,26,46,0.14) !important;
+/* Mapa base con colores atenuados para que destaquen los pines (mismos datos de OpenStreetMap) */
+.mapa-suave .leaflet-tile-pane,
+.mapa-suave-estatico { filter: saturate(0.4) brightness(1.04) contrast(0.95); }
+.dark .mapa-suave .leaflet-tile-pane { filter: invert(1) hue-rotate(180deg) saturate(0.3) brightness(0.9) contrast(0.9); }
+
+/* La atribución de OSM es obligatoria: se deja discreta, sobre la barra inferior */
+.mapa-suave .leaflet-control-attribution {
+  margin-bottom: calc(env(safe-area-inset-bottom, 0px) + 4.25rem) !important;
+  background: rgba(255,255,255,0.75) !important;
+  font-size: 10px;
+  border-radius: 6px 0 0 6px;
 }
 
-.leaflet-popup-content { margin: 0 !important; }
-.leaflet-popup-tip-container { display: none; }
+/* Pulso bajo el pin al marcar una ubicación en un formulario */
+.pin-pulso { animation: pinPulso 1.6s ease-out infinite; }
+@keyframes pinPulso {
+  0%   { transform: scale(0.6); opacity: 0.9; }
+  100% { transform: scale(2.2); opacity: 0; }
+}
+@media (prefers-reduced-motion: reduce) { .pin-pulso { animation: none; } }
 
-/* ─── Animación pulse para badge "EN VIVO" ───────────────────────────────────── */
-@keyframes pulse {
-  0%, 100% { box-shadow: 0 0 0 0 rgba(249,123,98,0.5); }
-  50%       { box-shadow: 0 0 0 5px rgba(249,123,98,0); }
-}
-
-/* ─── Skeleton shimmer ─────────────────────────────────────────────────────── */
-.skeleton {
-  background: linear-gradient(90deg, #f0e8e4 25%, #fff5f2 50%, #f0e8e4 75%);
-  background-size: 200% 100%;
-  animation: shimmer 1.5s infinite;
-}
-.dark .skeleton {
-  background: linear-gradient(90deg, #252540 25%, #323250 50%, #252540 75%);
-  background-size: 200% 100%;
-}
-
-/* ─── Glassmorphism ────────────────────────────────────────────────────────── */
-.glass-warm {
-  background: rgba(255,255,255,0.72);
-  backdrop-filter: blur(20px) saturate(180%);
-  -webkit-backdrop-filter: blur(20px) saturate(180%);
-  border: 1px solid rgba(255,255,255,0.5);
-}
-.glass-dark {
-  background: rgba(30,30,48,0.75);
-  backdrop-filter: blur(20px) saturate(180%);
-  -webkit-backdrop-filter: blur(20px) saturate(180%);
-  border: 1px solid rgba(255,255,255,0.08);
-}
-
-/* ─── Gradient border ──────────────────────────────────────────────────────── */
-.gradient-border {
-  position: relative;
-  background: white;
-  border-radius: 1.5rem;
-}
-.gradient-border::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  padding: 1.5px;
-  background: linear-gradient(135deg, #FF9280, #F97B62, #00C4B4);
-  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-  -webkit-mask-composite: xor;
-  mask-composite: exclude;
-  pointer-events: none;
-}
-
-/* ─── Página — transición de entrada ───────────────────────────────────────── */
-.page-enter {
-  animation: fadeUp 0.35s cubic-bezier(0.32,0.72,0,1) both;
-}
-
-/* ─── Scrollbar personalizado ──────────────────────────────────────────────── */
-::-webkit-scrollbar       { width: 4px; height: 4px; }
+/* ─── Barra de desplazamiento discreta (escritorio) ─────────────────────────── */
+::-webkit-scrollbar       { width: 6px; height: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: #FFB09E; border-radius: 99px; }
-
-/* ─── Shimmer sobre imágenes (loading) ─────────────────────────────────────── */
-@keyframes shimmer {
-  0%   { background-position: -200% 0; }
-  100% { background-position:  200% 0; }
-}
-
-/* ─── Float suave ──────────────────────────────────────────────────────────── */
-@keyframes float {
-  0%, 100% { transform: translateY(0px);  }
-  50%       { transform: translateY(-8px); }
-}
-@keyframes floatSlow {
-  0%, 100% { transform: translateY(0px);  }
-  50%       { transform: translateY(-4px); }
-}
-
-/* ─── Glow pulsante ────────────────────────────────────────────────────────── */
-@keyframes glow {
-  0%, 100% { box-shadow: 0 0 20px rgba(249,123,98,0.4); }
-  50%       { box-shadow: 0 0 50px rgba(249,123,98,0.7); }
-}
-
-/* ─── Nav item active dot ──────────────────────────────────────────────────── */
-.nav-item.active .nav-dot {
-  width: 4px; height: 4px;
-  border-radius: 99px;
-  background: #F97B62;
-  transition: all 0.3s cubic-bezier(0.34,1.56,0.64,1);
-}
-.nav-dot {
-  width: 0; height: 4px;
-  border-radius: 99px;
-  background: transparent;
-  transition: all 0.3s ease;
-}
+::-webkit-scrollbar-thumb { background: #D9CFCA; border-radius: 99px; }
+.dark ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); }

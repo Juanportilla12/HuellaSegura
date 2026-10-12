@@ -1,19 +1,13 @@
-import { useTokens } from '../../hooks/useTokens';
+import { CampoAuth, inputAuth } from '../auth/AuthUI';
 
-// Campo de texto con ícono, etiqueta accesible y mensaje de error
-export default function CampoTexto({ id, etiqueta, icono: Icono, error, ...props }) {
-  const t = useTokens();
+const SinIcono = () => null;
+
+// Campo de texto con ícono, etiqueta visible y mensaje de error (mismo estilo que el inicio de sesión)
+export default function CampoTexto({ id, etiqueta, icono, error, ...props }) {
   return (
-    <div>
-      <label htmlFor={id} className="sr-only">{etiqueta}</label>
-      <div className="flex items-center gap-3 rounded-2xl px-4 py-3.5"
-           style={{ background: t.inputBg, border: `1.5px solid ${error ? t.primary : t.inputBorder}` }}>
-        {Icono && <Icono size={16} style={{ color: t.textMuted }} className="shrink-0" aria-hidden="true" />}
-        <input id={id} placeholder={etiqueta} aria-invalid={Boolean(error)} {...props}
-          className="flex-1 bg-transparent outline-none text-sm"
-          style={{ color: t.text, fontFamily: 'inherit' }} />
-      </div>
-      {error && <p className="text-xs mt-1 font-medium" style={{ color: t.primary }}>{error}</p>}
-    </div>
+    <CampoAuth id={id} label={etiqueta} icon={icono ?? SinIcono} error={error}>
+      <input id={id} aria-invalid={Boolean(error)} aria-describedby={error ? `${id}-error` : undefined} {...props}
+        className={`${inputAuth(error)} pr-4 ${icono ? '' : '!pl-4'}`} />
+    </CampoAuth>
   );
 }

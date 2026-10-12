@@ -2,49 +2,24 @@ import { useEffect } from 'react';
 import { MapContainer, TileLayer, Marker, useMapEvents, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
+import { MapPin } from 'lucide-react';
 import { TILE_URL, TILE_ATTRIBUTION, CENTRO_PASTO } from '../config/mapa';
-import { useTokens } from '../hooks/useTokens';
 
-
-// Pin con efecto radar/pulso
-function crearPinRadar() {
-  return L.divIcon({
-    className: '',
-    html: `
-      <div style="position:relative;width:72px;height:72px;display:flex;align-items:center;justify-content:center;">
-        <!-- Anillos de radar -->
-        <div style="
-          position:absolute;width:72px;height:72px;border-radius:50%;
-          background:rgba(249,123,98,0.15);
-          animation:radar 1.8s ease-out infinite;
-        "></div>
-        <div style="
-          position:absolute;width:52px;height:52px;border-radius:50%;
-          background:rgba(249,123,98,0.20);
-          animation:radar 1.8s ease-out 0.5s infinite;
-        "></div>
-        <!-- Pin central -->
-        <div style="
-          position:relative;z-index:2;
-          width:44px;height:44px;border-radius:50%;
-          background:linear-gradient(135deg,#FF9280,#F97B62);
-          border:3px solid white;
-          box-shadow:0 4px 16px rgba(249,123,98,0.55);
-          display:flex;align-items:center;justify-content:center;
-          font-size:20px;
-        ">🐾</div>
-      </div>
-      <style>
-        @keyframes radar {
-          0%   { transform:scale(0.4); opacity:0.8; }
-          100% { transform:scale(1);   opacity:0;   }
-        }
-      </style>
-    `,
-    iconSize:   [72, 72],
-    iconAnchor: [36, 36],
-  });
-}
+// Pin en forma de gota con un pulso suave alrededor del punto marcado
+const PIN_SELECCION = L.divIcon({
+  className: '',
+  html: `
+    <div style="position:relative;width:40px;height:52px;">
+      <span class="pin-pulso" style="position:absolute;left:8px;bottom:-4px;width:24px;height:10px;border-radius:50%;
+                                     background:rgba(204,74,52,0.35);"></span>
+      <svg width="40" height="52" viewBox="0 0 34 44" style="position:relative;filter:drop-shadow(0 4px 6px rgba(122,43,28,.35));">
+        <path d="M17 43s15-14.2 15-26A15 15 0 0 0 2 17c0 11.8 15 26 15 26z" fill="#CC4A34" stroke="white" stroke-width="3"/>
+        <circle cx="17" cy="17" r="5.5" fill="white"/>
+      </svg>
+    </div>`,
+  iconSize: [40, 52],
+  iconAnchor: [20, 52],
+});
 
 function ClickHandler({ onCoordsChange }) {
   useMapEvents({
@@ -62,32 +37,30 @@ function FlyTo({ coords }) {
 }
 
 export default function MapaSelector({ coords, onCoordsChange, address }) {
-  const t = useTokens();
+  const marcado = Boolean(coords.lat && coords.lng);
   return (
-    <div data-testid="mapa-selector" style={{ width: '100%' }}>
-      <MapContainer
-        center={CENTRO_PASTO}
-        zoom={14}
-        style={{ height: '220px', width: '100%' }}
-        zoomControl={false}
-      >
-        <TileLayer url={TILE_URL} attribution={TILE_ATTRIBUTION} />
-        <ClickHandler onCoordsChange={onCoordsChange} />
-        <FlyTo coords={coords} />
-        {coords.lat && coords.lng && (
-          <Marker position={[coords.lat, coords.lng]} icon={crearPinRadar()} />
-        )}
-      </MapContainer>
-
-      {/* Dirección debajo del mapa */}
-      {address && (
-        <div
-          className="px-4 py-2.5 flex items-center gap-2"
-          style={{ background: t.primaryBg, borderTop: `1px solid ${t.border}` }}
-        >
-          <span className="text-xs font-bold uppercase tracking-widest" style={{ color: t.primary }}>
-            📍 {address}
+    <div data-testid="mapa-selector" className="w-full">
+      <div className="relative">
+        <MapContainer center={CENTRO_PASTO} zoom={14} zoomControl={false} className="mapa-suave"
+                      style={{ height: '230px', width: '100%' }}>
+          <TileLayer url={TILE_URL} attribution={TILE_ATTRIBUTION} />
+          <ClickHandler onCoordsChange={onCoordsChange} />
+          <FlyTo coords={coords} />
+          {marcado && <Marker position={[coords.lat, coords.lng]} icon={PIN_SELECCION} />}
+        </MapContainer>
+        {!marcado && (
+          <span className="pointer-events-none absolute left-1/2 top-3 -translate-x-1/2 z-[500] px-3 h-8 rounded-full
+                           bg-dark-900/80 text-white text-[13px] font-medium flex items-center whitespace-nowrap">
+            Toca el mapa para marcar el punto
           </span>
+        )}
+      </div>
+
+      {address && (
+        <div className="px-4 py-3 flex items-center gap-2 bg-primary-50/70 dark:bg-white/5 border-t border-warm-border dark:border-white/10"
+             aria-live="polite">
+          <MapPin size={16} className="shrink-0 text-primary-700 dark:text-primary-400" aria-hidden="true" />
+          <span className="text-[13px] font-semibold truncate text-dark-900 dark:text-white">{address}</span>
         </div>
       )}
     </div>

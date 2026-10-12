@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { toast } from 'sonner';
+import { Eye, MapPin } from 'lucide-react';
 import { useAuth } from './AuthContext';
 import { useSSE } from '../hooks/useSSE';
 import { listarNotificaciones } from '../services/notificacionService';
@@ -39,7 +40,13 @@ export function NotificacionesProvider({ children }) {
   }, [usuario?.id, usuario?.alertas_activas]);
 
   useSSE(useCallback((tipo, datos) => {
-    if (datos?.mensaje) toast(datos.mensaje, { icon: tipo === 'avistamiento' ? '👀' : '🐾' });
+    if (datos?.mensaje) {
+      toast(datos.mensaje, {
+        icon: tipo === 'avistamiento'
+          ? <Eye size={18} className="text-emerald-600" aria-hidden="true" />
+          : <MapPin size={18} className="text-primary-700" aria-hidden="true" />,
+      });
+    }
     refrescar();
   }, [refrescar]));
 

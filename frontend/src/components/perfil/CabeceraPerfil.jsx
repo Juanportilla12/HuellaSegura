@@ -1,16 +1,14 @@
 import { useRef, useState } from 'react';
-import { motion } from 'framer-motion';
-import { Camera, CheckCircle } from 'lucide-react';
+import { Camera, Phone } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '../../context/AuthContext';
-import { useTokens } from '../../hooks/useTokens';
 import * as usuarioService from '../../services/usuarioService';
+import { focoVisible } from '../auth/AuthUI';
 
 const MAX_FOTO_MB = 5;
 
-// Foto de perfil (con cambio de imagen), nombre, correo y estado de las alertas
+// Foto de perfil (con cambio de imagen), nombre, correo y celular
 export default function CabeceraPerfil() {
-  const t = useTokens();
   const { usuario, actualizarUsuario } = useAuth();
   const inputRef = useRef(null);
   const [subiendo, setSubiendo] = useState(false);
@@ -38,34 +36,30 @@ export default function CabeceraPerfil() {
   }
 
   return (
-    <div className="flex flex-col items-center pt-5 pb-6 px-5">
+    <section className="mx-4 rounded-3xl p-4 flex items-center gap-4 bg-white dark:bg-white/5 border border-warm-border dark:border-white/10">
       <input ref={inputRef} type="file" accept="image/jpeg,image/png" className="hidden" onChange={handleFoto} />
-      <div className="relative mb-3">
-        <motion.button type="button" whileTap={{ scale: 0.95 }} onClick={() => inputRef.current?.click()}
-          aria-label="Cambiar foto de perfil"
-          className="h-24 w-24 rounded-full overflow-hidden flex items-center justify-center text-3xl font-poppins font-bold text-white"
-          style={{
-            background: usuario?.foto_url ? 'transparent' : 'linear-gradient(135deg,#FF9280,#F97B62)',
-            boxShadow: '0 8px 32px rgba(249,123,98,0.40), 0 0 0 5px rgba(249,123,98,0.12)',
-          }}>
+      <button type="button" onClick={() => inputRef.current?.click()} aria-label="Cambiar foto de perfil"
+        className={`relative h-[72px] w-[72px] shrink-0 rounded-full ${focoVisible}`}>
+        <span className="h-full w-full rounded-full overflow-hidden flex items-center justify-center bg-primary-700
+                         text-white font-poppins font-semibold text-2xl">
           {usuario?.foto_url ? <img src={usuario.foto_url} alt="" className="w-full h-full object-cover" /> : iniciales}
-        </motion.button>
-        <span className="absolute bottom-0 right-0 h-8 w-8 rounded-full flex items-center justify-center pointer-events-none"
-              style={{ background: 'linear-gradient(135deg,#FF9280,#F97B62)', boxShadow: '0 2px 8px rgba(249,123,98,0.5)' }}>
+        </span>
+        <span className="absolute -bottom-0.5 -right-0.5 h-7 w-7 rounded-full bg-white dark:bg-dark-700 text-dark-900 dark:text-white
+                         border border-warm-border dark:border-white/10 flex items-center justify-center shadow-sm" aria-hidden="true">
           {subiendo
-            ? <span className="h-4 w-4 rounded-full border-2 border-white border-t-transparent animate-spin" />
-            : <Camera size={13} color="white" />}
+            ? <span className="h-3.5 w-3.5 rounded-full border-2 border-primary-700 border-t-transparent animate-spin" />
+            : <Camera size={14} />}
         </span>
+      </button>
+      <div className="min-w-0">
+        <h2 className="font-poppins font-bold text-[19px] leading-tight truncate text-dark-900 dark:text-white">{usuario?.nombre}</h2>
+        <p className="text-[14px] truncate text-gray-500 dark:text-white/50">{usuario?.email}</p>
+        {usuario?.celular && (
+          <p className="mt-0.5 flex items-center gap-1 text-[13px] text-gray-500 dark:text-white/50">
+            <Phone size={13} aria-hidden="true" /> {usuario.celular}
+          </p>
+        )}
       </div>
-
-      <h2 className="text-xl font-poppins font-bold mb-0.5" style={{ color: t.text }}>{usuario?.nombre}</h2>
-      <p className="text-sm mb-2" style={{ color: t.textMuted }}>{usuario?.email}</p>
-      <div className="flex items-center gap-1.5 px-3 py-1 rounded-full" style={{ background: t.secondaryBg }}>
-        <CheckCircle size={13} style={{ color: t.secondary }} />
-        <span className="text-xs font-semibold" style={{ color: t.secondary }}>
-          {usuario?.alertas_activas ? 'Alertas por proximidad activas' : 'Alertas por proximidad desactivadas'}
-        </span>
-      </div>
-    </div>
+    </section>
   );
 }

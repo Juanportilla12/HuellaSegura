@@ -1,17 +1,20 @@
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { toast } from 'sonner';
-import { useTokens } from '../../hooks/useTokens';
+import { Trash2 } from 'lucide-react';
 import * as usuarioService from '../../services/usuarioService';
+import HojaConfirmacion from '../ui/HojaConfirmacion';
+import { inputAuth, focoVisible } from '../auth/AuthUI';
 
 // Ley 1581 de 2012: el titular puede eliminar su cuenta y todos sus datos
 export default function EliminarCuenta() {
-  const t = useTokens();
-  const [confirmando, setConfirmando] = useState(false);
+  const [abierta, setAbierta] = useState(false);
   const [password, setPassword] = useState('');
   const [borrando, setBorrando] = useState(false);
 
-  async function eliminar(e) {
-    e.preventDefault();
+  const cancelar = useCallback(() => { setAbierta(false); setPassword(''); }, []);
+
+  async function eliminar() {
+    if (!password) { toast.error('Escribe tu contraseña para confirmar.'); return; }
     setBorrando(true);
     try {
       await usuarioService.eliminarCuenta(password);
@@ -25,38 +28,29 @@ export default function EliminarCuenta() {
     }
   }
 
-  if (!confirmando) {
-    return (
-      <div className="mx-4 mt-3 mb-4">
-        <button onClick={() => setConfirmando(true)} data-testid="btn-eliminar-cuenta"
-          className="w-full py-3 text-xs font-semibold" style={{ color: t.textMuted }}>
-          Eliminar mi cuenta y mis datos
-        </button>
-      </div>
-    );
-  }
-
   return (
-    <form onSubmit={eliminar} className="mx-4 mt-3 mb-4 rounded-3xl p-4 flex flex-col gap-3"
-          style={{ background: t.surface, border: `1px solid ${t.danger}` }}>
-      <label htmlFor="password-borrado" className="text-xs" style={{ color: t.text }}>
-        Se eliminarán tu cuenta, tus mascotas, reportes y notificaciones. Esta acción no se puede deshacer.
-        Confirma tu contraseña:
-      </label>
-      <input id="password-borrado" type="password" value={password} onChange={(e) => setPassword(e.target.value)}
-        required autoComplete="current-password" data-testid="input-password-borrado"
-        className="px-3 py-2 rounded-xl text-sm outline-none"
-        style={{ background: t.inputBg, color: t.text, border: `1px solid ${t.inputBorder}` }} />
-      <div className="flex gap-2">
-        <button type="button" onClick={() => { setConfirmando(false); setPassword(''); }}
-          className="flex-1 py-2.5 rounded-2xl text-xs font-semibold" style={{ color: t.textMuted, border: `1px solid ${t.border}` }}>
-          Cancelar
-        </button>
-        <button type="submit" disabled={borrando}
-          className="flex-1 py-2.5 rounded-2xl text-xs font-semibold text-white" style={{ background: '#EF4444' }}>
-          {borrando ? 'Eliminando…' : 'Eliminar definitivamente'}
-        </button>
-      </div>
-    </form>
+    <>
+      <button type="button" onClick={() => setAbierta(true)} data-testid="btn-eliminar-cuenta"
+        className={`self-center h-11 px-4 rounded-xl flex items-center gap-2 text-[14px] font-semibold text-red-600
+                    hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-500/10 ${focoVisible}`}>
+        <Trash2 size={16} aria-hidden="true" /> Eliminar mi cuenta y mis datos
+      </button>
+
+      <HojaConfirmacion abierta={abierta} titulo="¿Eliminar tu cuenta?" peligro cargando={borrando}
+        textoConfirmar="Eliminar definitivamente" onConfirmar={eliminar} onCancelar={cancelar}
+        extra={
+          <>
+            <label htmlFor="password-borrado" className="text-[13px] font-semibold text-dark-700 dark:text-white/70">
+              Confirma con tu contraseña
+            </label>
+            <input id="password-borrado" type="password" value={password} onChange={(e) => setPassword(e.target.value)}
+              autoComplete="current-password" data-testid="input-password-borrado"
+              onKeyDown={(e) => { if (e.key === 'Enter') eliminar(); }}
+              className={`${inputAuth(false)} !pl-4 pr-4 mt-1.5`} />
+          </>
+        }>
+        Se borrarán tu cuenta, tus mascotas, reportes y notificaciones. Esta acción no se puede deshacer.
+      </HojaConfirmacion>
+    </>
   );
 }

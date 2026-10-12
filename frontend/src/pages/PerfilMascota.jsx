@@ -1,29 +1,60 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { ChevronLeft, MapPin, QrCode, Share2 } from 'lucide-react';
-import { useTokens } from '../hooks/useTokens';
-import { obtenerMascota } from '../services/mascotaService';
+import { ChevronLeft, Share2, Pencil, QrCode, Printer, Eye, Megaphone, House, Trash2, ChevronRight, Cpu } from 'lucide-react';
+import { toast } from 'sonner';
+import { obtenerMascota, eliminarMascota, descargarCartel } from '../services/mascotaService';
 import { misReportes } from '../services/reporteService';
 import { urlPerfilPublico } from '../services/perfilPublicoService';
-import BottomNav from '../components/ui/BottomNav';
+import IconoEspecie from '../components/ui/IconoEspecie';
+import HojaConfirmacion from '../components/ui/HojaConfirmacion';
+import { focoVisible } from '../components/auth/AuthUI';
 
-const ESPECIE_EMOJIS = { perro:'🐶', gato:'🐱', ave:'🐦', reptil:'🦎', otro:'🐾' };
-const ESPECIE_COLORS = {
-  perro:  'linear-gradient(135deg,#FF9280,#F97B62)',
-  gato:   'linear-gradient(135deg,#C7B2F5,#9B87E8)',
-  ave:    'linear-gradient(135deg,#26D6CD,#00C4B4)',
-  reptil: 'linear-gradient(135deg,#4ADE80,#22C55E)',
-  otro:   'linear-gradient(135deg,#FF9280,#F97B62)',
-};
+const capitalizar = (texto) => texto.charAt(0).toUpperCase() + texto.slice(1);
+
+function edadTexto(m) {
+  if (!m.edad) return null;
+  const unidad = m.edad_unidad === 'meses' ? (m.edad === 1 ? 'mes' : 'meses') : (m.edad === 1 ? 'año' : 'años');
+  return `${m.edad} ${unidad}`;
+}
+
+function diasDesde(fecha) {
+  const [a, mes, d] = String(fecha).slice(0, 10).split('-').map(Number);
+  const hoy = new Date();
+  return Math.max(0, Math.round((new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate()) - new Date(a, mes - 1, d)) / 864e5));
+}
+
+const botonCircular = `h-10 w-10 rounded-full bg-white/95 text-dark-900 flex items-center justify-center
+                       shadow-[0_4px_14px_rgba(26,26,46,0.2)] active:scale-95 transition-transform ${focoVisible}`;
+
+function FilaAccion({ icon: Icon, titulo, detalle, onClick, disabled }) {
+  return (
+    <button type="button" onClick={onClick} disabled={disabled}
+      className={`w-full flex items-center gap-3 px-4 py-3.5 text-left hover:bg-warm-50 dark:hover:bg-white/5
+                  disabled:opacity-60 ${focoVisible}`}>
+      <span className="h-10 w-10 shrink-0 rounded-xl bg-primary-50 dark:bg-white/10 text-primary-700 dark:text-primary-400
+                       flex items-center justify-center">
+        <Icon size={20} aria-hidden="true" />
+      </span>
+      <span className="flex-1 min-w-0">
+        <span className="block text-[15px] font-semibold text-dark-900 dark:text-white">{titulo}</span>
+        <span className="block text-[13px] text-gray-500 dark:text-white/50">{detalle}</span>
+      </span>
+      <ChevronRight size={18} className="shrink-0 text-gray-400" aria-hidden="true" />
+    </button>
+  );
+}
 
 export default function PerfilMascota() {
   const { id }   = useParams();
   const navigate = useNavigate();
-  const t        = useTokens();
   const [mascota,       setMascota]       = useState(null);
   const [reporteActivo, setReporteActivo] = useState(null);
   const [cargando,      setCargando]      = useState(true);
+  const [fotoIdx,       setFotoIdx]       = useState(0);
+  const [confirmar,     setConfirmar]     = useState(false);
+  const [eliminando,    setEliminando]    = useState(false);
+  const [generando,     setGenerando]     = useState(false);
 
   useEffect(() => {
     Promise.all([
@@ -35,24 +66,25 @@ export default function PerfilMascota() {
         r => String(r.mascota_id) === String(id) && r.estado === 'en_busqueda'
       );
       setReporteActivo(activo || null);
-    }).catch(() => navigate(-1))
+    }).catch(() => navigate('/mascotas', { replace: true }))
       .finally(() => setCargando(false));
   }, [id, navigate]);
 
   if (cargando) {
     return (
-      <div className="flex items-center justify-center min-h-screen" style={{ background: t.bg }}>
-        <div className="h-10 w-10 rounded-full border-2 animate-spin"
-             style={{ borderColor: t.primary, borderTopColor: 'transparent' }} />
+      <div className="min-h-dvh bg-warm-50 dark:bg-dark-800" aria-busy="true" aria-label="Cargando mascota">
+        <div className="h-[40vh] bg-gray-200 dark:bg-white/5 animate-pulse" />
+        <div className="px-5 pt-6 flex flex-col gap-3">
+          <div className="h-8 w-40 rounded-lg bg-gray-200 dark:bg-white/10 animate-pulse" />
+          <div className="h-4 w-56 rounded bg-gray-200 dark:bg-white/10 animate-pulse" />
+        </div>
       </div>
     );
   }
   if (!mascota) return null;
 
-  const gradient  = ESPECIE_COLORS[mascota.especie] || ESPECIE_COLORS.otro;
-  const emoji     = ESPECIE_EMOJIS[mascota.especie]  || '🐾';
-  const fotos     = mascota.foto_urls || [];
-  const chips     = [mascota.raza, mascota.edad ? `${mascota.edad} ${mascota.edad_unidad || 'años'}` : null, mascota.sexo, mascota.color].filter(Boolean);
+  const fotos = mascota.foto_urls || [];
+  const datos = [mascota.raza, edadTexto(mascota), mascota.sexo, mascota.color].filter(Boolean);
 
   async function handleCompartir() {
     const url = urlPerfilPublico(mascota.codigo_publico);
@@ -60,138 +92,163 @@ export default function PerfilMascota() {
       try { await navigator.share({ title: `${mascota.nombre} — HuellaSegura`, url }); } catch { /* el usuario canceló */ }
     } else {
       await navigator.clipboard.writeText(url);
+      toast.success('Enlace del perfil copiado.');
     }
   }
 
+  async function handleCartel() {
+    setGenerando(true);
+    try { await descargarCartel(mascota.id, mascota.nombre); }
+    catch { toast.error('No se pudo generar el cartel. Intenta de nuevo.'); }
+    finally { setGenerando(false); }
+  }
+
+  async function handleEliminar() {
+    setEliminando(true);
+    try {
+      await eliminarMascota(mascota.id);
+      toast.success(`${mascota.nombre} fue eliminado de tus mascotas.`);
+      navigate('/mascotas', { replace: true });
+    } catch {
+      toast.error('No se pudo eliminar la mascota.');
+      setEliminando(false);
+      setConfirmar(false);
+    }
+  }
+
+  const dias = reporteActivo ? diasDesde(reporteActivo.fecha_perdida) : 0;
+
   return (
-    <div className="min-h-screen pb-24" style={{ background: t.bg }}>
+    <div className="min-h-dvh bg-warm-50 dark:bg-dark-800 pb-[calc(env(safe-area-inset-bottom,0px)+6.5rem)]">
 
-      {/* Hero con foto */}
-      <div className="relative h-72 overflow-hidden" style={{ background: gradient }}>
-        <div className="absolute inset-0 flex items-center justify-center opacity-25 select-none pointer-events-none">
-          <span className="text-[12rem] filter blur-sm">{emoji}</span>
-        </div>
-        <div className="absolute inset-0 flex items-end justify-center pb-8">
-          {fotos[0] ? (
-            <img src={fotos[0]} alt={mascota.nombre} className="h-48 w-48 rounded-3xl object-cover"
-                 style={{ boxShadow: '0 12px 40px rgba(0,0,0,0.3)' }} />
-          ) : (
-            <div className="h-48 w-48 rounded-3xl flex items-center justify-center text-7xl"
-                 style={{ background: 'rgba(255,255,255,0.3)', boxShadow: '0 12px 40px rgba(0,0,0,0.2)' }}>
-              {emoji}
-            </div>
-          )}
-        </div>
-
-        {/* Barra superior */}
-        <div className="absolute top-0 inset-x-0 flex items-center justify-between px-5 pt-safe pt-4">
-          <motion.button whileTap={{ scale: 0.88 }} onClick={() => navigate(-1)}
-            className="h-9 w-9 rounded-2xl flex items-center justify-center"
-            style={{ background: 'rgba(255,255,255,0.3)', backdropFilter: 'blur(8px)' }}>
-            <ChevronLeft size={20} color="white" strokeWidth={2.5} />
-          </motion.button>
+      {/* ── Foto ──────────────────────────────────────────────── */}
+      <header className={`relative ${fotos[0] ? 'h-[42vh] min-h-[260px] max-h-[400px]' : 'h-[28vh] min-h-[190px]'}
+                          bg-primary-50 dark:bg-white/5 overflow-hidden`}>
+        {fotos[0] ? (
+          <img src={fotos[fotoIdx]} alt={`Foto de ${mascota.nombre}`} className="h-full w-full object-cover" />
+        ) : (
+          <div className="h-full w-full flex flex-col items-center justify-center gap-2 text-primary-200">
+            <IconoEspecie especie={mascota.especie} size={84} strokeWidth={1.2} />
+          </div>
+        )}
+        <div className="absolute inset-x-0 top-0 h-28 bg-gradient-to-b from-black/30 to-transparent pointer-events-none" />
+        <div className="absolute inset-x-0 top-0 px-4 pt-[max(env(safe-area-inset-top),0.875rem)] flex justify-between">
+          <button type="button" onClick={() => navigate('/mascotas')} aria-label="Volver a mis mascotas" className={botonCircular}>
+            <ChevronLeft size={22} strokeWidth={2.5} aria-hidden="true" />
+          </button>
           <div className="flex gap-2">
-            <motion.button whileTap={{ scale: 0.88 }} onClick={() => navigate(`/mascotas/${id}/carnet`)}
-              className="h-9 w-9 rounded-2xl flex items-center justify-center"
-              style={{ background: 'rgba(255,255,255,0.3)', backdropFilter: 'blur(8px)' }}>
-              <QrCode size={18} color="white" />
-            </motion.button>
-            <motion.button whileTap={{ scale: 0.88 }} onClick={handleCompartir}
-              className="h-9 w-9 rounded-2xl flex items-center justify-center"
-              style={{ background: 'rgba(255,255,255,0.3)', backdropFilter: 'blur(8px)' }}>
-              <Share2 size={18} color="white" />
-            </motion.button>
+            <button type="button" onClick={handleCompartir} aria-label="Compartir perfil" className={botonCircular}>
+              <Share2 size={18} aria-hidden="true" />
+            </button>
+            <button type="button" onClick={() => navigate(`/mascotas/${id}/editar`)} aria-label="Editar perfil" className={botonCircular}>
+              <Pencil size={18} aria-hidden="true" />
+            </button>
           </div>
         </div>
-
-        {/* Badge estado */}
-        <div className="absolute bottom-4 left-1/2 -translate-x-1/2">
-          <span className="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold text-white uppercase tracking-widest whitespace-nowrap"
-                style={{ background: reporteActivo ? 'rgba(239,68,68,0.88)' : 'rgba(0,196,180,0.88)', backdropFilter: 'blur(8px)' }}>
-            <span className="h-1.5 w-1.5 rounded-full bg-white animate-pulse" />
-            {reporteActivo
-              ? `Perdido · Hace ${Math.max(1, Math.round((Date.now() - new Date(reporteActivo.created_at)) / 3600000))}h`
-              : 'En casa · Registrado'}
-          </span>
-        </div>
-      </div>
-
-      {/* Card info */}
-      <motion.div
-        initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }}
-        className="mx-4 -mt-5 rounded-3xl overflow-hidden relative z-10"
-        style={{ background: t.surface, border: `1px solid ${t.border}`, boxShadow: t.shadow }}>
-        <div className="p-5">
-          <div className="flex items-start justify-between gap-2 mb-1">
-            <h1 className="text-3xl font-poppins font-extrabold" style={{ color: t.text }}>{mascota.nombre}</h1>
-            {mascota.microchip && (
-              <div className="text-right shrink-0">
-                <p className="text-xs font-semibold uppercase tracking-wider" style={{ color: t.textMuted }}>Microchip</p>
-                <p className="text-sm font-bold" style={{ color: t.primary }}>{mascota.microchip}</p>
-              </div>
-            )}
-          </div>
-
-          <div className="flex items-center gap-1.5 mb-4">
-            <MapPin size={13} style={{ color: t.textMuted }} />
-            <span className="text-sm" style={{ color: t.textMuted }}>Pasto, Nariño</span>
-          </div>
-
-          {/* Chips */}
-          <div className="flex flex-wrap gap-2 mb-5">
-            {chips.map((c, i) => (
-              <span key={i} className="px-3 py-1 rounded-full text-xs font-semibold"
-                    style={{ background: t.surface2, color: t.text, border: `1px solid ${t.border}` }}>
-                {c}
-              </span>
+        {fotos.length > 1 && (
+          <div className="absolute bottom-10 inset-x-0 flex justify-center gap-1.5">
+            {fotos.map((_, i) => (
+              <button key={i} type="button" aria-label={`Foto ${i + 1}`} aria-pressed={i === fotoIdx} onClick={() => setFotoIdx(i)}
+                      className={`h-2 rounded-full transition-all ${i === fotoIdx ? 'w-6 bg-white' : 'w-2 bg-white/60'}`} />
             ))}
           </div>
+        )}
+      </header>
 
-          {mascota.descripcion && (
-            <p className="text-sm leading-relaxed mb-5" style={{ color: t.textMuted }}>{mascota.descripcion}</p>
+      <motion.main initial={{ y: 16, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ duration: 0.35 }}
+        className="relative -mt-7 rounded-t-[28px] bg-warm-50 dark:bg-dark-800 px-5 pt-5 flex flex-col gap-5">
+
+        <section>
+          {reporteActivo ? (
+            <span className="inline-flex items-center gap-1.5 h-7 px-3 rounded-full text-[13px] font-bold bg-primary-700 text-white">
+              <span className="h-1.5 w-1.5 rounded-full bg-white" aria-hidden="true" />
+              Se busca · {dias === 0 ? 'desde hoy' : dias === 1 ? 'desde ayer' : `hace ${dias} días`}
+            </span>
+          ) : (
+            <span className="inline-flex items-center gap-1.5 h-7 px-3 rounded-full text-[13px] font-bold bg-emerald-600 text-white">
+              <House size={14} aria-hidden="true" /> En casa
+            </span>
           )}
-
-          {fotos.length > 1 && (
-            <div className="flex gap-3 overflow-x-auto no-scrollbar mb-5 pb-1">
-              {fotos.map((url, i) => (
-                <img key={i} src={url} alt={`${mascota.nombre} ${i+1}`}
-                     className="h-24 w-24 rounded-2xl object-cover shrink-0" />
+          <h1 className="mt-3 font-poppins font-bold text-[32px] leading-none text-dark-900 dark:text-white">{mascota.nombre}</h1>
+          {datos.length > 0 && (
+            <ul className="mt-3 flex flex-wrap gap-2" aria-label="Características">
+              {datos.map((d) => (
+                <li key={d} className="h-8 px-3 rounded-full flex items-center text-[13px] font-medium bg-white border border-warm-border
+                                       text-dark-700 dark:bg-white/5 dark:border-white/10 dark:text-white/80">
+                  {capitalizar(d)}
+                </li>
               ))}
-            </div>
+            </ul>
           )}
-
-          {mascota.video_url && (
-            <video src={mascota.video_url} controls playsInline preload="metadata"
-                   className="w-full rounded-2xl mb-5" data-testid="video-mascota" />
+          {mascota.descripcion && (
+            <p className="mt-4 text-[15px] leading-relaxed text-gray-600 dark:text-white/70">{mascota.descripcion}</p>
           )}
-        </div>
+          {mascota.microchip && (
+            <p className="mt-3 flex items-center gap-2 text-[13px] text-gray-500 dark:text-white/50">
+              <Cpu size={16} aria-hidden="true" /> Microchip: <span className="font-semibold text-dark-900 dark:text-white">{mascota.microchip}</span>
+            </p>
+          )}
+        </section>
 
-        {!reporteActivo && (
-          <div className="px-5 pb-3">
-            <motion.button whileTap={{ scale: 0.97 }} onClick={() => navigate(`/reportes/nuevo?mascota_id=${id}`)}
-              data-testid="btn-reportar-perdida"
-              className="w-full py-3 rounded-2xl text-sm font-bold flex items-center justify-center gap-2"
-              style={{ background: t.primaryBg, color: t.primary, border: `1px solid ${t.primaryBorder}` }}>
-              <MapPin size={16} /> Reportar como perdida
-            </motion.button>
+        {fotos.length > 1 && (
+          <div className="flex gap-2 overflow-x-auto -mx-5 px-5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            {fotos.map((url, i) => (
+              <button key={url} type="button" onClick={() => setFotoIdx(i)} aria-label={`Ver foto ${i + 1}`}
+                      className={`shrink-0 h-20 w-20 rounded-2xl overflow-hidden ring-2 transition ${focoVisible}
+                                  ${i === fotoIdx ? 'ring-primary-700' : 'ring-transparent opacity-80'}`}>
+                <img src={url} alt="" className="h-full w-full object-cover" />
+              </button>
+            ))}
           </div>
         )}
 
-        <div className="px-5 pb-5 flex gap-3">
-          <motion.button whileTap={{ scale: 0.97 }} onClick={() => navigate(`/mascotas/${id}/editar`)}
-            className="flex-1 py-3 rounded-2xl text-sm font-bold text-white"
-            style={{ background: 'linear-gradient(135deg,#FF9280,#F97B62)', boxShadow: '0 6px 18px rgba(249,123,98,0.4)' }}>
-            Editar perfil
-          </motion.button>
-          <motion.button whileTap={{ scale: 0.97 }} onClick={() => navigate(`/mascotas/${id}/carnet`)}
-            className="h-12 w-12 rounded-2xl flex items-center justify-center shrink-0"
-            style={{ background: t.secondaryBg, border: `1px solid ${t.secondaryBorder}` }}>
-            <QrCode size={20} style={{ color: t.secondary }} />
-          </motion.button>
-        </div>
-      </motion.div>
+        {mascota.video_url && (
+          <video src={mascota.video_url} controls playsInline preload="metadata"
+                 className="w-full rounded-2xl" data-testid="video-mascota" />
+        )}
 
-      <BottomNav />
+        {/* ── Herramientas ──────────────────────────────────────── */}
+        <section aria-label="Herramientas" className="rounded-3xl overflow-hidden bg-white dark:bg-white/5 border border-warm-border
+                                                     dark:border-white/10 divide-y divide-warm-border dark:divide-white/10">
+          <FilaAccion icon={QrCode} titulo="Carnet con código QR" detalle="Para el collar o la billetera"
+                      onClick={() => navigate(`/mascotas/${id}/carnet`)} />
+          <FilaAccion icon={Printer} titulo={generando ? 'Generando cartel…' : 'Cartel para imprimir'} detalle="PDF con foto, datos y QR"
+                      onClick={handleCartel} disabled={generando} />
+          <FilaAccion icon={Eye} titulo="Ver perfil público" detalle="Lo que ve quien escanea el QR"
+                      onClick={() => navigate(`/publico/mascotas/${mascota.codigo_publico}`)} />
+        </section>
+
+        <button type="button" onClick={() => setConfirmar(true)}
+          className={`self-center h-11 px-4 rounded-xl flex items-center gap-2 text-[14px] font-semibold text-red-600
+                      hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-500/10 ${focoVisible}`}>
+          <Trash2 size={16} aria-hidden="true" /> Eliminar mascota
+        </button>
+      </motion.main>
+
+      {/* ── Acción principal ──────────────────────────────────── */}
+      <div className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-mobile z-40 px-5 pt-3
+                      pb-[max(env(safe-area-inset-bottom),1rem)] bg-gradient-to-t from-warm-50 via-warm-50 to-warm-50/0
+                      dark:from-dark-800 dark:via-dark-800 dark:to-dark-800/0">
+        {reporteActivo ? (
+          <button type="button" onClick={() => navigate('/reportes')}
+            className={`w-full h-[52px] rounded-2xl flex items-center justify-center gap-2 font-poppins font-semibold text-[15px]
+                        border-[1.5px] border-primary-700 text-primary-700 bg-white hover:bg-primary-50
+                        dark:bg-transparent dark:text-primary-400 ${focoVisible}`}>
+            Gestionar reporte de búsqueda
+          </button>
+        ) : (
+          <button type="button" onClick={() => navigate(`/reportes/nuevo?mascota_id=${id}`)} data-testid="btn-reportar-perdida"
+            className={`w-full h-[52px] rounded-2xl flex items-center justify-center gap-2 font-poppins font-semibold text-[15px]
+                        text-white bg-primary-700 hover:bg-primary-800 shadow-[0_8px_20px_rgba(204,74,52,0.35)] ${focoVisible}`}>
+            <Megaphone size={19} aria-hidden="true" /> Reportar como perdida
+          </button>
+        )}
+      </div>
+
+      <HojaConfirmacion abierta={confirmar} titulo={`¿Eliminar a ${mascota.nombre}?`} peligro cargando={eliminando}
+        textoConfirmar="Sí, eliminar" onConfirmar={handleEliminar} onCancelar={() => setConfirmar(false)}>
+        Se borrarán su perfil, sus fotos, su carnet QR y sus reportes. Esta acción no se puede deshacer.
+      </HojaConfirmacion>
     </div>
   );
 }

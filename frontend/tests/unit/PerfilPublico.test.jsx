@@ -8,10 +8,6 @@ vi.mock('../../src/services/perfilPublicoService', () => ({
   urlCompartirMascota: (id) => `http://api.test/publico/compartir/mascotas/${id}`,
   crearAvistamiento:    vi.fn(),
 }));
-// Avatar mock
-vi.mock('../../src/components/ui/Avatar', () => ({
-  default: ({ name }) => <div data-testid="avatar">{name}</div>,
-}));
 
 import * as perfilPublicoService from '../../src/services/perfilPublicoService';
 
@@ -104,6 +100,17 @@ describe('Sprint 6 — PerfilPublico (DoD)', () => {
     await waitFor(() => {
       expect(screen.getByText(/la vi/i)).toBeInTheDocument();
     });
+  });
+
+  // El backend solo envía fecha_perdida (no created_at): antes se mostraba 'Hace NaNh'
+  test('Calcula el tiempo de pérdida con fecha_perdida, sin NaN', async () => {
+    const hace3 = new Date(Date.now() - 3 * 864e5);
+    const fecha = `${hace3.getFullYear()}-${String(hace3.getMonth() + 1).padStart(2, '0')}-${String(hace3.getDate()).padStart(2, '0')}`;
+    const datos = buildDatos({ reporte_activo: { id: 5, latitud: 1.21, longitud: -77.28, fecha_perdida: fecha, descripcion: null } });
+    perfilPublicoService.obtenerPerfilPublico.mockResolvedValue({ data: datos });
+    renderPage();
+    await waitFor(() => expect(screen.getByText('Perdido hace 3 días')).toBeInTheDocument());
+    expect(screen.queryByText(/NaN/)).not.toBeInTheDocument();
   });
 
   // ── Mascota no encontrada ────────────────────────────────────────────────

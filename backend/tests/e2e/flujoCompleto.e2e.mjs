@@ -115,12 +115,13 @@ check('HU-23 perfil público sin login', r.status === 200 && r.data.reporte_acti
 check('Ley 1581: solo primer nombre y teléfono', r.data.propietario?.nombre === 'Ana' && r.data.propietario?.telefono === dueno.celular);
 check('Ley 1581: sin correo en el perfil público', !JSON.stringify(r.data).includes(dueno.email));
 
-// R7 avistamiento anónimo → notificación al dueño
-r = await req('POST', '/avistamientos', { body: { mascota_id: mascotaId, latitud: 1.215, longitud: -77.28, descripcion: '<b>la vi</b> en el parque', nombre_testigo: 'Testigo' } });
-check('R7 avistamiento sin cuenta', r.status === 201);
-await esperar(500);
-r = await req('GET', '/notificaciones', { token: tDueno });
-check('HU-24 dueño notificado del avistamiento', (r.data.notificaciones || []).some((n) => n.tipo === 'avistamiento'));
+// R7 avistamiento anónimo: exige celular y foto. En CI Cloudinary no tiene credenciales reales,
+// por eso aquí se verifican las validaciones; el registro con foto lo cubren las pruebas de integración.
+const avistamiento = { mascota_id: mascotaId, latitud: 1.215, longitud: -77.28, descripcion: 'la vi en el parque' };
+r = await req('POST', '/avistamientos', { body: avistamiento });
+check('R7 avistamiento sin celular rechazado', r.status === 400 && JSON.stringify(r.data).includes('celular es obligatorio'));
+r = await req('POST', '/avistamientos', { body: { ...avistamiento, telefono_testigo: '3001234567' } });
+check('R7 avistamiento sin foto rechazado', r.status === 400 && JSON.stringify(r.data).includes('foto es obligatoria'));
 
 // HU-22 QR y HU-31 cartel
 let bin = await req('GET', `/mascotas/${mascotaId}/qr`, { token: tDueno, raw: true });

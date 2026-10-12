@@ -23,6 +23,19 @@ const REPORTES = [
   { id: 2, fecha_perdida: '2026-10-02', mascota: { id: 8, nombre: 'Michi', especie: 'gato', raza: null, color: 'gris', foto_principal: null } },
 ];
 
+// jsdom no implementa las URL de objetos que usa la vista previa de la foto
+URL.createObjectURL = vi.fn(() => 'blob:foto-prueba');
+URL.revokeObjectURL = vi.fn();
+
+// Celular y foto son obligatorios: los llena antes de enviar
+function llenarObligatorios({ foto = true, telefono = '300 123 4567' } = {}) {
+  if (telefono) fireEvent.change(screen.getByLabelText(/tu celular/i), { target: { value: telefono } });
+  if (foto) {
+    const archivo = new File(['foto'], 'foto.jpg', { type: 'image/jpeg' });
+    fireEvent.change(screen.getByTestId('input-foto'), { target: { files: [archivo] } });
+  }
+}
+
 function renderPage(url = '/avistamientos/nuevo') {
   return render(
     <ThemeProvider><MemoryRouter initialEntries={[url]}><ReportarAvistamiento /></MemoryRouter></ThemeProvider>
@@ -47,6 +60,7 @@ describe('Sprint 6 — Reportar avistamiento (R7 / R11)', () => {
     renderPage();
     await screen.findByTestId('opcion-mascota-5');
     fireEvent.click(screen.getByTestId('simular-ubicacion'));
+    llenarObligatorios();
     fireEvent.submit(screen.getByTestId('form-avistamiento'));
     expect(await screen.findByText(/elige la mascota/i)).toBeInTheDocument();
     expect(crearAvistamiento).not.toHaveBeenCalled();
@@ -57,10 +71,49 @@ describe('Sprint 6 — Reportar avistamiento (R7 / R11)', () => {
     renderPage();
     fireEvent.click(await screen.findByTestId('opcion-mascota-8'));
     fireEvent.click(screen.getByTestId('simular-ubicacion'));
+    llenarObligatorios();
     fireEvent.submit(screen.getByTestId('form-avistamiento'));
     await waitFor(() => expect(crearAvistamiento).toHaveBeenCalledTimes(1));
     expect(crearAvistamiento.mock.calls[0][0]).toMatchObject({ mascota_id: 8, latitud: 1.21, longitud: -77.28 });
     expect(await screen.findByText(/gracias por ayudar/i)).toBeInTheDocument();
+  });
+
+  test('No envía sin foto: la foto es obligatoria', async () => {
+    renderPage();
+    fireEvent.click(await screen.findByTestId('opcion-mascota-8'));
+    fireEvent.click(screen.getByTestId('simular-ubicacion'));
+    llenarObligatorios({ foto: false });
+    fireEvent.submit(screen.getByTestId('form-avistamiento'));
+    expect(await screen.findByText(/agrega una foto/i)).toBeInTheDocument();
+    expect(crearAvistamiento).not.toHaveBeenCalled();
+  });
+
+  test('No envía sin celular o con un celular inválido', async () => {
+    renderPage();
+    fireEvent.click(await screen.findByTestId('opcion-mascota-8'));
+    fireEvent.click(screen.getByTestId('simular-ubicacion'));
+    llenarObligatorios({ telefono: null });
+    fireEvent.submit(screen.getByTestId('form-avistamiento'));
+    expect(await screen.findByText(/celular es obligatorio/i)).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText(/tu celular/i), { target: { value: 'abc' } });
+    fireEvent.submit(screen.getByTestId('form-avistamiento'));
+    expect(await screen.findByText(/celular válido/i)).toBeInTheDocument();
+    expect(crearAvistamiento).not.toHaveBeenCalled();
+  });
+
+  test('Envía el celular del testigo y la foto', async () => {
+    crearAvistamiento.mockResolvedValue({ data: { success: true } });
+    renderPage();
+    fireEvent.click(await screen.findByTestId('opcion-mascota-8'));
+    fireEvent.click(screen.getByTestId('simular-ubicacion'));
+    llenarObligatorios();
+    fireEvent.submit(screen.getByTestId('form-avistamiento'));
+    await waitFor(() => expect(crearAvistamiento).toHaveBeenCalledTimes(1));
+    const [datos, foto] = crearAvistamiento.mock.calls[0];
+    expect(datos.telefono_testigo).toBe('300 123 4567');
+    expect(datos).not.toHaveProperty('email_testigo');
+    expect(foto).toBeInstanceOf(File);
   });
 
   test('Desde el QR la mascota ya viene elegida', async () => {
@@ -68,6 +121,7 @@ describe('Sprint 6 — Reportar avistamiento (R7 / R11)', () => {
     renderPage('/avistamientos/nuevo?mascota=55555555-5555-4555-8555-555555555555');
     expect(await screen.findByTestId('mascota-desde-qr')).toHaveTextContent('Luna');
     fireEvent.click(screen.getByTestId('simular-ubicacion'));
+    llenarObligatorios();
     fireEvent.submit(screen.getByTestId('form-avistamiento'));
     await waitFor(() => expect(crearAvistamiento.mock.calls[0][0].mascota_id).toBe(5));
     expect(obtenerPerfilPublico).toHaveBeenCalledWith('55555555-5555-4555-8555-555555555555');
@@ -78,6 +132,7 @@ describe('Sprint 6 — Reportar avistamiento (R7 / R11)', () => {
     renderPage('/avistamientos/nuevo?mascota=55555555-5555-4555-8555-555555555555');
     await screen.findByTestId('mascota-desde-qr');
     fireEvent.click(screen.getByTestId('simular-ubicacion'));
+    llenarObligatorios();
     fireEvent.submit(screen.getByTestId('form-avistamiento'));
     expect(await screen.findByRole('alert')).toHaveTextContent('Error interno del servidor.');
     expect(screen.queryByText(/gracias por ayudar/i)).not.toBeInTheDocument();
@@ -88,6 +143,7 @@ describe('Sprint 6 — Reportar avistamiento (R7 / R11)', () => {
     renderPage('/avistamientos/nuevo?mascota=55555555-5555-4555-8555-555555555555');
     await screen.findByTestId('mascota-desde-qr');
     fireEvent.click(screen.getByTestId('simular-ubicacion'));
+    llenarObligatorios();
     fireEvent.submit(screen.getByTestId('form-avistamiento'));
     expect(await screen.findByRole('alert')).toHaveTextContent(/varios avistamientos seguidos/);
   });

@@ -1,68 +1,97 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { motion } from 'framer-motion';
-import { ChevronLeft, LogOut, LayoutDashboard } from 'lucide-react';
+import { LogOut, LayoutDashboard, PawPrint, Megaphone, ChevronRight } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import { useTokens } from '../hooks/useTokens';
 import * as mascotaService from '../services/mascotaService';
 import * as reporteService from '../services/reporteService';
 import BottomNav from '../components/ui/BottomNav';
+import HojaConfirmacion from '../components/ui/HojaConfirmacion';
 import CabeceraPerfil from '../components/perfil/CabeceraPerfil';
 import EstadisticasPerfil from '../components/perfil/EstadisticasPerfil';
-import CarruselMascotas from '../components/perfil/CarruselMascotas';
-import AjustesCuenta from '../components/perfil/AjustesCuenta';
+import AjustesCuenta, { Grupo, IconoFila } from '../components/perfil/AjustesCuenta';
 import EliminarCuenta from '../components/perfil/EliminarCuenta';
+import { focoVisible } from '../components/auth/AuthUI';
 
-// Perfil del usuario: datos, mascotas, configuración de alertas y derechos sobre sus datos
+function FilaEnlace({ icon, titulo, detalle, onClick, tono }) {
+  return (
+    <button type="button" onClick={onClick}
+      className={`w-full flex items-center gap-3 px-4 py-3.5 text-left hover:bg-warm-50 dark:hover:bg-white/5 ${focoVisible}`}>
+      <IconoFila icon={icon} tono={tono} />
+      <span className="flex-1 min-w-0">
+        <span className="block text-[15px] font-semibold text-dark-900 dark:text-white">{titulo}</span>
+        {detalle && <span className="block text-[13px] text-gray-500 dark:text-white/50">{detalle}</span>}
+      </span>
+      <ChevronRight size={18} className="shrink-0 text-gray-400" aria-hidden="true" />
+    </button>
+  );
+}
+
+// Perfil del usuario: datos, actividad, configuración de alertas y derechos sobre sus datos
 export default function ConfiguracionPerfil() {
-  const t = useTokens();
   const navigate = useNavigate();
   const { usuario, logout } = useAuth();
 
   const [mascotas, setMascotas] = useState([]);
   const [reportes, setReportes] = useState([]);
-  const [cargandoMascotas, setCargandoMascotas] = useState(true);
+  const [confirmarSalida, setConfirmarSalida] = useState(false);
 
   useEffect(() => {
     mascotaService.listarMascotas()
       .then(({ data }) => setMascotas(data.mascotas || []))
-      .catch(() => {})
-      .finally(() => setCargandoMascotas(false));
+      .catch(() => {});
     reporteService.misReportes()
       .then(({ data }) => setReportes(data.reportes || []))
       .catch(() => {});
   }, []);
 
+  const cancelarSalida = useCallback(() => setConfirmarSalida(false), []);
+  const activos = reportes.filter((r) => r.estado === 'en_busqueda').length;
+  const plural = (n, uno, varios) => `${n} ${n === 1 ? uno : varios}`;
+
   return (
-    <div className="min-h-screen pb-24 transition-colors" style={{ background: t.bg }}>
-      <header className="flex items-center gap-3 px-5 pt-safe pt-4 pb-2">
-        <motion.button whileTap={{ scale: 0.88 }} onClick={() => navigate(-1)} aria-label="Volver"
-          className="h-9 w-9 rounded-2xl flex items-center justify-center" style={{ background: t.primaryBg }}>
-          <ChevronLeft size={20} style={{ color: t.primary }} strokeWidth={2.5} />
-        </motion.button>
-        <h1 className="font-poppins font-bold text-lg" style={{ color: t.text }}>Mi perfil</h1>
+    <div className="min-h-dvh pb-28 bg-warm-50 dark:bg-dark-800">
+      <header className="px-5 pt-[max(env(safe-area-inset-top),1.25rem)] pb-4">
+        <h1 className="font-poppins font-bold text-[26px] leading-tight text-dark-900 dark:text-white">Perfil</h1>
       </header>
 
-      <CabeceraPerfil />
-      <EstadisticasPerfil mascotas={mascotas} reportes={reportes} />
-      <CarruselMascotas mascotas={mascotas} cargando={cargandoMascotas} />
-      <AjustesCuenta />
+      <div className="flex flex-col gap-6">
+        <div className="flex flex-col gap-3">
+          <CabeceraPerfil />
+          <EstadisticasPerfil mascotas={mascotas} reportes={reportes} />
+        </div>
 
-      {usuario?.rol === 'admin' && (
-        <motion.button whileTap={{ scale: 0.97 }} onClick={() => navigate('/admin')}
-          className="mx-4 w-[calc(100%-2rem)] py-4 rounded-3xl text-sm font-semibold flex items-center justify-center gap-2 mb-3 text-white"
-          style={{ background: 'linear-gradient(135deg,#6366F1,#8B5CF6)', boxShadow: '0 6px 20px rgba(99,102,241,0.35)' }}>
-          <LayoutDashboard size={16} /> Panel de administrador
-        </motion.button>
-      )}
+        <Grupo titulo="Mi actividad">
+          <FilaEnlace icon={PawPrint} titulo="Mis mascotas" onClick={() => navigate('/mascotas')}
+            detalle={mascotas.length ? plural(mascotas.length, 'mascota registrada', 'mascotas registradas') : 'Registra a tu primera mascota'} />
+          <FilaEnlace icon={Megaphone} titulo="Mis reportes" onClick={() => navigate('/reportes')}
+            detalle={activos ? plural(activos, 'búsqueda activa', 'búsquedas activas') : 'Pérdidas reportadas y encontradas'} />
+        </Grupo>
 
-      <motion.button whileTap={{ scale: 0.97 }} onClick={() => logout?.()}
-        className="mx-4 w-[calc(100%-2rem)] py-4 rounded-3xl text-sm font-semibold flex items-center justify-center gap-2"
-        style={{ background: t.dangerBg, color: '#EF4444' }}>
-        <LogOut size={16} /> Cerrar sesión
-      </motion.button>
+        <AjustesCuenta />
 
-      <EliminarCuenta />
+        <Grupo titulo="Cuenta">
+          {usuario?.rol === 'admin' && (
+            <FilaEnlace icon={LayoutDashboard} tono="neutro" titulo="Panel de administración"
+              detalle="Moderación, usuarios y estadísticas" onClick={() => navigate('/admin')} />
+          )}
+          <button type="button" onClick={() => setConfirmarSalida(true)}
+            className={`w-full flex items-center gap-3 px-4 py-3.5 text-left hover:bg-warm-50 dark:hover:bg-white/5 ${focoVisible}`}>
+            <IconoFila icon={LogOut} tono="neutro" />
+            <span className="flex-1 text-[15px] font-semibold text-dark-900 dark:text-white">Cerrar sesión</span>
+          </button>
+        </Grupo>
+
+        <div className="flex flex-col items-center gap-1">
+          <EliminarCuenta />
+          <p className="text-[12px] text-gray-400 dark:text-white/30">HuellaSegura · Pasto, Nariño</p>
+        </div>
+      </div>
+
+      <HojaConfirmacion abierta={confirmarSalida} titulo="¿Cerrar sesión?" textoConfirmar="Cerrar sesión"
+        onConfirmar={() => logout?.()} onCancelar={cancelarSalida}>
+        Para volver a entrar necesitarás tu correo y contraseña.
+      </HojaConfirmacion>
+
       <BottomNav />
     </div>
   );

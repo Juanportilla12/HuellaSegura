@@ -79,7 +79,9 @@ describe('Sprint 6 — Avistamientos, QR y perfil público (DoD)', () => {
     // Ruta pública — NO requiere token
     const res = await request(app)
       .post('/api/avistamientos')
-      .send({ mascota_id: 1, latitud: 1.2136, longitud: -77.2811 });
+      .field('mascota_id', '1').field('latitud', '1.2136').field('longitud', '-77.2811')
+      .field('telefono_testigo', '3001234567')
+      .attach('foto', Buffer.from('foto'), { filename: 'foto.jpg', contentType: 'image/jpeg' });
     expect([200, 201]).toContain(res.status);
     expect(res.body.success).toBe(true);
   });

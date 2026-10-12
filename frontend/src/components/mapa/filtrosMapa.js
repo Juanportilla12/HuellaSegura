@@ -1,11 +1,9 @@
-export const EMOJIS = { perro: '🐶', gato: '🐱', ave: '🐦', reptil: '🦎', otro: '🐾' };
-
 export const FILTRO_ESPECIE = [
-  { id: 'todos',  label: 'Todos',    emoji: '🐾' },
-  { id: 'perro',  label: 'Perros',   emoji: '🐕' },
-  { id: 'gato',   label: 'Gatos',    emoji: '🐈' },
-  { id: 'ave',    label: 'Aves',     emoji: '🐦' },
-  { id: 'reptil', label: 'Reptiles', emoji: '🦎' },
+  { id: 'todos',  label: 'Todos'    },
+  { id: 'perro',  label: 'Perros'   },
+  { id: 'gato',   label: 'Gatos'    },
+  { id: 'ave',    label: 'Aves'     },
+  { id: 'reptil', label: 'Reptiles' },
 ];
 
 export const FILTRO_TIEMPO = [
@@ -44,4 +42,16 @@ export function tiempoTranscurrido(fecha) {
   const hrs = Math.floor(mins / 60);
   if (hrs < 24) return `${hrs}h`;
   return `${Math.floor(hrs / 24)}d`;
+}
+
+// Versión para mostrar al usuario: "hace 5 min", "hace 3 h", "hace 2 días"
+export function tiempoLegible(fecha) {
+  if (!fecha) return '';
+  const mins = Math.max(0, Math.floor((Date.now() - new Date(fecha)) / 60000));
+  if (mins < 1) return 'hace un momento';
+  if (mins < 60) return `hace ${mins} min`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `hace ${hrs} h`;
+  const dias = Math.floor(hrs / 24);
+  return `hace ${dias} ${dias === 1 ? 'día' : 'días'}`;
 }

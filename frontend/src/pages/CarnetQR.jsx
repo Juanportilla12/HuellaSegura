@@ -2,35 +2,48 @@ import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { QRCodeSVG } from 'qrcode.react';
 import { motion } from 'framer-motion';
-import { Share2, Download, Printer, CheckCircle, ChevronLeft } from 'lucide-react';
-import { useTokens } from '../hooks/useTokens';
+import { Share2, Download, Printer, Check, Phone } from 'lucide-react';
+import { toast } from 'sonner';
 import { obtenerMascota } from '../services/mascotaService';
-import BotonesCompartir from '../components/BotonesCompartir';
 import { urlPerfilPublico } from '../services/perfilPublicoService';
+import { useAuth } from '../context/AuthContext';
+import EncabezadoPagina from '../components/ui/EncabezadoPagina';
+import IconoEspecie from '../components/ui/IconoEspecie';
+import { Huella, focoVisible } from '../components/auth/AuthUI';
 
-const ESPECIE_EMOJIS = { perro:'🐶', gato:'🐱', ave:'🐦', reptil:'🦎', otro:'🐾' };
+function Boton({ icon: Icon, children, principal = false, ...props }) {
+  return (
+    <button type="button" {...props}
+      className={`flex-1 h-12 rounded-2xl flex items-center justify-center gap-2 text-[14px] font-semibold ${focoVisible}
+                  ${principal ? 'text-white bg-primary-700 hover:bg-primary-800 shadow-[0_8px_20px_rgba(204,74,52,0.3)]'
+                              : 'text-dark-900 bg-white border border-warm-border hover:bg-warm-100 dark:bg-white/5 dark:border-white/10 dark:text-white'}`}>
+      <Icon size={18} aria-hidden="true" /> {children}
+    </button>
+  );
+}
 
 export default function CarnetQR() {
   const { id }    = useParams();
   const navigate  = useNavigate();
-  const t         = useTokens();
-  const carnetRef = useRef(null);
+  const { usuario } = useAuth();
+  const qrRef     = useRef(null);
 
   const [mascota,  setMascota]  = useState(null);
   const [cargando, setCargando] = useState(true);
   const [copiado,  setCopiado]  = useState(false);
+  const [mostrarCelular, setMostrarCelular] = useState(true);
 
   useEffect(() => {
     obtenerMascota(id)
       .then(({ data }) => setMascota(data.mascota))
-      .catch(() => navigate(-1))
+      .catch(() => navigate('/mascotas', { replace: true }))
       .finally(() => setCargando(false));
   }, [id, navigate]);
 
   // El QR usa el código público aleatorio de la mascota, no su id interno
   const publicUrl = mascota ? urlPerfilPublico(mascota.codigo_publico) : '';
-  const hsId      = `HS-PT-${String(id).padStart(5, '0')}`;
-  const emoji     = ESPECIE_EMOJIS[mascota?.especie] || '🐾';
+  const dueno     = usuario?.nombre?.split(' ')[0];
+  const celular   = usuario?.celular;
 
   async function handleCompartir() {
     if (navigator.share) {
@@ -42,154 +55,123 @@ export default function CarnetQR() {
     }
   }
 
-  function handleImprimir() { window.print(); }
-
-  async function handleDescargarPNG() {
+  // Descarga solo el código QR en PNG (alta resolución, fondo blanco)
+  function handleDescargarQR() {
     try {
-      const svgEl   = carnetRef.current?.querySelector('svg');
+      const svgEl = qrRef.current?.querySelector('svg');
       if (!svgEl) return;
-      const svgData = new XMLSerializer().serializeToString(svgEl);
-      const svgBlob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
-      const svgUrl  = URL.createObjectURL(svgBlob);
-      const img     = new Image();
+      const svgUrl = URL.createObjectURL(new Blob([new XMLSerializer().serializeToString(svgEl)], { type: 'image/svg+xml;charset=utf-8' }));
+      const img = new Image();
       img.onload = () => {
-        const canvas  = document.createElement('canvas');
-        canvas.width  = img.width  * 3;
-        canvas.height = img.height * 3;
+        const escala = 4, margen = 24;
+        const canvas = document.createElement('canvas');
+        canvas.width  = img.width * escala + margen * 2;
+        canvas.height = img.height * escala + margen * 2;
         const ctx = canvas.getContext('2d');
-        ctx.scale(3, 3);
         ctx.fillStyle = 'white';
         ctx.fillRect(0, 0, canvas.width, canvas.height);
-        ctx.drawImage(img, 0, 0);
+        ctx.drawImage(img, margen, margen, img.width * escala, img.height * escala);
         URL.revokeObjectURL(svgUrl);
-        const link    = document.createElement('a');
-        link.href     = canvas.toDataURL('image/png');
-        link.download = `carnet-${mascota?.nombre || 'mascota'}.png`;
+        const link = document.createElement('a');
+        link.href = canvas.toDataURL('image/png');
+        link.download = `qr-${mascota?.nombre || 'mascota'}.png`;
         link.click();
       };
       img.src = svgUrl;
-    } catch { alert('No se pudo descargar. Intenta imprimir la página.'); }
+    } catch {
+      toast.error('No se pudo descargar el QR. Intenta imprimir el carnet.');
+    }
   }
 
   if (cargando) {
     return (
-      <div className="flex items-center justify-center min-h-screen" style={{ background: t.bg }}>
-        <div className="h-10 w-10 rounded-full border-2 animate-spin"
-             style={{ borderColor: t.primary, borderTopColor: 'transparent' }} />
+      <div className="min-h-dvh bg-warm-50 dark:bg-dark-800 flex items-center justify-center" aria-busy="true">
+        <div className="h-[420px] w-[calc(100%-40px)] max-w-sm rounded-3xl bg-gray-200 dark:bg-white/5 animate-pulse" />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen pb-10" style={{ background: t.bg }}>
-
-      {/* Header */}
-      <div className="flex items-center justify-between px-5 pt-safe pt-4 pb-3"
-           style={{ background: t.bgHeader }}>
-        <motion.button whileTap={{ scale: 0.88 }} onClick={() => navigate(-1)}
-          className="h-9 w-9 rounded-xl flex items-center justify-center"
-          style={{ background: t.surface, border: `1px solid ${t.border}` }}>
-          <ChevronLeft size={20} style={{ color: t.primary }} strokeWidth={2.5} />
-        </motion.button>
-        <h1 className="font-poppins font-bold text-lg" style={{ color: t.text }}>Carnet digital</h1>
-        <motion.button whileTap={{ scale: 0.88 }} onClick={handleCompartir}
-          className="h-9 w-9 rounded-xl flex items-center justify-center"
-          style={{ background: t.primaryBg, border: `1px solid ${t.primaryBorder}` }}>
-          {copiado
-            ? <CheckCircle size={18} style={{ color: t.secondary }} />
-            : <Share2 size={18} style={{ color: t.primary }} />}
-        </motion.button>
+    <div className="min-h-dvh bg-warm-50 dark:bg-dark-800 pb-10 print:bg-white print:pb-0">
+      <div className="print:hidden">
+        <EncabezadoPagina titulo="Carnet con QR" subtitulo={mascota?.nombre} />
       </div>
 
-      {/* Card carnet — siempre blanca para impresión */}
-      <motion.div ref={carnetRef}
-        initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }}
-        className="mx-5 mt-4 rounded-3xl overflow-hidden"
-        style={{ background: 'white', boxShadow: '0 12px 40px rgba(0,0,0,0.15)' }}>
-
-        {/* Branding */}
-        <div className="flex items-center justify-between px-5 py-3.5"
-             style={{ background: '#FFF8F5', borderBottom: '1px solid #F0E8E4' }}>
-          <div className="flex items-center gap-2">
-            <div className="h-7 w-7 rounded-lg flex items-center justify-center text-sm"
-                 style={{ background: 'linear-gradient(135deg,#FF9280,#F97B62)' }}>🐾</div>
-            <span className="text-xs font-bold uppercase tracking-widest" style={{ color: '#F97B62' }}>HuellaSegura</span>
-          </div>
-          <span className="text-xs font-medium" style={{ color: '#9CA3AF' }}>ID · {hsId}</span>
+      {/* ── Carnet (siempre claro para imprimir) ─────────────────── */}
+      <motion.article initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35 }}
+        aria-label={`Carnet de ${mascota?.nombre}`}
+        className="mx-5 mt-5 rounded-[28px] overflow-hidden bg-white shadow-[0_16px_40px_rgba(26,26,46,0.14)]
+                   print:shadow-none print:border print:border-gray-300 print:mx-auto print:max-w-[360px]
+                   [print-color-adjust:exact] [-webkit-print-color-adjust:exact]">
+        <div className="bg-[#E8732F] px-5 py-3 flex items-center gap-2 text-white">
+          <span className="h-7 w-7 rounded-lg bg-white flex items-center justify-center">
+            <Huella className="h-4 w-4 text-primary-700" />
+          </span>
+          <span className="font-poppins font-bold text-[15px]">HuellaSegura</span>
+          <span className="ml-auto text-[12px] font-medium text-white/90">Pasto, Nariño</span>
         </div>
 
-        {/* Info mascota */}
-        <div className="flex items-center gap-4 px-5 py-4">
-          <div className="h-16 w-16 rounded-2xl overflow-hidden shrink-0"
-               style={{ background: 'linear-gradient(135deg,#FFD0BF,#F97B62)' }}>
+        <div className="flex items-center gap-4 px-5 pt-5">
+          <span className="h-16 w-16 shrink-0 rounded-2xl overflow-hidden bg-primary-50 flex items-center justify-center">
             {mascota?.foto_urls?.[0]
               ? <img src={mascota.foto_urls[0]} alt="" className="w-full h-full object-cover" />
-              : <div className="w-full h-full flex items-center justify-center text-2xl">{emoji}</div>}
-          </div>
-          <div className="flex-1 min-w-0">
-            <h2 className="text-xl font-poppins font-bold" style={{ color: '#1A1A2E' }}>{mascota?.nombre}</h2>
-            <p className="text-sm mt-0.5" style={{ color: '#6B7280' }}>
-              {[mascota?.raza, mascota?.edad ? `${mascota.edad} años` : null].filter(Boolean).join(' · ')}
+              : <IconoEspecie especie={mascota?.especie} size={30} strokeWidth={1.6} className="text-primary-300" />}
+          </span>
+          <div className="min-w-0">
+            <h2 className="font-poppins font-bold text-[22px] leading-tight truncate text-dark-900">{mascota?.nombre}</h2>
+            <p className="text-[13px] truncate text-gray-500">
+              {[mascota?.raza, mascota?.color].filter(Boolean).join(' · ')}
             </p>
-            <span className="inline-flex items-center gap-1 mt-1.5 text-xs font-semibold px-2.5 py-0.5 rounded-full"
-                  style={{ background: '#E0F9F7', color: '#00C4B4', border: '1px solid #B3F1ED' }}>
-              <CheckCircle size={11} /> VERIFICADO
+          </div>
+        </div>
+
+        <div ref={qrRef} className="flex justify-center py-5">
+          <div className="relative p-3 rounded-2xl border border-warm-border">
+            <QRCodeSVG value={publicUrl} size={196} level="H" includeMargin={false} style={{ display: 'block' }} />
+            <span className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 h-11 w-11 rounded-xl bg-primary-700
+                             ring-4 ring-white flex items-center justify-center" aria-hidden="true">
+              <Huella className="h-6 w-6 text-white" />
             </span>
           </div>
         </div>
 
-        {/* QR */}
-        <div className="flex items-center justify-center py-6 px-5">
-          <div className="relative">
-            <QRCodeSVG value={publicUrl} size={220} level="H" includeMargin={false} style={{ display: 'block' }} />
-            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 h-12 w-12 rounded-full flex items-center justify-center text-xl"
-                 style={{ background: 'linear-gradient(135deg,#FF9280,#F97B62)', boxShadow: '0 4px 12px rgba(249,123,98,0.5)' }}>
-              🐾
-            </div>
-          </div>
-        </div>
-
-        {/* Info dueño */}
-        <div className="grid grid-cols-2 gap-px mx-5 mb-5 rounded-2xl overflow-hidden"
-             style={{ background: '#F0E8E4' }}>
-          <div className="px-4 py-3" style={{ background: '#FFF8F5' }}>
-            <p className="font-semibold uppercase tracking-widest mb-0.5" style={{ color: '#9CA3AF', fontSize: '0.6rem' }}>DUEÑO</p>
-            <p className="text-sm font-semibold" style={{ color: '#1A1A2E' }}>
-              {mascota?.usuario_id ? `Usuario #${mascota.usuario_id}` : '—'}
+        <div className="mx-5 mb-5 rounded-2xl bg-warm-50 px-4 py-3 text-center">
+          <p className="font-poppins font-semibold text-[15px] text-dark-900">Si me encuentras, escanea el código</p>
+          <p className="text-[12px] text-gray-500 mt-0.5">Verás cómo avisarle a mi familia. No necesitas la app.</p>
+          {mostrarCelular && celular && (
+            <p className="mt-2 flex items-center justify-center gap-1.5 text-[14px] font-semibold text-dark-900">
+              <Phone size={14} aria-hidden="true" /> {dueno ? `${dueno} · ` : ''}{celular}
             </p>
-          </div>
-          <div className="px-4 py-3" style={{ background: '#FFF8F5' }}>
-            <p className="font-semibold uppercase tracking-widest mb-0.5" style={{ color: '#9CA3AF', fontSize: '0.6rem' }}>APP</p>
-            <p className="text-sm font-semibold" style={{ color: '#1A1A2E' }}>HuellaSegura</p>
-          </div>
+          )}
         </div>
+      </motion.article>
 
-        <p className="text-center text-xs pb-5" style={{ color: '#C9B8B0' }}>Escanea para ver el perfil completo</p>
-      </motion.div>
+      {/* ── Opciones ─────────────────────────────────────────────── */}
+      <div className="mx-5 mt-5 flex flex-col gap-3 print:hidden">
+        {celular && (
+          <label className="flex items-center justify-between gap-3 rounded-2xl px-4 py-3 bg-white dark:bg-white/5
+                            border border-warm-border dark:border-white/10 cursor-pointer">
+            <span>
+              <span className="block text-[15px] font-semibold text-dark-900 dark:text-white">Mostrar mi celular</span>
+              <span className="block text-[13px] text-gray-500 dark:text-white/50">Por si quien la encuentra no puede escanear</span>
+            </span>
+            <input type="checkbox" role="switch" checked={mostrarCelular} onChange={(e) => setMostrarCelular(e.target.checked)}
+                   className="peer sr-only" />
+            <span className="relative h-7 w-12 shrink-0 rounded-full bg-gray-300 transition-colors peer-checked:bg-primary-700
+                             peer-focus-visible:ring-4 peer-focus-visible:ring-primary/30
+                             after:absolute after:top-0.5 after:left-0.5 after:h-6 after:w-6 after:rounded-full after:bg-white
+                             after:shadow after:transition-transform peer-checked:after:translate-x-5" aria-hidden="true" />
+          </label>
+        )}
 
-      {/* Botones */}
-      <div className="grid grid-cols-3 gap-3 mx-5 mt-5">
-        <motion.button whileTap={{ scale: 0.97 }} onClick={handleDescargarPNG}
-          className="flex items-center justify-center gap-2 py-3.5 rounded-2xl text-sm font-bold"
-          style={{ background: t.surface, border: `1px solid ${t.border}`, color: t.textMuted }}>
-          <Download size={16} /> Descargar PNG
-        </motion.button>
-        <motion.button whileTap={{ scale: 0.97 }} onClick={handleImprimir}
-          className="flex items-center justify-center gap-2 py-3.5 rounded-2xl text-sm font-bold"
-          style={{ background: t.surface, border: `1px solid ${t.border}`, color: t.textMuted }}>
-          <Printer size={16} /> Imprimir
-        </motion.button>
-        <motion.button whileTap={{ scale: 0.97 }} onClick={handleCompartir}
-          className="flex items-center justify-center gap-2 py-3.5 rounded-2xl text-sm font-bold text-white"
-          style={{ background: 'linear-gradient(135deg,#FF9280,#F97B62)', boxShadow: '0 6px 20px rgba(249,123,98,0.4)' }}>
-          <Share2 size={16} /> {copiado ? '¡Copiado!' : 'Compartir link'}
-        </motion.button>
+        <div className="flex gap-3">
+          <Boton icon={Printer} onClick={() => window.print()} principal>Imprimir</Boton>
+          <Boton icon={Download} onClick={handleDescargarQR}>Descargar QR</Boton>
+        </div>
+        <Boton icon={copiado ? Check : Share2} onClick={handleCompartir}>
+          {copiado ? 'Enlace copiado' : 'Compartir enlace del perfil'}
+        </Boton>
       </div>
-      {mascota && (
-        <div className="mx-5 mt-3">
-          <BotonesCompartir codigoPublico={mascota.codigo_publico} nombreMascota={mascota.nombre} />
-        </div>
-      )}
     </div>
   );
 }
