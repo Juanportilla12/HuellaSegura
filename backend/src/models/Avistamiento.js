@@ -13,6 +13,7 @@ const Avistamiento = sequelize.define(
     foto_url:       { type: DataTypes.STRING(500), allowNull: true },
     nombre_testigo: { type: DataTypes.STRING(100), allowNull: true },
     email_testigo:  { type: DataTypes.STRING(150), allowNull: true },
+    telefono_testigo: { type: DataTypes.STRING(20), allowNull: true },
   },
   { tableName: 'avistamientos', underscored: true }
 );

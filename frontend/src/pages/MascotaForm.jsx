@@ -1,12 +1,16 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Camera, ChevronLeft, X, CheckCircle, Sparkles } from 'lucide-react';
+import { Camera, ChevronLeft, X, Video, Check, Cpu, Plus } from 'lucide-react';
 import { toast } from 'sonner';
 import * as mascotaService from '../services/mascotaService';
+import IconoEspecie from '../components/ui/IconoEspecie';
+import AreaTexto from '../components/formulario/AreaTexto';
+import CampoTexto from '../components/formulario/CampoTexto';
+import { BotonPrimario, focoVisible, inputAuth } from '../components/auth/AuthUI';
 
-const PASOS = ['Fotos', 'Básicos', 'Detalles', 'Confirmar'];
-const MAX_FOTOS = 5;      // HU-06
+const PASOS = ['Fotos', 'Características', 'Detalles', 'Confirmar'];
+const MAX_FOTOS = 5;      // HU-06 (el backend acepta hasta 5 por mascota)
 const MAX_VIDEO_MB = 30;  // R5
 
 const FORM_INICIAL = {
@@ -15,43 +19,39 @@ const FORM_INICIAL = {
 };
 
 const ESPECIES = [
-  { value: 'perro',  label: 'Perro',  emoji: '🐶', grad: ['#FFD0BF','#F97B62'] },
-  { value: 'gato',   label: 'Gato',   emoji: '🐱', grad: ['#C7B2F5','#9B87E8'] },
-  { value: 'ave',    label: 'Ave',    emoji: '🐦', grad: ['#A7F0EB','#00C4B4'] },
-  { value: 'reptil', label: 'Reptil', emoji: '🦎', grad: ['#A7F5B9','#22C55E'] },
-  { value: 'otro',   label: 'Otro',   emoji: '🐾', grad: ['#FFD0BF','#F97B62'] },
+  { value: 'perro',  label: 'Perro' },
+  { value: 'gato',   label: 'Gato' },
+  { value: 'ave',    label: 'Ave' },
+  { value: 'reptil', label: 'Reptil' },
+  { value: 'otro',   label: 'Otro' },
 ];
+const SEXOS    = [{ value: 'macho', label: 'Macho' }, { value: 'hembra', label: 'Hembra' }];
+const UNIDADES = [{ value: 'años', label: 'Años' }, { value: 'meses', label: 'Meses' }];
+const COLORES_SUGERIDOS = ['Negro', 'Blanco', 'Café', 'Dorado/Miel', 'Gris', 'Naranja', 'Manchado', 'Atigrado', 'Crema'];
 
-const SEXOS    = [{ value:'macho',  label:'Macho',   icon:'♂' },
-                  { value:'hembra', label:'Hembra',  icon:'♀' }];
-const TAMANIOS = [{ value:'pequeño',label:'Pequeño', sub:'< 10 kg' },
-                  { value:'mediano',label:'Mediano',  sub:'10-25 kg' },
-                  { value:'grande', label:'Grande',   sub:'> 25 kg' }];
-const UNIDADES = [{ value:'años', label:'Años' }, { value:'meses', label:'Meses' }];
+const etiqueta = 'text-[13px] font-semibold text-dark-700 dark:text-white/70';
 
-const COLORES_SUGERIDOS = ['Negro','Blanco','Café','Dorado/Miel','Gris','Naranja','Manchado','Atigrado','Crema'];
-
-function ChipBtn({ activo, onClick, children, style = {} }) {
+function Opcion({ activo, onClick, children, className = '' }) {
   return (
-    <motion.button
-      type="button"
-      whileTap={{ scale: 0.95 }}
-      onClick={onClick}
-      className="px-4 py-2 rounded-2xl text-sm font-semibold transition-all duration-150"
-      style={activo
-        ? { background:'linear-gradient(135deg,#FF9280,#F97B62)', color:'white', boxShadow:'0 4px 12px rgba(249,123,98,0.35)', ...style }
-        : { background:'#FFF8F5', color:'#6B7280', border:'1.5px solid #EDE5E1', ...style }}
-    >
+    <button type="button" onClick={onClick} aria-pressed={activo}
+      className={`rounded-2xl border-[1.5px] font-semibold text-[14px] transition-colors ${focoVisible} ${className}
+                  ${activo ? 'border-primary-700 bg-primary-50 text-primary-800 dark:bg-white/10 dark:text-white'
+                           : 'border-warm-border bg-white text-dark-700 hover:bg-warm-50 dark:border-white/10 dark:bg-white/5 dark:text-white/80'}`}>
       {children}
-    </motion.button>
+    </button>
   );
 }
 
-function Label({ children, required }) {
+function MensajeError({ children }) {
+  return children ? <p className="text-xs font-medium mt-1.5 text-red-600 dark:text-red-400">{children}</p> : null;
+}
+
+function Titulo({ children, sub }) {
   return (
-    <p className="text-[10px] font-bold uppercase tracking-widest mb-2" style={{ color:'#9CA3AF' }}>
-      {children}{required && <span style={{ color:'#F97B62' }}> *</span>}
-    </p>
+    <div>
+      <h2 className="font-poppins font-bold text-[24px] leading-tight text-dark-900 dark:text-white">{children}</h2>
+      {sub && <p className="text-[14px] mt-1 text-gray-500 dark:text-white/50">{sub}</p>}
+    </div>
   );
 }
 
@@ -65,6 +65,7 @@ export default function MascotaForm() {
   const [paso,          setPaso]          = useState(1);
   const [form,          setForm]          = useState(FORM_INICIAL);
   const [fotos,         setFotos]         = useState([]);
+  const [fotosActuales, setFotosActuales] = useState([]);
   const [video,         setVideo]         = useState(null);
   const [errores,       setErrores]       = useState({});
   const [cargando,      setCargando]      = useState(false);
@@ -76,13 +77,16 @@ export default function MascotaForm() {
     mascotaService.obtenerMascota(id)
       .then(({ data }) => {
         const m = data.mascota;
-        setForm({ nombre:m.nombre||'', especie:m.especie||'', raza:m.raza||'',
-          sexo:m.sexo||'', color:m.color||'', edad:m.edad??'',
-          edad_unidad:m.edad_unidad||'años', descripcion:m.descripcion||'', microchip:m.microchip||'' });
+        setForm({ nombre: m.nombre || '', especie: m.especie || '', raza: m.raza || '',
+          sexo: m.sexo || '', color: m.color || '', edad: m.edad ?? '',
+          edad_unidad: m.edad_unidad || 'años', descripcion: m.descripcion || '', microchip: m.microchip || '' });
+        setFotosActuales(m.foto_urls || []);
       })
       .catch(() => toast.error('No se pudo cargar la mascota.'))
       .finally(() => setCargandoDatos(false));
   }, [id, esEdicion]);
+
+  const cupoFotos = MAX_FOTOS - fotosActuales.length - fotos.length;
 
   function set(name, value) {
     setForm(p => ({ ...p, [name]: value }));
@@ -90,9 +94,10 @@ export default function MascotaForm() {
   }
 
   function handleFotos(e) {
-    const validos = Array.from(e.target.files).filter(f => ['image/jpeg','image/png'].includes(f.type));
-    if (fotos.length + validos.length > MAX_FOTOS) { toast.error(`Máximo ${MAX_FOTOS} fotos.`); return; }
-    setFotos(p => [...p, ...validos.map(f => ({ archivo:f, preview:URL.createObjectURL(f) }))]);
+    const validos = Array.from(e.target.files).filter(f => ['image/jpeg', 'image/png'].includes(f.type));
+    e.target.value = '';
+    if (validos.length > cupoFotos) { toast.error(`Puedes agregar ${cupoFotos} foto${cupoFotos === 1 ? '' : 's'} más (máximo ${MAX_FOTOS}).`); return; }
+    setFotos(p => [...p, ...validos.map(f => ({ archivo: f, preview: URL.createObjectURL(f) }))]);
   }
 
   // R5: un video corto de la mascota
@@ -132,6 +137,7 @@ export default function MascotaForm() {
     setDir(1); setPaso(p => Math.min(p + 1, PASOS.length));
   }
   function anterior() {
+    if (paso === 1) { navigate(esEdicion ? `/mascotas/${id}` : '/mascotas'); return; }
     setDir(-1); setPaso(p => Math.max(p - 1, 1));
   }
 
@@ -140,7 +146,7 @@ export default function MascotaForm() {
     setCargando(true);
     try {
       const payload = { ...form, edad: form.edad !== '' ? parseInt(form.edad, 10) : undefined,
-        raza: form.raza||undefined, descripcion: form.descripcion||undefined, microchip: form.microchip||undefined };
+        raza: form.raza || undefined, descripcion: form.descripcion || undefined, microchip: form.microchip || undefined };
       let mascotaId;
       if (esEdicion) {
         await mascotaService.actualizarMascota(id, payload); mascotaId = id;
@@ -152,7 +158,7 @@ export default function MascotaForm() {
       try {
         if (fotos.length > 0) await mascotaService.subirFotos(mascotaId, fotos.map(f => f.archivo));
         if (video) await mascotaService.subirVideo(mascotaId, video.archivo);
-        toast.success(esEdicion ? '¡Perfil actualizado!' : `¡${form.nombre} registrado! 🐾`);
+        toast.success(esEdicion ? '¡Perfil actualizado!' : `¡${form.nombre} quedó registrado!`);
       } catch (errArchivos) {
         toast.error(`${form.nombre} se guardó, pero no se pudieron subir las fotos o el video: `
           + (errArchivos.response?.data?.message || 'error de conexión.')
@@ -165,452 +171,288 @@ export default function MascotaForm() {
   }
 
   if (cargandoDatos) return (
-    <div className="flex items-center justify-center min-h-screen" style={{ background:'#FFF8F5' }}>
-      <div className="h-10 w-10 rounded-full border-2 border-t-transparent animate-spin"
-           style={{ borderColor:'#F97B62', borderTopColor:'transparent' }} />
+    <div className="min-h-dvh flex items-center justify-center bg-warm-50 dark:bg-dark-800" aria-busy="true">
+      <div className="h-10 w-10 rounded-full border-[3px] border-primary-700 border-t-transparent animate-spin" aria-hidden="true" />
     </div>
   );
 
-  const progreso   = ((paso - 1) / (PASOS.length - 1)) * 100;
-  const especieObj = ESPECIES.find(e => e.value === form.especie);
+  const fotoPortada = fotos[0]?.preview || fotosActuales[0];
+  const resumen = [form.raza, form.sexo && (form.sexo === 'macho' ? 'Macho' : 'Hembra'), form.color,
+    form.edad ? `${form.edad} ${form.edad_unidad}` : null, form.microchip ? 'Con microchip' : null].filter(Boolean);
 
-  const slideVariants = {
-    enter:  (d) => ({ x: d > 0 ? 48 : -48, opacity: 0 }),
+  const deslizar = {
+    enter:  (d) => ({ x: d > 0 ? 40 : -40, opacity: 0 }),
     center: { x: 0, opacity: 1 },
-    exit:   (d) => ({ x: d > 0 ? -48 : 48, opacity: 0 }),
+    exit:   (d) => ({ x: d > 0 ? -40 : 40, opacity: 0 }),
   };
 
   return (
-    <div className="min-h-screen flex flex-col" style={{ background:'#FFF8F5' }}>
+    <div className="min-h-dvh flex flex-col bg-warm-50 dark:bg-dark-800">
 
-      {/* ── Header ─────────────────────────────────────────────────── */}
-      <header className="flex items-center gap-3 px-5 pt-safe pt-4 pb-3 sticky top-0 z-20"
-              style={{ background:'white', boxShadow:'0 1px 0 #EDE5E1' }}>
-        <motion.button whileTap={{ scale:0.88 }} onClick={anterior}
-          className="h-9 w-9 rounded-2xl flex items-center justify-center shrink-0"
-          style={{ background:'#FFF0EA' }}>
-          <ChevronLeft size={20} style={{ color:'#F97B62' }} strokeWidth={2.5} />
-        </motion.button>
-
-        <div className="flex-1 flex flex-col items-center gap-1.5">
-          <p className="text-xs font-semibold" style={{ color:'#9CA3AF' }} data-testid="paso-indicator">
-            Paso {paso} de {PASOS.length} · <span style={{ color:'#F97B62' }}>{PASOS[paso-1]}</span>
-          </p>
-          {/* Barra de progreso */}
-          <div className="w-full h-1.5 rounded-full" style={{ background:'#F0E8E4' }}>
-            <motion.div className="h-full rounded-full"
-              style={{ background:'linear-gradient(90deg,#FF9280,#F97B62)' }}
-              animate={{ width:`${progreso}%` }}
-              transition={{ duration:0.35, ease:[0.32,0.72,0,1] }}
-            />
+      {/* ── Encabezado con progreso ─────────────────────────────── */}
+      <header className="sticky top-0 z-20 bg-warm-50/90 dark:bg-dark-800/90 backdrop-blur-md border-b border-warm-border/70
+                         dark:border-white/10 px-4 pt-[max(env(safe-area-inset-top),0.75rem)] pb-3">
+        <div className="flex items-center gap-3">
+          <button type="button" onClick={anterior} aria-label={paso === 1 ? 'Salir' : 'Paso anterior'}
+            className={`h-10 w-10 shrink-0 rounded-full bg-white dark:bg-white/10 border border-warm-border dark:border-white/10
+                        text-dark-900 dark:text-white flex items-center justify-center ${focoVisible}`}>
+            <ChevronLeft size={22} strokeWidth={2.5} aria-hidden="true" />
+          </button>
+          <div className="flex-1 min-w-0">
+            <p className="font-poppins font-bold text-[17px] leading-tight truncate text-dark-900 dark:text-white">
+              {esEdicion ? 'Editar mascota' : 'Registrar mascota'}
+            </p>
+            <p className="text-[13px] text-gray-500 dark:text-white/50" data-testid="paso-indicator">
+              Paso {paso} de {PASOS.length} · <span className="font-semibold text-primary-700 dark:text-primary-400">{PASOS[paso - 1]}</span>
+            </p>
           </div>
+          <button type="button" onClick={() => navigate('/mascotas')}
+            className={`h-10 px-3 rounded-full text-[14px] font-semibold text-gray-600 dark:text-white/60 hover:bg-black/5 ${focoVisible}`}>
+            Salir
+          </button>
         </div>
-
-        <motion.button whileTap={{ scale:0.88 }} onClick={() => navigate('/mascotas')}
-          className="text-sm font-semibold shrink-0" style={{ color:'#9CA3AF' }}>
-          Salir
-        </motion.button>
+        <div className="mt-3 flex gap-1.5" aria-hidden="true">
+          {PASOS.map((_, i) => (
+            <span key={i} className="h-1 flex-1 rounded-full bg-gray-200 dark:bg-white/10 overflow-hidden">
+              <motion.span className="block h-full bg-primary-700 rounded-full origin-left" initial={false}
+                           animate={{ scaleX: i < paso ? 1 : 0 }} transition={{ duration: 0.35, ease: [0.32, 0.72, 0, 1] }} />
+            </span>
+          ))}
+        </div>
       </header>
 
-      {/* ── Contenido ──────────────────────────────────────────────── */}
-      <div className="flex-1 overflow-y-auto">
+      {/* ── Contenido ───────────────────────────────────────────── */}
+      <div className="flex-1">
         <AnimatePresence mode="wait" custom={dir}>
-          <motion.div
-            key={paso}
-            custom={dir}
-            variants={slideVariants}
-            initial="enter"
-            animate="center"
-            exit="exit"
-            transition={{ duration:0.25, ease:[0.32,0.72,0,1] }}
-            className="px-5 pt-6 pb-32"
-          >
+          <motion.div key={paso} custom={dir} variants={deslizar} initial="enter" animate="center" exit="exit"
+            transition={{ duration: 0.22, ease: [0.32, 0.72, 0, 1] }}
+            className="px-5 pt-6 pb-[calc(env(safe-area-inset-bottom,0px)+7rem)]">
 
-            {/* ══════════════ PASO 1 — Fotos + nombre ══════════════ */}
+            {/* ══ Paso 1: fotos y nombre ══ */}
             {paso === 1 && (
               <div className="flex flex-col gap-6" data-testid="paso-1">
-                <div>
-                  <h2 className="text-2xl font-poppins font-bold leading-tight" style={{ color:'#1A1A2E' }}>
-                    {form.nombre
-                      ? <>Cuéntanos sobre <span style={{ color:'#F97B62' }}>{form.nombre}</span></>
-                      : 'Registra tu mascota 🐾'}
-                  </h2>
-                  <p className="text-sm mt-1" style={{ color:'#9CA3AF' }}>
-                    Mientras más fotos y datos, más fácil será reconocerla.
-                  </p>
-                </div>
+                <Titulo sub="Con buenas fotos será más fácil reconocerla si algún día se pierde.">
+                  {form.nombre ? <>Cuéntanos sobre <span className="text-primary-700">{form.nombre}</span></> : 'Registra a tu mascota'}
+                </Titulo>
 
-                {/* Zona de fotos */}
-                <div className="rounded-3xl p-4" style={{ border:'2px dashed #F97B62', background:'#FFFAF8' }} data-testid="drop-zone">
+                <section className="rounded-3xl p-4 bg-white dark:bg-white/5 border border-warm-border dark:border-white/10" data-testid="drop-zone">
                   <div className="flex items-center justify-between mb-3">
                     <div>
-                      <p className="font-poppins font-semibold text-sm" style={{ color:'#1A1A2E' }}>Fotos de la mascota</p>
-                      <p className="text-xs mt-0.5" style={{ color:'#9CA3AF' }}>Mínimo 1 · Máximo 6</p>
+                      <p className="font-poppins font-semibold text-[15px] text-dark-900 dark:text-white">Fotos</p>
+                      <p className="text-[13px] text-gray-500 dark:text-white/50">Recomendado: al menos 1 · Máximo {MAX_FOTOS}</p>
                     </div>
-                    <motion.button type="button" whileTap={{ scale:0.9 }}
-                      onClick={() => fileRef.current?.click()}
-                      className="h-10 w-10 rounded-2xl flex items-center justify-center"
-                      style={{ background:'linear-gradient(135deg,#FF9280,#F97B62)', boxShadow:'0 4px 12px rgba(249,123,98,0.40)' }}>
-                      <Camera size={18} color="white" />
-                    </motion.button>
+                    <span className="text-[13px] font-semibold text-gray-500 dark:text-white/50">
+                      {fotosActuales.length + fotos.length}/{MAX_FOTOS}
+                    </span>
                   </div>
 
-                  <div className="flex gap-2 flex-wrap">
-                    {fotos.map((f, i) => (
-                      <motion.div key={i} initial={{ scale:0 }} animate={{ scale:1 }}
-                        transition={{ type:'spring', stiffness:400, damping:20 }}
-                        className="relative h-20 w-20">
-                        <img src={f.preview} alt="" className="h-full w-full rounded-2xl object-cover" />
+                  <div className="grid grid-cols-3 gap-2">
+                    {fotosActuales.map((url, i) => (
+                      <div key={url} className="relative aspect-square">
+                        <img src={url} alt="" className="h-full w-full rounded-2xl object-cover" />
                         {i === 0 && (
-                          <span className="absolute bottom-1 left-1 text-[8px] font-bold bg-black/50 text-white px-1.5 py-0.5 rounded-full">
-                            Principal
-                          </span>
+                          <span className="absolute bottom-1.5 left-1.5 text-[10px] font-bold bg-black/60 text-white px-1.5 py-0.5 rounded-full">Principal</span>
                         )}
-                        <motion.button type="button" whileTap={{ scale:0.88 }}
-                          onClick={() => quitarFoto(i)}
-                          className="absolute -top-1.5 -right-1.5 h-5 w-5 rounded-full flex items-center justify-center"
-                          style={{ background:'#EF4444' }}>
-                          <X size={10} color="white" />
-                        </motion.button>
+                      </div>
+                    ))}
+                    {fotos.map((f, i) => (
+                      <motion.div key={f.preview} initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="relative aspect-square">
+                        <img src={f.preview} alt="" className="h-full w-full rounded-2xl object-cover" />
+                        {i === 0 && fotosActuales.length === 0 && (
+                          <span className="absolute bottom-1.5 left-1.5 text-[10px] font-bold bg-black/60 text-white px-1.5 py-0.5 rounded-full">Principal</span>
+                        )}
+                        <button type="button" onClick={() => quitarFoto(i)} aria-label={`Quitar foto ${i + 1}`}
+                          className={`absolute top-1 right-1 h-8 w-8 rounded-full bg-black/60 text-white flex items-center justify-center ${focoVisible}`}>
+                          <X size={16} aria-hidden="true" />
+                        </button>
                       </motion.div>
                     ))}
-                    {fotos.length < MAX_FOTOS && (
-                      <motion.button type="button" whileTap={{ scale:0.95 }}
-                        onClick={() => fileRef.current?.click()}
-                        className="h-20 w-20 rounded-2xl flex flex-col items-center justify-center gap-1"
-                        style={{ border:'2px dashed #EDE5E1', background:'white' }}>
-                        <span className="text-2xl" style={{ color:'#EDE5E1' }}>+</span>
-                        <span className="text-[9px] font-semibold" style={{ color:'#C9B8B0' }}>Agregar</span>
-                      </motion.button>
+                    {cupoFotos > 0 && (
+                      <button type="button" onClick={() => fileRef.current?.click()}
+                        className={`aspect-square rounded-2xl border-[1.5px] border-dashed border-[#D9CFCA] bg-warm-50 dark:bg-white/5
+                                    dark:border-white/15 flex flex-col items-center justify-center gap-1 text-primary-700
+                                    dark:text-primary-400 hover:bg-primary-50/60 ${focoVisible}`}>
+                        <Camera size={24} aria-hidden="true" />
+                        <span className="text-[12px] font-semibold">Agregar</span>
+                      </button>
                     )}
                   </div>
-
-                  <input ref={fileRef} type="file" accept="image/jpeg,image/png"
-                    multiple className="hidden" onChange={handleFotos} data-testid="file-input" />
+                  <input ref={fileRef} type="file" accept="image/jpeg,image/png" multiple className="hidden"
+                         onChange={handleFotos} data-testid="file-input" />
 
                   {/* Video (R5) */}
-                  <div className="mt-4">
-                    <p className="text-xs font-semibold mb-2" style={{ color:'#6B7280' }}>
-                      Video opcional (MP4, WebM o MOV, máx. {MAX_VIDEO_MB} MB)
-                    </p>
+                  <div className="mt-4 pt-4 border-t border-warm-border dark:border-white/10">
                     {video ? (
                       <div className="flex items-center gap-3">
-                        <video src={video.preview} className="h-20 w-28 rounded-2xl object-cover" muted data-testid="video-preview" />
+                        <video src={video.preview} className="h-16 w-24 rounded-xl object-cover" muted data-testid="video-preview" />
+                        <span className="flex-1 text-[13px] text-gray-600 dark:text-white/60">Video agregado</span>
                         <button type="button" onClick={() => { URL.revokeObjectURL(video.preview); setVideo(null); }}
-                          className="text-xs font-semibold" style={{ color:'#E8614A' }}>
-                          Quitar video
+                          className={`h-9 px-3 rounded-full text-[13px] font-semibold text-red-600 hover:bg-red-50 ${focoVisible}`}>
+                          Quitar
                         </button>
                       </div>
                     ) : (
                       <button type="button" onClick={() => videoRef.current?.click()}
-                        className="px-4 py-2 rounded-2xl text-xs font-semibold"
-                        style={{ border:'2px dashed #EDE5E1', background:'white', color:'#9CA3AF' }}>
-                        + Agregar video
+                        className={`w-full flex items-center gap-3 text-left rounded-xl ${focoVisible}`}>
+                        <span className="h-10 w-10 shrink-0 rounded-xl bg-primary-50 dark:bg-white/10 text-primary-700 flex items-center justify-center">
+                          <Video size={20} aria-hidden="true" />
+                        </span>
+                        <span>
+                          <span className="block text-[14px] font-semibold text-dark-900 dark:text-white">Agregar un video (opcional)</span>
+                          <span className="block text-[12px] text-gray-500 dark:text-white/50">MP4, WebM o MOV · máx. {MAX_VIDEO_MB} MB</span>
+                        </span>
                       </button>
                     )}
                     <input ref={videoRef} type="file" accept="video/mp4,video/webm,video/quicktime"
                       className="hidden" onChange={handleVideo} data-testid="video-input" />
                   </div>
-                </div>
+                </section>
 
-                {/* Nombre */}
                 <div>
-                  <Label required>Nombre de la mascota</Label>
-                  <input
-                    name="nombre" placeholder="¿Cómo se llama?"
+                  <label htmlFor="nombre-mascota" className={etiqueta}>Nombre de la mascota</label>
+                  <input id="nombre-mascota" name="nombre" placeholder="¿Cómo se llama?" autoComplete="off"
                     value={form.nombre} onChange={e => set('nombre', e.target.value)}
-                    className="w-full rounded-2xl px-4 py-3.5 text-base font-poppins font-semibold outline-none transition-all"
-                    style={{ background:'white', border:`1.5px solid ${errores.nombre ? '#F97B62' : '#EDE5E1'}`,
-                             color:'#1A1A2E', fontFamily:'inherit', boxShadow:'0 2px 12px rgba(26,26,46,0.06)' }}
-                  />
-                  {errores.nombre && <p className="text-xs mt-1.5 font-medium" style={{ color:'#F97B62' }}>{errores.nombre}</p>}
+                    aria-invalid={Boolean(errores.nombre)}
+                    className={`${inputAuth(errores.nombre)} !pl-4 pr-4 mt-1.5 font-semibold`} />
+                  <MensajeError>{errores.nombre}</MensajeError>
                 </div>
               </div>
             )}
 
-            {/* ══════════════ PASO 2 — Características ══════════════ */}
+            {/* ══ Paso 2: características ══ */}
             {paso === 2 && (
               <div className="flex flex-col gap-6" data-testid="paso-2">
-                <div>
-                  <h2 className="text-2xl font-poppins font-bold" style={{ color:'#1A1A2E' }}>
-                    {form.nombre
-                      ? <>Características de <span style={{ color:'#F97B62' }}>{form.nombre}</span></>
-                      : 'Características'}
-                  </h2>
-                </div>
+                <Titulo>{form.nombre ? <>¿Cómo es <span className="text-primary-700">{form.nombre}</span>?</> : 'Características'}</Titulo>
 
-                {/* Especie */}
-                <div>
-                  <Label required>Tipo de animal</Label>
-                  <div className="grid grid-cols-3 gap-2 mb-1">
-                    {ESPECIES.slice(0,3).map(e => (
-                      <motion.button key={e.value} type="button" whileTap={{ scale:0.95 }}
-                        onClick={() => set('especie', e.value)}
-                        className="flex flex-col items-center gap-2 py-3.5 rounded-2xl transition-all"
-                        style={form.especie === e.value
-                          ? { background:`linear-gradient(135deg,${e.grad[0]},${e.grad[1]})`, boxShadow:`0 6px 16px ${e.grad[1]}55` }
-                          : { background:'white', border:'1.5px solid #EDE5E1' }}>
-                        <span className="text-2xl">{e.emoji}</span>
-                        <span className="text-xs font-bold" style={{ color: form.especie === e.value ? 'white' : '#6B7280' }}>
-                          {e.label}
-                        </span>
-                      </motion.button>
+                <fieldset>
+                  <legend className={etiqueta}>Tipo de animal</legend>
+                  <div className="grid grid-cols-5 gap-2 mt-2">
+                    {ESPECIES.map(e => (
+                      <Opcion key={e.value} activo={form.especie === e.value} onClick={() => set('especie', e.value)}
+                              className="flex flex-col items-center gap-1.5 py-3">
+                        <IconoEspecie especie={e.value} size={24} strokeWidth={1.8} />
+                        <span className="text-[12px]">{e.label}</span>
+                      </Opcion>
                     ))}
                   </div>
-                  <div className="grid grid-cols-2 gap-2">
-                    {ESPECIES.slice(3).map(e => (
-                      <motion.button key={e.value} type="button" whileTap={{ scale:0.95 }}
-                        onClick={() => set('especie', e.value)}
-                        className="flex items-center justify-center gap-2 py-3 rounded-2xl transition-all"
-                        style={form.especie === e.value
-                          ? { background:`linear-gradient(135deg,${e.grad[0]},${e.grad[1]})` }
-                          : { background:'white', border:'1.5px solid #EDE5E1' }}>
-                        <span>{e.emoji}</span>
-                        <span className="text-sm font-bold" style={{ color: form.especie === e.value ? 'white' : '#6B7280' }}>
-                          {e.label}
-                        </span>
-                      </motion.button>
+                  <MensajeError>{errores.especie}</MensajeError>
+                </fieldset>
+
+                <fieldset>
+                  <legend className={etiqueta}>Sexo</legend>
+                  <div className="grid grid-cols-2 gap-2 mt-2">
+                    {SEXOS.map(s => (
+                      <Opcion key={s.value} activo={form.sexo === s.value} onClick={() => set('sexo', s.value)} className="h-12">
+                        {s.label}
+                      </Opcion>
                     ))}
                   </div>
-                  {errores.especie && <p className="text-xs mt-1.5 font-medium" style={{ color:'#F97B62' }}>{errores.especie}</p>}
-                </div>
+                  <MensajeError>{errores.sexo}</MensajeError>
+                </fieldset>
 
-                {/* Sexo + Tamaño */}
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label required>Sexo</Label>
-                    <div className="flex gap-2">
-                      {SEXOS.map(s => (
-                        <ChipBtn key={s.value} activo={form.sexo === s.value}
-                          onClick={() => set('sexo', s.value)} style={{ flex:1 }}>
-                          {s.icon} {s.label}
-                        </ChipBtn>
-                      ))}
-                    </div>
-                    {errores.sexo && <p className="text-xs mt-1 font-medium" style={{ color:'#F97B62' }}>{errores.sexo}</p>}
-                  </div>
-
-                  <div>
-                    <Label>Tamaño</Label>
-                    <div className="flex gap-1.5">
-                      {TAMANIOS.map(t => (
-                        <ChipBtn key={t.value} activo={form.tamanio === t.value}
-                          onClick={() => set('tamanio', t.value)} style={{ flex:1, padding:'0.5rem 0' }}>
-                          {t.value.charAt(0).toUpperCase()}
-                        </ChipBtn>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Color */}
-                <div>
-                  <Label required>Color del pelaje</Label>
-                  <div className="flex flex-wrap gap-2 mb-3">
+                <fieldset>
+                  <legend className={etiqueta}>Color</legend>
+                  <div className="flex flex-wrap gap-2 mt-2 mb-3">
                     {COLORES_SUGERIDOS.map(c => (
-                      <ChipBtn key={c} activo={form.color === c} onClick={() => set('color', c)}>
+                      <Opcion key={c} activo={form.color === c} onClick={() => set('color', c)} className="h-10 px-3.5 !rounded-full">
                         {c}
-                      </ChipBtn>
+                      </Opcion>
                     ))}
                   </div>
-                  <input
-                    placeholder="O escribe el color exacto…"
-                    value={form.color}
-                    onChange={e => set('color', e.target.value)}
-                    className="w-full rounded-2xl px-4 py-3 text-sm outline-none transition-all"
-                    style={{ background:'#FFF8F5', border:`1.5px solid ${errores.color ? '#F97B62' : '#EDE5E1'}`, color:'#1A1A2E', fontFamily:'inherit' }}
-                  />
-                  {errores.color && <p className="text-xs mt-1.5 font-medium" style={{ color:'#F97B62' }}>{errores.color}</p>}
-                </div>
+                  <input placeholder="O escribe el color exacto…" aria-label="Color exacto" value={form.color}
+                    onChange={e => set('color', e.target.value)} aria-invalid={Boolean(errores.color)}
+                    className={`${inputAuth(errores.color)} !pl-4 pr-4`} />
+                  <MensajeError>{errores.color}</MensajeError>
+                </fieldset>
 
-                {/* Raza */}
                 <div>
-                  <Label>Raza</Label>
-                  <input name="raza" placeholder="Ej: Labrador, Persa… (opcional)"
+                  <label htmlFor="raza-mascota" className={etiqueta}>Raza (opcional)</label>
+                  <input id="raza-mascota" name="raza" placeholder="Ej.: Labrador, Persa, Criollo…"
                     value={form.raza} onChange={e => set('raza', e.target.value)}
-                    className="w-full rounded-2xl px-4 py-3 text-sm outline-none transition-all"
-                    style={{ background:'#FFF8F5', border:'1.5px solid #EDE5E1', color:'#1A1A2E', fontFamily:'inherit' }} />
+                    className={`${inputAuth(false)} !pl-4 pr-4 mt-1.5`} />
                 </div>
               </div>
             )}
 
-            {/* ══════════════ PASO 3 — Detalles ══════════════ */}
+            {/* ══ Paso 3: detalles ══ */}
             {paso === 3 && (
               <div className="flex flex-col gap-6" data-testid="paso-3">
-                <div>
-                  <h2 className="text-2xl font-poppins font-bold" style={{ color:'#1A1A2E' }}>Detalles adicionales</h2>
-                  <p className="text-sm mt-1" style={{ color:'#9CA3AF' }}>
-                    Mientras más específico, más fácil será encontrarla.
-                  </p>
-                </div>
+                <Titulo sub="Todo es opcional, pero cada detalle ayuda a reconocerla.">Detalles</Titulo>
 
-                {/* Edad */}
-                <div>
-                  <Label>Edad</Label>
-                  <div className="flex gap-3 items-start">
-                    <input name="edad" type="number" min="0" placeholder="Ej: 3"
+                <fieldset>
+                  <legend className={etiqueta}>Edad</legend>
+                  <div className="flex gap-2 mt-1.5">
+                    <input name="edad" type="number" min="0" inputMode="numeric" placeholder="Ej.: 3" aria-label="Edad"
                       value={form.edad} onChange={e => set('edad', e.target.value)}
-                      className="w-24 rounded-2xl px-4 py-3 text-sm outline-none text-center font-poppins font-bold transition-all"
-                      style={{ background:'#FFF8F5', border:'1.5px solid #EDE5E1', color:'#1A1A2E', fontFamily:'inherit' }} />
-                    <div className="flex gap-2">
+                      className={`${inputAuth(false)} !pl-4 pr-4 !w-28 text-center font-semibold`} />
+                    <div className="flex-1 grid grid-cols-2 gap-2">
                       {UNIDADES.map(u => (
-                        <ChipBtn key={u.value} activo={form.edad_unidad === u.value}
-                          onClick={() => set('edad_unidad', u.value)}>
+                        <Opcion key={u.value} activo={form.edad_unidad === u.value} onClick={() => set('edad_unidad', u.value)} className="h-[52px]">
                           {u.label}
-                        </ChipBtn>
+                        </Opcion>
                       ))}
                     </div>
                   </div>
-                </div>
+                </fieldset>
 
-                {/* Descripción */}
-                <div>
-                  <Label>Señas particulares</Label>
-                  <textarea name="descripcion" rows={4}
-                    placeholder="Marcas, manchas, comportamiento, collar, cicatrices…"
-                    value={form.descripcion} onChange={e => set('descripcion', e.target.value)}
-                    className="w-full rounded-2xl px-4 py-3.5 text-sm outline-none resize-none transition-all leading-relaxed"
-                    style={{ background:'#FFF8F5', border:'1.5px solid #EDE5E1', color:'#1A1A2E', fontFamily:'inherit' }}
-                    onFocus={e => e.target.style.borderColor = '#F97B62'}
-                    onBlur={e => e.target.style.borderColor = '#EDE5E1'}
-                  />
-                </div>
+                <AreaTexto id="descripcion-mascota" etiqueta="Señas particulares" rows={4} maxLength={500}
+                  placeholder="Marcas, manchas, cicatrices, collar, comportamiento…"
+                  value={form.descripcion} onChange={e => set('descripcion', e.target.value)} />
 
-                {/* Microchip */}
-                <div>
-                  <Label>Número de microchip</Label>
-                  <div className="flex items-center gap-3 rounded-2xl px-4 py-3"
-                       style={{ background:'#FFF8F5', border:'1.5px solid #EDE5E1' }}>
-                    <span className="text-lg">💉</span>
-                    <input name="microchip" placeholder="Opcional — muy útil si se pierde"
-                      value={form.microchip} onChange={e => set('microchip', e.target.value)}
-                      className="flex-1 bg-transparent outline-none text-sm"
-                      style={{ color:'#1A1A2E', fontFamily:'inherit' }} />
-                  </div>
-                </div>
+                <CampoTexto id="microchip-mascota" etiqueta="Número de microchip" icono={Cpu}
+                  placeholder="Si tiene, es muy útil" value={form.microchip} onChange={e => set('microchip', e.target.value)} />
               </div>
             )}
 
-            {/* ══════════════ PASO 4 — Confirmar ══════════════ */}
+            {/* ══ Paso 4: confirmar ══ */}
             {paso === 4 && (
               <div className="flex flex-col gap-5" data-testid="paso-4">
-                <div>
-                  <h2 className="text-2xl font-poppins font-bold" style={{ color:'#1A1A2E' }}>
-                    ¡Casi listo!
-                  </h2>
-                  <p className="text-sm mt-1" style={{ color:'#9CA3AF' }}>
-                    Revisa el perfil antes de publicarlo.
-                  </p>
-                </div>
+                <Titulo sub="Revisa los datos antes de guardar.">¡Casi listo!</Titulo>
 
-                {/* Card resumen */}
-                <motion.div initial={{ opacity:0, y:16 }} animate={{ opacity:1, y:0 }}
-                  className="rounded-3xl overflow-hidden"
-                  style={{ background:'white', boxShadow:'0 8px 32px rgba(26,26,46,0.10)' }}>
-
-                  {/* Banner foto */}
-                  <div className="h-44 relative flex items-center justify-center overflow-hidden"
-                       style={{ background: especieObj
-                         ? `linear-gradient(135deg,${especieObj.grad[0]},${especieObj.grad[1]})`
-                         : 'linear-gradient(135deg,#FFD0BF,#F97B62)' }}>
-                    {fotos[0]
-                      ? <img src={fotos[0].preview} alt="" className="w-full h-full object-cover" />
-                      : <span className="text-7xl filter drop-shadow">{especieObj?.emoji || '🐾'}</span>}
-                    {/* Fotos adicionales */}
-                    {fotos.length > 1 && (
-                      <div className="absolute bottom-3 right-3 flex -space-x-2">
-                        {fotos.slice(1,4).map((f,i) => (
-                          <img key={i} src={f.preview} alt=""
-                            className="h-8 w-8 rounded-xl object-cover border-2 border-white" />
-                        ))}
-                        {fotos.length > 4 && (
-                          <div className="h-8 w-8 rounded-xl bg-black/50 border-2 border-white flex items-center justify-center text-white text-[10px] font-bold">
-                            +{fotos.length-4}
-                          </div>
-                        )}
-                      </div>
-                    )}
+                <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}
+                  className="rounded-3xl overflow-hidden bg-white dark:bg-white/5 border border-warm-border dark:border-white/10 shadow-card">
+                  <div className="h-48 bg-primary-50 dark:bg-white/5 flex items-center justify-center">
+                    {fotoPortada
+                      ? <img src={fotoPortada} alt="" className="w-full h-full object-cover" />
+                      : <IconoEspecie especie={form.especie} size={64} strokeWidth={1.2} className="text-primary-200" />}
                   </div>
-
                   <div className="p-5">
-                    <div className="flex items-start justify-between gap-2 mb-3">
-                      <h3 className="text-2xl font-poppins font-extrabold" style={{ color:'#1A1A2E' }}>
-                        {form.nombre || '(sin nombre)'}
-                      </h3>
-                      {especieObj && (
-                        <span className="px-3 py-1 rounded-full text-sm font-bold flex items-center gap-1"
-                              style={{ background:'#FFF0EA', color:'#F97B62' }}>
-                          {especieObj.emoji} {especieObj.label}
-                        </span>
-                      )}
-                    </div>
-
-                    <div className="flex flex-wrap gap-2 mb-4">
-                      {[form.raza, form.sexo, form.color, form.edad ? `${form.edad} ${form.edad_unidad}` : null,
-                        form.microchip ? '💉 Microchip' : null
-                      ].filter(Boolean).map((c, i) => (
-                        <span key={i} className="px-3 py-1.5 rounded-2xl text-xs font-semibold"
-                              style={{ background:'#FFF8F5', color:'#6B7280', border:'1px solid #EDE5E1' }}>
-                          {c}
-                        </span>
-                      ))}
-                    </div>
-
-                    {form.descripcion && (
-                      <p className="text-sm leading-relaxed italic mb-4" style={{ color:'#9CA3AF' }}>
-                        &ldquo;{form.descripcion}&rdquo;
-                      </p>
+                    <h3 className="font-poppins font-bold text-[24px] leading-tight text-dark-900 dark:text-white">{form.nombre || '(sin nombre)'}</h3>
+                    {resumen.length > 0 && (
+                      <ul className="mt-3 flex flex-wrap gap-2">
+                        {resumen.map((c) => (
+                          <li key={c} className="h-8 px-3 rounded-full flex items-center text-[13px] font-medium bg-warm-50 border border-warm-border
+                                                 text-dark-700 dark:bg-white/5 dark:border-white/10 dark:text-white/80">{c}</li>
+                        ))}
+                      </ul>
                     )}
-
-                    <div className="flex items-center gap-2 pt-3" style={{ borderTop:'1px solid #EDE5E1' }}>
-                      <CheckCircle size={15} style={{ color:'#00C4B4' }} />
-                      <span className="text-sm" style={{ color:'#6B7280' }}>
-                        {fotos.length} foto{fotos.length !== 1 ? 's' : ''} adjunta{fotos.length !== 1 ? 's' : ''}
-                      </span>
-                      {fotos.length === 0 && (
-                        <span className="text-xs font-medium ml-auto" style={{ color:'#F97B62' }}>
-                          Se recomienda al menos 1 foto
-                        </span>
-                      )}
-                    </div>
+                    {form.descripcion && (
+                      <p className="mt-3 text-[14px] leading-relaxed text-gray-600 dark:text-white/60">{form.descripcion}</p>
+                    )}
+                    <p className={`mt-4 pt-3 border-t border-warm-border dark:border-white/10 flex items-center gap-2 text-[13px]
+                                   ${fotosActuales.length + fotos.length > 0 ? 'text-emerald-700 dark:text-emerald-400' : 'text-amber-700 dark:text-amber-400'}`}>
+                      {fotosActuales.length + fotos.length > 0
+                        ? <><Check size={16} aria-hidden="true" /> {fotosActuales.length + fotos.length} foto{fotosActuales.length + fotos.length !== 1 ? 's' : ''}{video ? ' y 1 video' : ''}</>
+                        : <><Camera size={16} aria-hidden="true" /> Sin fotos: te recomendamos agregar al menos una</>}
+                    </p>
                   </div>
                 </motion.div>
               </div>
             )}
-
           </motion.div>
         </AnimatePresence>
       </div>
 
-      {/* ── Footer botón ───────────────────────────────────────────── */}
-      <div className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-mobile
-                      px-5 pb-safe pb-6 pt-4 z-30"
-           style={{ background:'linear-gradient(to top, #FFF8F5 75%, transparent)' }}>
+      {/* ── Acción ──────────────────────────────────────────────── */}
+      <div className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-mobile z-30 px-5 pt-3
+                      pb-[max(env(safe-area-inset-bottom),1rem)] bg-gradient-to-t from-warm-50 via-warm-50 to-warm-50/0
+                      dark:from-dark-800 dark:via-dark-800 dark:to-dark-800/0">
         {paso < PASOS.length ? (
-          <motion.button
-            whileTap={{ scale:0.97 }}
-            onClick={siguiente}
-            data-testid="btn-siguiente"
-            className="w-full h-16 rounded-3xl font-poppins font-bold text-white text-base
-                       flex items-center justify-center gap-2"
-            style={{ background:'linear-gradient(135deg,#FF9280,#F97B62)', boxShadow:'0 8px 28px rgba(249,123,98,0.45)' }}
-          >
-            Continuar →
-          </motion.button>
+          <BotonPrimario type="button" onClick={siguiente} data-testid="btn-siguiente">Continuar</BotonPrimario>
         ) : (
-          <motion.button
-            whileTap={{ scale:0.97 }}
-            disabled={cargando}
-            onClick={handleSubmit}
-            data-testid="btn-guardar"
-            className="w-full h-16 rounded-3xl font-poppins font-bold text-white text-base
-                       flex items-center justify-center gap-2 disabled:opacity-60"
-            style={{ background:'linear-gradient(135deg,#FF9280,#F97B62)', boxShadow:'0 8px 28px rgba(249,123,98,0.45)' }}
-          >
-            {cargando
-              ? <div className="h-5 w-5 rounded-full border-2 border-white/40 border-t-white animate-spin" />
-              : <><Sparkles size={20} /> {esEdicion ? 'Guardar cambios' : 'Registrar mascota'}</>}
-          </motion.button>
+          <BotonPrimario type="button" onClick={handleSubmit} loading={cargando} textoCargando="Guardando…" data-testid="btn-guardar">
+            {esEdicion ? <><Check size={19} aria-hidden="true" /> Guardar cambios</> : <><Plus size={19} aria-hidden="true" /> Registrar mascota</>}
+          </BotonPrimario>
         )}
       </div>
     </div>

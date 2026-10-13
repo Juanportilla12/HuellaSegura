@@ -29,7 +29,7 @@ vi.mock('framer-motion', () => {
   };
 
   const tags = ['div','span','button','section','header','footer','nav','article',
-                 'ul','li','p','h1','h2','h3','a','form','input','img'];
+                 'ul','li','p','h1','h2','h3','a','form','input','img','main'];
 
   const motion = {};
   tags.forEach(t => { motion[t] = createMotion(t); });

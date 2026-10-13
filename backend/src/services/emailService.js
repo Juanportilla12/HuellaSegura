@@ -1,5 +1,13 @@
 const nodemailer = require('nodemailer');
 
+// Colores de la marca (los mismos de la app)
+const NARANJA = '#E8732F';
+const CORAL   = '#CC4A34';
+const TEXTO   = '#1A1A2E';
+const SUAVE   = '#6B7280';
+const FONDO   = '#FFF8F5';
+const BORDE   = '#EDE5E1';
+
 // Escapa texto ingresado por usuarios antes de insertarlo en el HTML del correo
 function esc(valor) {
   return String(valor ?? '')
@@ -22,62 +30,108 @@ function crearTransporte() {
   });
 }
 
+const urlApp = (ruta = '') => `${process.env.FRONTEND_URL || 'http://localhost:5173'}${ruta}`;
+
+// Plantilla común: franja naranja con la marca, tarjeta blanca y pie con el aviso de correo automático.
+// `contenido` es HTML ya escapado por quien llama.
+function plantilla({ titulo, contenido, boton, pie }) {
+  const botonHtml = boton
+    ? `<p style="margin:28px 0 8px;text-align:center;">
+         <a href="${esc(boton.url)}" style="display:inline-block;background:${CORAL};color:#ffffff;text-decoration:none;
+            font-weight:bold;font-size:15px;padding:14px 28px;border-radius:14px;">${esc(boton.texto)}</a>
+       </p>`
+    : '';
+  return `
+  <div style="background:${FONDO};padding:24px 12px;font-family:Arial,Helvetica,sans-serif;">
+    <div style="max-width:520px;margin:0 auto;background:#ffffff;border:1px solid ${BORDE};border-radius:20px;overflow:hidden;">
+      <div style="background:${NARANJA};padding:20px 28px;">
+        <span style="color:#ffffff;font-size:20px;font-weight:bold;">HuellaSegura</span>
+      </div>
+      <div style="padding:28px;color:${TEXTO};font-size:15px;line-height:1.6;">
+        <h1 style="margin:0 0 12px;font-size:22px;line-height:1.3;color:${TEXTO};">${titulo}</h1>
+        ${contenido}
+        ${botonHtml}
+      </div>
+      <div style="padding:16px 28px;border-top:1px solid ${BORDE};color:${SUAVE};font-size:12px;line-height:1.5;">
+        ${pie || 'Este es un correo automático, no respondas a este mensaje.'}<br />HuellaSegura · Pasto, Nariño
+      </div>
+    </div>
+  </div>`;
+}
+
+// Tabla de datos (etiqueta / valor); los valores deben venir escapados
+function tablaDatos(filas) {
+  const celdas = filas.filter(Boolean).map(([etiqueta, valor]) => `
+    <tr>
+      <td style="padding:10px 12px;color:${SUAVE};font-size:13px;border-bottom:1px solid ${BORDE};width:38%;">${etiqueta}</td>
+      <td style="padding:10px 12px;color:${TEXTO};font-size:14px;border-bottom:1px solid ${BORDE};">${valor}</td>
+    </tr>`).join('');
+  return `<table style="width:100%;border-collapse:collapse;margin-top:16px;border:1px solid ${BORDE};border-radius:12px;">${celdas}</table>`;
+}
+
+function fotoHtml(url, alt) {
+  return url
+    ? `<img src="${esc(url)}" alt="${esc(alt)}" style="display:block;width:100%;max-width:464px;max-height:300px;object-fit:cover;border-radius:14px;margin:16px 0;" />`
+    : '';
+}
+
 async function enviarCorreoReporteCreado({ propietario, mascota, reporte }) {
   const transporte = crearTransporte();
-  const fotosHtml = mascota.foto_principal
-    ? `<img src="${esc(mascota.foto_principal)}" alt="${esc(mascota.nombre)}" style="max-width:200px;border-radius:8px;" />`
-    : '';
-
   const info = await transporte.sendMail({
     from: `"HuellaSegura" <${process.env.EMAIL_USER}>`,
     to: propietario.email,
     subject: `🐾 Alerta creada — ${mascota.nombre} está en búsqueda`,
-    html: `
-      <div style="font-family:sans-serif;max-width:500px;margin:auto;">
-        <h2 style="color:#2563eb;">HuellaSegura</h2>
-        <p>Hola <strong>${esc(propietario.nombre)}</strong>,</p>
-        <p>Tu reporte de pérdida ha sido publicado exitosamente.</p>
-        ${fotosHtml}
-        <table style="width:100%;border-collapse:collapse;margin-top:16px;">
-          <tr><td style="padding:6px;font-weight:bold;">Mascota</td><td>${esc(mascota.nombre)}</td></tr>
-          <tr><td style="padding:6px;font-weight:bold;">Especie</td><td>${esc(mascota.especie)}</td></tr>
-          <tr><td style="padding:6px;font-weight:bold;">Fecha</td><td>${esc(reporte.fecha_perdida)}</td></tr>
-        </table>
-        <p style="margin-top:16px;color:#555;">
-          La comunidad de HuellaSegura en Pasto ya puede ver tu alerta en el mapa.
-        </p>
-        <p style="color:#888;font-size:12px;">Este es un correo automático, no respondas a este mensaje.</p>
-      </div>`,
+    html: plantilla({
+      titulo: `Publicamos el reporte de ${esc(mascota.nombre)}`,
+      contenido: `
+        <p style="margin:0;">Hola <strong>${esc(propietario.nombre)}</strong>, tu reporte ya aparece en el mapa
+          y avisamos a los vecinos que tienen las alertas activas cerca del lugar.</p>
+        ${fotoHtml(mascota.foto_principal, mascota.nombre)}
+        ${tablaDatos([
+          ['Mascota', esc(mascota.nombre)],
+          ['Especie', esc(mascota.especie)],
+          ['Se perdió el', esc(reporte.fecha_perdida)],
+        ])}
+        <p style="margin:16px 0 0;color:${SUAVE};">Te escribiremos cuando alguien reporte haberla visto. ¡Mucho ánimo!</p>`,
+      boton: { texto: 'Ver mis reportes', url: urlApp('/reportes') },
+    }),
   });
 
   return info;
 }
 
+// Fila con el celular del testigo y enlaces para llamarlo o escribirle por WhatsApp
+function contactoTestigoHtml(telefono) {
+  if (!telefono) return null;
+  const digitos = String(telefono).replace(/\D/g, '');
+  const whatsapp = digitos.length === 10 && digitos.startsWith('3') ? `57${digitos}` : digitos;
+  return ['Celular', `<a href="tel:${esc(digitos)}" style="color:${CORAL};font-weight:bold;">${esc(telefono)}</a>
+    &nbsp;·&nbsp;<a href="https://wa.me/${esc(whatsapp)}" style="color:${CORAL};font-weight:bold;">Escribir por WhatsApp</a>`];
+}
+
 async function enviarCorreoAvistamiento({ propietario, mascota, avistamiento }) {
   const transporte = crearTransporte();
-  const fotoHtml = avistamiento.foto_url
-    ? `<img src="${esc(avistamiento.foto_url)}" alt="Foto del avistamiento" style="max-width:200px;border-radius:8px;margin-top:8px;" />`
-    : '';
+  const lat = parseFloat(avistamiento.latitud).toFixed(6);
+  const lng = parseFloat(avistamiento.longitud).toFixed(6);
 
   const info = await transporte.sendMail({
     from: `"HuellaSegura" <${process.env.EMAIL_USER}>`,
     to: propietario.email,
     subject: `🐾 ¡Alguien vio a ${mascota.nombre}!`,
-    html: `
-      <div style="font-family:sans-serif;max-width:500px;margin:auto;">
-        <h2 style="color:#F97B62;">HuellaSegura</h2>
-        <p>Hola <strong>${esc(propietario.nombre)}</strong>,</p>
-        <p>¡Buenas noticias! Alguien reportó un avistamiento de <strong>${esc(mascota.nombre)}</strong>.</p>
-        ${fotoHtml}
-        <table style="width:100%;border-collapse:collapse;margin-top:16px;">
-          <tr style="background:#fff3ee;"><td style="padding:8px;font-weight:bold;">Testigo</td><td>${esc(avistamiento.nombre_testigo || 'Anónimo')}</td></tr>
-          <tr><td style="padding:8px;font-weight:bold;">Ubicación</td><td>Lat: ${parseFloat(avistamiento.latitud).toFixed(5)}, Lng: ${parseFloat(avistamiento.longitud).toFixed(5)}</td></tr>
-          <tr style="background:#fff3ee;"><td style="padding:8px;font-weight:bold;">Descripción</td><td>${esc(avistamiento.descripcion || 'Sin descripción adicional')}</td></tr>
-          <tr><td style="padding:8px;font-weight:bold;">Fecha</td><td>${new Date().toLocaleString('es-CO', { timeZone: 'America/Bogota' })}</td></tr>
-        </table>
-        <p style="margin-top:16px;">Ingresa a HuellaSegura para ver la ubicación exacta en el mapa.</p>
-        <p style="color:#888;font-size:12px;">Este es un correo automático, no respondas a este mensaje.</p>
-      </div>`,
+    html: plantilla({
+      titulo: `¡Alguien vio a ${esc(mascota.nombre)}!`,
+      contenido: `
+        <p style="margin:0;">Hola <strong>${esc(propietario.nombre)}</strong>, ¡buenas noticias! Una persona reportó
+          haber visto a <strong>${esc(mascota.nombre)}</strong>. Contáctala lo antes posible.</p>
+        ${fotoHtml(avistamiento.foto_url, 'Foto del avistamiento')}
+        ${tablaDatos([
+          ['Testigo', esc(avistamiento.nombre_testigo || 'Sin nombre')],
+          contactoTestigoHtml(avistamiento.telefono_testigo),
+          ['Detalles', esc(avistamiento.descripcion || 'Sin descripción adicional')],
+          ['Fecha', esc(new Date().toLocaleString('es-CO', { timeZone: 'America/Bogota' }))],
+        ])}`,
+      boton: { texto: 'Ver dónde la vieron', url: `https://www.google.com/maps?q=${lat},${lng}` },
+    }),
   });
 
   return info;
@@ -89,45 +143,34 @@ async function enviarCorreoResetCodigo({ email, nombre, codigo }) {
     from: `"HuellaSegura" <${process.env.EMAIL_USER}>`,
     to: email,
     subject: `🔐 Tu código de verificación — HuellaSegura`,
-    html: `
-      <div style="font-family:sans-serif;max-width:480px;margin:auto;background:#0F0F1A;border-radius:16px;overflow:hidden;">
-        <div style="background:linear-gradient(135deg,#FF9280,#F97B62);padding:32px;text-align:center;">
-          <div style="font-size:48px;margin-bottom:8px;">🐾</div>
-          <h1 style="color:white;margin:0;font-size:24px;font-weight:800;">HuellaSegura</h1>
+    html: plantilla({
+      titulo: 'Tu código para restablecer la contraseña',
+      contenido: `
+        <p style="margin:0;">Hola <strong>${esc(nombre)}</strong>, escribe este código en la app para crear una nueva contraseña:</p>
+        <div style="margin:24px 0;padding:22px;text-align:center;background:${FONDO};border:1px solid ${BORDE};border-radius:16px;">
+          <span style="font-size:36px;font-weight:bold;letter-spacing:10px;color:${TEXTO};">${esc(codigo)}</span>
         </div>
-        <div style="padding:32px;">
-          <p style="color:rgba(255,255,255,0.7);margin-top:0;">Hola <strong style="color:white;">${esc(nombre)}</strong>,</p>
-          <p style="color:rgba(255,255,255,0.7);">Recibiste este correo porque solicitaste restablecer tu contraseña.</p>
-          <p style="color:rgba(255,255,255,0.7);">Tu código de verificación es:</p>
-          <div style="background:rgba(249,123,98,0.15);border:2px solid rgba(249,123,98,0.4);border-radius:12px;padding:24px;text-align:center;margin:24px 0;">
-            <span style="font-size:40px;font-weight:900;letter-spacing:12px;color:#F97B62;">${codigo}</span>
-          </div>
-          <p style="color:rgba(255,255,255,0.5);font-size:13px;">⏱ Este código expira en <strong style="color:rgba(255,255,255,0.7);">15 minutos</strong>.</p>
-          <p style="color:rgba(255,255,255,0.5);font-size:13px;">Si no solicitaste este cambio, ignora este correo. Tu contraseña permanece sin cambios.</p>
-          <hr style="border:none;border-top:1px solid rgba(255,255,255,0.1);margin:24px 0;" />
-          <p style="color:rgba(255,255,255,0.3);font-size:11px;text-align:center;">HuellaSegura · Pasto, Nariño</p>
-        </div>
-      </div>`,
+        <p style="margin:0;color:${SUAVE};font-size:14px;">El código vence en <strong>15 minutos</strong>.
+          Si no pediste este cambio, ignora este correo: tu contraseña sigue igual.</p>`,
+    }),
   });
 }
 
 async function enviarCorreoAlertaProximidad({ destinatario, mascotaNombre, distanciaKm, reporteId }) {
   const transporte = crearTransporte();
-  const enlace = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/mapa?reporte=${reporteId}`;
   return transporte.sendMail({
     from: `"HuellaSegura" <${process.env.EMAIL_USER}>`,
     to: destinatario.email,
     subject: `🐾 Mascota perdida cerca de ti — ${mascotaNombre}`,
-    html: `
-      <div style="font-family:sans-serif;max-width:500px;margin:auto;">
-        <h2 style="color:#F97B62;">HuellaSegura</h2>
-        <p>Hola <strong>${esc(destinatario.nombre)}</strong>,</p>
-        <p>Se reportó la pérdida de <strong>${esc(mascotaNombre)}</strong> a
-           <strong>${Number(distanciaKm).toFixed(1)} km</strong> de tu ubicación.</p>
-        <p><a href="${esc(enlace)}" style="color:#F97B62;font-weight:bold;">Ver el reporte en el mapa</a></p>
-        <p style="color:#888;font-size:12px;">Recibes este correo porque activaste las alertas por proximidad.
-          Puedes desactivarlas desde tu perfil.</p>
-      </div>`,
+    html: plantilla({
+      titulo: `Se busca a ${esc(mascotaNombre)} cerca de ti`,
+      contenido: `
+        <p style="margin:0;">Hola <strong>${esc(destinatario.nombre)}</strong>, se reportó la pérdida de
+          <strong>${esc(mascotaNombre)}</strong> a <strong>${Number(distanciaKm).toFixed(1)} km</strong> de tu ubicación.
+          Si la ves, avísale a su familia desde la app.</p>`,
+      boton: { texto: 'Ver el reporte en el mapa', url: urlApp(`/mapa?reporte=${reporteId}`) },
+      pie: 'Recibes este correo porque activaste las alertas cerca de ti. Puedes desactivarlas desde tu perfil.',
+    }),
   });
 }
 
@@ -137,13 +180,12 @@ async function enviarCorreoReporteSemanal({ destinatario, pdf }) {
     from: `"HuellaSegura" <${process.env.EMAIL_USER}>`,
     to: destinatario.email,
     subject: '📄 Reporte semanal de casos — HuellaSegura',
-    html: `
-      <div style="font-family:sans-serif;max-width:500px;margin:auto;">
-        <h2 style="color:#2563eb;">HuellaSegura</h2>
-        <p>Hola <strong>${esc(destinatario.nombre)}</strong>,</p>
-        <p>Adjuntamos el reporte semanal con los casos activos y los casos resueltos en la última semana,
-           listo para imprimir y compartir con veterinarias y centros de bienestar animal.</p>
-      </div>`,
+    html: plantilla({
+      titulo: 'Reporte semanal de casos',
+      contenido: `
+        <p style="margin:0;">Hola <strong>${esc(destinatario.nombre)}</strong>, adjuntamos el reporte con los casos activos
+          y los resueltos en la última semana, listo para imprimir y compartir con veterinarias y albergues.</p>`,
+    }),
     attachments: [{ filename: 'reporte-semanal-huellasegura.pdf', content: pdf, contentType: 'application/pdf' }],
   });
 }

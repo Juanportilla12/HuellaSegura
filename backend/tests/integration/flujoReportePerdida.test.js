@@ -177,7 +177,9 @@ describe('Flujo completo: Reporte de pérdida', () => {
       .field('latitud', '1.2200')
       .field('longitud', '-77.2850')
       .field('descripcion', 'La vi cerca del parque')
-      .field('nombre_testigo', 'Carlos López');
+      .field('nombre_testigo', 'Carlos López')
+      .field('telefono_testigo', '3109876543')
+      .attach('foto', Buffer.from('foto'), { filename: 'avistamiento.jpg', contentType: 'image/jpeg' });
 
     expect(res.status).toBe(201);
     expect(res.body.success).toBe(true);

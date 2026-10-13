@@ -1,36 +1,81 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { motion, AnimatePresence } from 'framer-motion';
-import { ChevronLeft, MapPin, Calendar, EyeOff, Eye, Search, Filter } from 'lucide-react';
+import { EyeOff, Eye, User, Calendar, RotateCw } from 'lucide-react';
 import { toast } from 'sonner';
 import { listarReportesAdmin, moderarReporte } from '../../services/adminService';
+import EncabezadoPagina from '../../components/ui/EncabezadoPagina';
+import HojaConfirmacion from '../../components/ui/HojaConfirmacion';
+import IconoEspecie from '../../components/ui/IconoEspecie';
+import { BuscadorAdmin, FiltrosAdmin, VacioAdmin } from '../../components/admin/ListaAdmin';
+import { focoVisible } from '../../components/auth/AuthUI';
 
-const ESPECIE_EMOJIS = { perro: '🐶', gato: '🐱', ave: '🐦', reptil: '🦎', otro: '🐾' };
-
-const ESTADO_CFG = {
-  en_busqueda: { label: 'En búsqueda', color: '#F87171', bg: 'rgba(248,113,113,0.15)', dot: '#F87171' },
-  encontrada:  { label: 'Encontrada',  color: '#34D399', bg: 'rgba(52,211,153,0.15)',  dot: '#34D399' },
-  cerrado:     { label: 'Cerrado',     color: '#6B7280', bg: 'rgba(107,114,128,0.15)', dot: '#6B7280' },
+const ESTADOS = {
+  en_busqueda: { label: 'En búsqueda', clase: 'bg-primary-50 text-primary-800 dark:bg-white/10 dark:text-primary-300' },
+  encontrada:  { label: 'Encontrada',  clase: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300' },
+  cerrado:     { label: 'Cerrado',     clase: 'bg-gray-100 text-gray-600 dark:bg-white/10 dark:text-white/60' },
 };
 
-function TabBtn({ active, onClick, children, count, color }) {
+function fecha(f) {
+  if (!f) return '';
+  const [a, m, d] = String(f).slice(0, 10).split('-').map(Number);
+  return new Date(a, m - 1, d).toLocaleDateString('es-CO', { day: 'numeric', month: 'short', year: 'numeric' });
+}
+
+function TarjetaReporte({ r, onModerar }) {
+  const m = r.mascota;
+  const foto = m?.foto_urls?.[0];
+  const estado = ESTADOS[r.estado] || ESTADOS.cerrado;
   return (
-    <button
-      onClick={onClick}
-      className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap"
-      style={active
-        ? { background: `${color}20`, color, border: `1px solid ${color}40` }
-        : { background: 'rgba(255,255,255,0.05)', color: 'rgba(255,255,255,0.4)', border: '1px solid transparent' }
-      }
-    >
-      {children}
-      <span className="px-1.5 py-0.5 rounded-full text-[10px] font-extrabold"
-            style={active
-              ? { background: color, color: '#0F0F1A' }
-              : { background: 'rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.4)' }}>
-        {count}
-      </span>
-    </button>
+    <article className={`rounded-3xl p-4 bg-white dark:bg-white/5 border
+                         ${r.moderado ? 'border-amber-300 dark:border-amber-500/40' : 'border-warm-border dark:border-white/10'}`}>
+      <div className="flex gap-3">
+        <span className="h-14 w-14 shrink-0 rounded-2xl overflow-hidden bg-primary-50 dark:bg-white/10 flex items-center justify-center">
+          {foto ? <img src={foto} alt="" className="w-full h-full object-cover" />
+                : <IconoEspecie especie={m?.especie} size={26} strokeWidth={1.6} className="text-primary-300" />}
+        </span>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-start justify-between gap-2">
+            <h3 className="font-poppins font-semibold text-[16px] leading-tight truncate text-dark-900 dark:text-white">
+              {m?.nombre || `Mascota #${r.mascota_id}`}
+            </h3>
+            <span className={`shrink-0 h-6 px-2 rounded-full text-[11px] font-bold flex items-center ${estado.clase}`}>{estado.label}</span>
+          </div>
+          {r.reportante && (
+            <p className="mt-1 flex items-center gap-1 text-[12px] truncate text-gray-500 dark:text-white/50">
+              <User size={12} aria-hidden="true" /> {r.reportante.nombre} · {r.reportante.email}
+            </p>
+          )}
+          <p className="flex items-center gap-1 text-[12px] text-gray-500 dark:text-white/50">
+            <Calendar size={12} aria-hidden="true" /> Se perdió el {fecha(r.fecha_perdida)}
+          </p>
+        </div>
+      </div>
+
+      {r.descripcion && (
+        <p className="mt-3 text-[14px] leading-relaxed text-gray-700 dark:text-white/70 bg-warm-50 dark:bg-white/5 rounded-2xl px-3 py-2.5">
+          {r.descripcion}
+        </p>
+      )}
+
+      {r.moderado && (
+        <p className="mt-3 flex items-center gap-1.5 text-[13px] font-medium text-amber-800 dark:text-amber-300">
+          <EyeOff size={15} aria-hidden="true" /> Oculto del mapa por incumplir las normas
+        </p>
+      )}
+
+      {/* Solo las búsquedas activas aparecen en el mapa; los reportes ya ocultos se pueden volver a mostrar */}
+      {(r.estado === 'en_busqueda' || r.moderado) && (
+      <div className="mt-3 flex justify-end">
+        <button type="button" onClick={() => onModerar(r)} data-testid={`btn-moderar-${r.id}`}
+          className={`h-10 px-4 rounded-full flex items-center gap-1.5 text-[13px] font-semibold ${focoVisible}
+                      ${r.moderado ? 'text-emerald-700 bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-500/15 dark:text-emerald-300'
+                                   : 'text-amber-800 bg-amber-50 hover:bg-amber-100 dark:bg-amber-500/15 dark:text-amber-300'}`}>
+          {r.moderado ? <><Eye size={16} aria-hidden="true" /> Mostrar en el mapa</>
+                      : <><EyeOff size={16} aria-hidden="true" /> Ocultar del mapa</>}
+        </button>
+      </div>
+      )}
+    </article>
   );
 }
 
@@ -38,228 +83,104 @@ export default function ModeracionReportes() {
   const navigate = useNavigate();
   const [reportes, setReportes] = useState([]);
   const [cargando, setCargando] = useState(true);
+  const [error,    setError]    = useState(false);
   const [busqueda, setBusqueda] = useState('');
   const [filtro,   setFiltro]   = useState('todos');
+  const [aOcultar, setAOcultar] = useState(null);
+  const [guardando, setGuardando] = useState(false);
 
-  useEffect(() => {
+  const cargar = useCallback(() => {
+    setCargando(true);
+    setError(false);
     listarReportesAdmin()
       .then(({ data }) => setReportes(data.reportes))
-      .catch(() => {})
+      .catch(() => setError(true))
       .finally(() => setCargando(false));
   }, []);
 
-  async function handleModerar(id) {
-    try { await moderarReporte(id); } catch { /* optimistic */ }
-    setReportes(prev => prev.map(r => {
-      if (r.id !== id) return r;
-      const nuevo = !r.moderado;
-      toast(nuevo ? '🚫 Reporte oculto del mapa' : '✅ Reporte visible nuevamente');
-      return { ...r, moderado: nuevo };
-    }));
+  useEffect(() => { cargar(); }, [cargar]);
+
+  // Solo se actualiza la lista cuando el servidor confirma el cambio
+  async function alternar(r) {
+    setGuardando(true);
+    try {
+      const { data } = await moderarReporte(r.id);
+      const moderado = data?.moderado ?? !r.moderado;
+      setReportes((prev) => prev.map((x) => (x.id === r.id ? { ...x, moderado } : x)));
+      toast.success(moderado ? 'Reporte oculto del mapa.' : 'Reporte visible de nuevo en el mapa.');
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'No se pudo cambiar la moderación del reporte.');
+    } finally {
+      setGuardando(false);
+      setAOcultar(null);
+    }
   }
 
+  const cerrarConfirmacion = useCallback(() => setAOcultar(null), []);
+
+  const conteo = {
+    todos: reportes.length,
+    activos: reportes.filter((r) => r.estado === 'en_busqueda' && !r.moderado).length,
+    ocultos: reportes.filter((r) => r.moderado).length,
+    resueltos: reportes.filter((r) => r.estado === 'encontrada').length,
+  };
+
   const filtrados = useMemo(() => {
-    let list = reportes;
-    if (filtro === 'activos')   list = list.filter(r => r.estado === 'en_busqueda' && !r.moderado);
-    if (filtro === 'ocultos')   list = list.filter(r => r.moderado);
-    if (filtro === 'resueltos') list = list.filter(r => r.estado === 'encontrada');
-    if (busqueda.trim()) {
-      const q = busqueda.toLowerCase();
-      list = list.filter(r =>
-        r.mascota?.nombre?.toLowerCase().includes(q) ||
-        r.estado?.toLowerCase().includes(q)
-      );
+    let lista = reportes;
+    if (filtro === 'activos')   lista = lista.filter((r) => r.estado === 'en_busqueda' && !r.moderado);
+    if (filtro === 'ocultos')   lista = lista.filter((r) => r.moderado);
+    if (filtro === 'resueltos') lista = lista.filter((r) => r.estado === 'encontrada');
+    const q = busqueda.trim().toLowerCase();
+    if (q) {
+      lista = lista.filter((r) => [r.mascota?.nombre, r.reportante?.nombre, r.reportante?.email, r.descripcion]
+        .some((v) => v?.toLowerCase().includes(q)));
     }
-    return list;
+    return lista;
   }, [reportes, filtro, busqueda]);
 
-  const activos   = reportes.filter(r => r.estado === 'en_busqueda' && !r.moderado).length;
-  const ocultos   = reportes.filter(r => r.moderado).length;
-  const resueltos = reportes.filter(r => r.estado === 'encontrada').length;
-
   return (
-    <div className="min-h-screen" style={{ background: '#0F0F1A' }}>
+    <div className="min-h-dvh bg-warm-50 dark:bg-dark-800 pb-10">
+      <EncabezadoPagina titulo="Moderación" onVolver={() => navigate('/admin')}
+        subtitulo={cargando ? 'Cargando…' : `${reportes.length} reportes en total`} />
 
-      {/* ── Header ─────────────────────────────────────────────────── */}
-      <div className="px-5 pt-12 pb-5"
-           style={{ background: 'linear-gradient(135deg,#1E1B4B 0%,#1A1A2E 100%)' }}>
-        <div className="flex items-center gap-3 mb-5">
-          <motion.button whileTap={{ scale: 0.88 }} onClick={() => navigate('/admin')}
-            className="h-9 w-9 rounded-xl flex items-center justify-center"
-            style={{ background: 'rgba(255,255,255,0.08)' }}>
-            <ChevronLeft size={20} color="white" strokeWidth={2.5} />
-          </motion.button>
-          <div>
-            <h1 className="font-poppins font-bold text-white text-lg">Moderación</h1>
-            <p className="text-xs" style={{ color: 'rgba(255,255,255,0.4)' }}>
-              {cargando ? 'Cargando…' : `${reportes.length} reportes en total`}
-            </p>
-          </div>
-        </div>
-
-        {/* Resumen */}
-        <div className="grid grid-cols-3 gap-2 mb-4">
-          {[
-            { label: 'En búsqueda', value: activos,   color: '#F87171' },
-            { label: 'Ocultos',     value: ocultos,   color: '#FBBF24' },
-            { label: 'Resueltos',   value: resueltos, color: '#34D399' },
-          ].map(({ label, value, color }) => (
-            <div key={label} className="rounded-xl p-3 text-center"
-                 style={{ background: 'rgba(255,255,255,0.06)', border: `1px solid ${color}25` }}>
-              <p className="font-poppins font-extrabold text-xl" style={{ color }}>{value}</p>
-              <p className="text-[10px] font-semibold" style={{ color: 'rgba(255,255,255,0.4)' }}>{label}</p>
-            </div>
-          ))}
-        </div>
-
-        {/* Búsqueda */}
-        <div className="relative mb-3">
-          <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2"
-                  style={{ color: 'rgba(255,255,255,0.3)' }} />
-          <input
-            type="text"
-            placeholder="Buscar por nombre de mascota…"
-            value={busqueda}
-            onChange={e => setBusqueda(e.target.value)}
-            className="w-full pl-9 pr-4 py-2.5 rounded-xl text-sm text-white placeholder-white/30 outline-none"
-            style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.1)' }}
-          />
-        </div>
-
-        {/* Tabs */}
-        <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1">
-          <TabBtn active={filtro === 'todos'}    onClick={() => setFiltro('todos')}    count={reportes.length} color="#818CF8">
-            <Filter size={11} /> Todos
-          </TabBtn>
-          <TabBtn active={filtro === 'activos'}  onClick={() => setFiltro('activos')}  count={activos}   color="#F87171">
-            En búsqueda
-          </TabBtn>
-          <TabBtn active={filtro === 'ocultos'}  onClick={() => setFiltro('ocultos')}  count={ocultos}   color="#FBBF24">
-            Ocultos
-          </TabBtn>
-          <TabBtn active={filtro === 'resueltos'} onClick={() => setFiltro('resueltos')} count={resueltos} color="#34D399">
-            Resueltos
-          </TabBtn>
-        </div>
+      <div className="px-4 pt-4 flex flex-col gap-3">
+        <BuscadorAdmin valor={busqueda} onCambio={setBusqueda} placeholder="Buscar mascota, autor o descripción" />
+        <FiltrosAdmin activo={filtro} onCambio={setFiltro} opciones={[
+          { id: 'todos', label: 'Todos', cuenta: conteo.todos },
+          { id: 'activos', label: 'En búsqueda', cuenta: conteo.activos },
+          { id: 'ocultos', label: 'Ocultos', cuenta: conteo.ocultos },
+          { id: 'resueltos', label: 'Encontradas', cuenta: conteo.resueltos },
+        ]} />
       </div>
 
-      {/* ── Lista ──────────────────────────────────────────────────── */}
-      <div className="px-5 pt-4 flex flex-col gap-3 pb-12">
-
-        {cargando && [1, 2, 3].map(i => (
-          <div key={i} className="h-32 rounded-2xl animate-pulse"
-               style={{ background: 'rgba(255,255,255,0.05)' }} />
+      <div className="px-4 pt-4 flex flex-col gap-3">
+        {cargando && [0, 1, 2].map((i) => (
+          <div key={i} className="h-36 rounded-3xl bg-white dark:bg-white/5 border border-warm-border dark:border-white/10 animate-pulse" aria-hidden="true" />
         ))}
 
-        <AnimatePresence mode="popLayout">
-          {!cargando && filtrados.map((r, i) => {
-            const cfg   = ESTADO_CFG[r.estado] || ESTADO_CFG.cerrado;
-            const emoji = ESPECIE_EMOJIS[r.mascota?.especie] || '🐾';
+        {error && (
+          <div className="rounded-3xl p-4 flex items-center gap-3 bg-white dark:bg-white/5 border border-warm-border dark:border-white/10">
+            <p role="alert" className="flex-1 text-[14px] text-red-700 dark:text-red-300">No se pudieron cargar los reportes.</p>
+            <button type="button" onClick={cargar}
+              className={`h-9 px-3 rounded-full flex items-center gap-1.5 text-[13px] font-semibold text-primary-700 bg-primary-50 ${focoVisible}`}>
+              <RotateCw size={15} aria-hidden="true" /> Reintentar
+            </button>
+          </div>
+        )}
 
-            return (
-              <motion.div
-                key={r.id}
-                layout
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, scale: 0.95 }}
-                transition={{ delay: i * 0.04 }}
-                className="rounded-2xl p-4"
-                style={{
-                  background: r.moderado ? 'rgba(255,255,255,0.02)' : 'rgba(255,255,255,0.04)',
-                  border: r.moderado
-                    ? '1px solid rgba(251,191,36,0.2)'
-                    : `1px solid ${cfg.color}20`,
-                  opacity: r.moderado ? 0.7 : 1,
-                }}
-              >
-                {/* Fila superior */}
-                <div className="flex items-start gap-3 mb-3">
-                  <div className="h-12 w-12 rounded-xl flex items-center justify-center text-2xl shrink-0"
-                       style={{ background: 'rgba(255,255,255,0.06)' }}>
-                    {emoji}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-start justify-between gap-2 mb-1">
-                      <p className="font-poppins font-bold text-sm text-white truncate">
-                        {r.mascota?.nombre || `Mascota #${r.mascota_id}`}
-                      </p>
-                      <span className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold shrink-0"
-                            style={{ background: cfg.bg, color: cfg.color }}>
-                        <span className="h-1.5 w-1.5 rounded-full inline-block" style={{ background: cfg.dot }} />
-                        {cfg.label}
-                      </span>
-                    </div>
-                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-                      {r.fecha_perdida && (
-                        <div className="flex items-center gap-1">
-                          <Calendar size={11} style={{ color: 'rgba(255,255,255,0.3)' }} />
-                          <span className="text-[11px]" style={{ color: 'rgba(255,255,255,0.4)' }}>
-                            {new Date(r.fecha_perdida).toLocaleDateString('es-CO', { day: '2-digit', month: 'short', year: 'numeric' })}
-                          </span>
-                        </div>
-                      )}
-                      {r.latitud && (
-                        <div className="flex items-center gap-1">
-                          <MapPin size={11} style={{ color: 'rgba(255,255,255,0.3)' }} />
-                          <span className="text-[11px]" style={{ color: 'rgba(255,255,255,0.4)' }}>
-                            {parseFloat(r.latitud).toFixed(3)}, {parseFloat(r.longitud).toFixed(3)}
-                          </span>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
+        {!cargando && !error && filtrados.map((r) => (
+          <TarjetaReporte key={r.id} r={r} onModerar={(rep) => (rep.moderado ? alternar(rep) : setAOcultar(rep))} />
+        ))}
 
-                {/* Badge moderado */}
-                {r.moderado && (
-                  <div className="flex items-center gap-1.5 mb-3 px-3 py-1.5 rounded-xl"
-                       style={{ background: 'rgba(251,191,36,0.1)', border: '1px solid rgba(251,191,36,0.2)' }}>
-                    <EyeOff size={12} style={{ color: '#FBBF24' }} />
-                    <span className="text-xs font-semibold" style={{ color: '#FBBF24' }}>
-                      Oculto del mapa por incumplir las normas
-                    </span>
-                  </div>
-                )}
-
-                {/* Botón moderar */}
-                <div className="flex justify-end pt-3" style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}>
-                  <motion.button
-                    whileTap={{ scale: 0.95 }}
-                    onClick={() => handleModerar(r.id)}
-                    data-testid={`btn-moderar-${r.id}`}
-                    className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold"
-                    style={r.moderado
-                      ? { background: 'rgba(52,211,153,0.15)', color: '#34D399', border: '1px solid rgba(52,211,153,0.3)' }
-                      : { background: 'rgba(251,191,36,0.15)', color: '#FBBF24', border: '1px solid rgba(251,191,36,0.3)' }
-                    }
-                  >
-                    {r.moderado
-                      ? <><Eye size={13} /> Mostrar en mapa</>
-                      : <><EyeOff size={13} /> Ocultar del mapa</>
-                    }
-                  </motion.button>
-                </div>
-              </motion.div>
-            );
-          })}
-        </AnimatePresence>
-
-        {/* Vacío */}
-        {!cargando && filtrados.length === 0 && (
-          <motion.div
-            initial={{ opacity: 0 }} animate={{ opacity: 1 }}
-            className="flex flex-col items-center py-16 gap-3 text-center"
-          >
-            <div className="h-16 w-16 rounded-2xl flex items-center justify-center text-2xl"
-                 style={{ background: 'rgba(255,255,255,0.05)' }}>✅</div>
-            <p className="font-poppins font-bold text-white">Todo en orden</p>
-            <p className="text-sm" style={{ color: 'rgba(255,255,255,0.3)' }}>
-              No hay reportes que coincidan con el filtro seleccionado.
-            </p>
-          </motion.div>
+        {!cargando && !error && filtrados.length === 0 && (
+          <VacioAdmin titulo="Todo en orden">No hay reportes que coincidan con el filtro.</VacioAdmin>
         )}
       </div>
+
+      <HojaConfirmacion abierta={Boolean(aOcultar)} titulo={`¿Ocultar el reporte de ${aOcultar?.mascota?.nombre || 'esta mascota'}?`}
+        textoConfirmar="Ocultar del mapa" cargando={guardando} onConfirmar={() => alternar(aOcultar)} onCancelar={cerrarConfirmacion}>
+        Dejará de aparecer en el mapa y en el inicio. Hazlo solo si incumple las normas; podrás volver a mostrarlo.
+      </HojaConfirmacion>
     </div>
   );
 }

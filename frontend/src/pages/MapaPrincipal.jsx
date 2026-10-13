@@ -1,20 +1,21 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { MapContainer, TileLayer, Marker, Popup, useMapEvents, useMap } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, useMapEvents, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
-import { motion, AnimatePresence } from 'framer-motion';
-import { Navigation } from 'lucide-react';
+import { AnimatePresence } from 'framer-motion';
+import { LocateFixed } from 'lucide-react';
 import { TILE_URL, TILE_ATTRIBUTION, CENTRO_PASTO } from '../config/mapa';
-import { useTokens } from '../hooks/useTokens';
 import { useGeolocalizacion } from '../hooks/useGeolocalizacion';
 import { listarReportesActivos } from '../services/reporteService';
 import { listarEntidades } from '../services/entidadService';
 import BottomNav from '../components/ui/BottomNav';
 import BarraBusquedaMapa from '../components/mapa/BarraBusquedaMapa';
 import FichaReporte from '../components/mapa/FichaReporte';
+import FichaEntidad from '../components/mapa/FichaEntidad';
 import PanelFiltrosMapa from '../components/mapa/PanelFiltrosMapa';
 import { crearPinReporte, PIN_ENTIDAD } from '../components/mapa/pinesMapa';
 import { filtrarReportes } from '../components/mapa/filtrosMapa';
+import { focoVisible } from '../components/auth/AuthUI';
 
 // R10 / HU-10, HU-13 a HU-16: mapa de reportes activos y entidades aliadas
 
@@ -31,8 +32,9 @@ function ClicEnMapa({ onClic }) {
   return null;
 }
 
+const flotante = 'bg-white/95 dark:bg-dark-800/95 backdrop-blur-md shadow-[0_4px_16px_rgba(26,26,46,0.14)]';
+
 export default function MapaPrincipal() {
-  const t = useTokens();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const reporteParam = searchParams.get('reporte');
@@ -43,6 +45,7 @@ export default function MapaPrincipal() {
   const [filtros,   setFiltros]   = useState({ especie: 'todos', tiempo: 'todos' });
   const [texto,     setTexto]     = useState('');
   const [seleccion, setSeleccion] = useState(null);
+  const [entidadSel, setEntidadSel] = useState(null);
   const [centrarEn, setCentrarEn] = useState(null);
   const [panelAbierto, setPanelAbierto] = useState(false);
 
@@ -73,32 +76,33 @@ export default function MapaPrincipal() {
     else obtenerUbicacion();
   }
 
+  const cerrarFichas  = useCallback(() => { setSeleccion(null); setEntidadSel(null); }, []);
+  const cerrarFiltros = useCallback(() => setPanelAbierto(false), []);
+
   const visibles = filtrarReportes(reportes, { ...filtros, texto });
   const filtrosActivos = (filtros.especie !== 'todos' ? 1 : 0) + (filtros.tiempo !== 'todos' ? 1 : 0);
-  const flotante = { background: t.navBg, backdropFilter: 'blur(12px)', boxShadow: '0 4px 16px rgba(0,0,0,0.14)' };
+  const hayFicha = !!(seleccion || entidadSel);
 
   return (
-    <div className="relative w-full h-screen overflow-hidden">
-      <MapContainer center={CENTRO_PASTO} zoom={14} style={{ height: '100%', width: '100%', zIndex: 0 }} zoomControl={false}>
+    <div className="relative w-full h-dvh overflow-hidden bg-warm-100">
+      <MapContainer center={CENTRO_PASTO} zoom={14} zoomControl={false} className="mapa-suave"
+                    style={{ height: '100%', width: '100%', zIndex: 0 }}>
         <TileLayer url={TILE_URL} attribution={TILE_ATTRIBUTION} maxZoom={19} />
         <CentrarMapa coords={centrarEn} />
-        <ClicEnMapa onClic={() => setSeleccion(null)} />
+        <ClicEnMapa onClic={cerrarFichas} />
+
+        {entidades.map((e) => (
+          <Marker key={`entidad-${e.id}`} position={[parseFloat(e.latitud), parseFloat(e.longitud)]} icon={PIN_ENTIDAD}
+            title={e.nombre} alt={e.nombre}
+            eventHandlers={{ click: (ev) => { ev.originalEvent.stopPropagation(); setSeleccion(null); setEntidadSel(e); } }} />
+        ))}
 
         {visibles.map((r) => (
           <Marker key={r.id} position={[parseFloat(r.latitud), parseFloat(r.longitud)]}
-            icon={crearPinReporte(r.mascota?.especie, seleccion?.id === r.id)}
-            eventHandlers={{ click: (e) => { e.originalEvent.stopPropagation(); setSeleccion(r); } }} />
-        ))}
-
-        {entidades.map((e) => (
-          <Marker key={`entidad-${e.id}`} position={[parseFloat(e.latitud), parseFloat(e.longitud)]} icon={PIN_ENTIDAD}>
-            <Popup>
-              <strong>{e.nombre}</strong><br />
-              {e.direccion && <>{e.direccion}<br /></>}
-              {e.horario && <>{e.horario}<br /></>}
-              {e.telefono && <a href={`tel:${e.telefono}`}>{e.telefono}</a>}
-            </Popup>
-          </Marker>
+            icon={crearPinReporte(r.mascota, seleccion?.id === r.id)}
+            zIndexOffset={seleccion?.id === r.id ? 1000 : 0}
+            title={r.mascota?.nombre ?? 'Mascota perdida'} alt={`Reporte: ${r.mascota?.nombre ?? 'mascota perdida'}`}
+            eventHandlers={{ click: (ev) => { ev.originalEvent.stopPropagation(); setEntidadSel(null); setSeleccion(r); } }} />
         ))}
       </MapContainer>
 
@@ -107,32 +111,39 @@ export default function MapaPrincipal() {
         tiempoActivo={filtros.tiempo !== 'todos'} filtrosActivos={filtrosActivos}
         onAbrirFiltros={() => setPanelAbierto(true)} />
 
-      <motion.button whileTap={{ scale: 0.92 }} onClick={irAMiUbicacion} aria-label="Centrar en mi ubicación"
-        className="absolute right-4 z-[1000] h-12 w-12 rounded-2xl flex items-center justify-center"
-        style={{ ...flotante, bottom: '6.5rem' }}>
-        <Navigation size={19} style={{ color: t.primary }} />
-      </motion.button>
-
-      <div className="absolute left-4 z-[1000] flex items-center gap-1.5 px-3.5 py-2 rounded-full text-xs font-bold"
-           style={{ ...flotante, color: visibles.length > 0 ? '#EF4444' : t.textMuted, bottom: '6.5rem' }}
-           aria-live="polite">
-        {visibles.length > 0 && <span className="h-2 w-2 rounded-full bg-red-500 animate-pulse" />}
-        {visibles.length} {visibles.length === 1 ? 'reporte activo' : 'reportes activos'}
-      </div>
+      {/* Contador y ubicación: se ocultan mientras hay una ficha abierta */}
+      {!hayFicha && (
+        <div className="absolute inset-x-4 bottom-[calc(env(safe-area-inset-bottom,0px)+6rem)] z-[1000]
+                        flex items-end justify-between pointer-events-none">
+          <p className={`pointer-events-auto flex items-center gap-2 h-10 px-4 rounded-full text-[13px] font-semibold
+                         text-dark-900 dark:text-white ${flotante}`} aria-live="polite">
+            <span className={`h-2 w-2 rounded-full ${visibles.length > 0 ? 'bg-primary-700' : 'bg-gray-400'}`} aria-hidden="true" />
+            {visibles.length} {visibles.length === 1 ? 'mascota perdida' : 'mascotas perdidas'}
+          </p>
+          <button type="button" onClick={irAMiUbicacion} aria-label="Centrar en mi ubicación"
+            className={`pointer-events-auto h-12 w-12 rounded-full flex items-center justify-center
+                        text-primary-700 dark:text-primary-400 active:scale-95 transition-transform ${flotante} ${focoVisible}`}>
+            <LocateFixed size={22} aria-hidden="true" />
+          </button>
+        </div>
+      )}
 
       <AnimatePresence>
         {seleccion && (
-          <FichaReporte reporte={seleccion} ubicacionUsuario={ubicacionUsuario}
-            onCerrar={() => setSeleccion(null)}
+          <FichaReporte key={`r-${seleccion.id}`} reporte={seleccion} ubicacionUsuario={ubicacionUsuario}
+            onCerrar={cerrarFichas}
             onVerDetalles={() => navigate(`/publico/mascotas/${seleccion.mascota?.codigo_publico}`)}
             onReportarAvistamiento={() => navigate(`/avistamientos/nuevo?mascota=${seleccion.mascota?.codigo_publico}`)} />
+        )}
+        {entidadSel && (
+          <FichaEntidad key={`e-${entidadSel.id}`} entidad={entidadSel} onCerrar={cerrarFichas} />
         )}
       </AnimatePresence>
 
       <AnimatePresence>
         {panelAbierto && (
           <PanelFiltrosMapa reportes={reportes} inicial={filtros} texto={texto}
-            onCerrar={() => setPanelAbierto(false)}
+            onCerrar={cerrarFiltros}
             onAplicar={(nuevos) => { setFiltros(nuevos); setPanelAbierto(false); }} />
         )}
       </AnimatePresence>

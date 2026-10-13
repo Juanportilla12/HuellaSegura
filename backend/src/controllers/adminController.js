@@ -1,5 +1,5 @@
 const { Op } = require('sequelize');
-const { Usuario, Reporte, Avistamiento } = require('../models');
+const { Usuario, Reporte, Avistamiento, Mascota } = require('../models');
 
 async function estadisticas(req, res, next) {
   try {
@@ -55,18 +55,31 @@ async function cambiarEstadoUsuario(req, res, next) {
   } catch (error) { next(error); }
 }
 
+// Alterna la moderación: oculta el reporte del mapa o lo vuelve a mostrar si ya estaba oculto
 async function moderarReporte(req, res, next) {
   try {
     const reporte = await Reporte.findByPk(req.params.id);
     if (!reporte) return res.status(404).json({ success: false, message: 'Reporte no encontrado.' });
-    await reporte.update({ moderado: true });
-    return res.status(200).json({ success: true, message: 'Reporte marcado como contenido inapropiado.' });
+    const moderado = !reporte.moderado;
+    await reporte.update({ moderado });
+    return res.status(200).json({
+      success: true,
+      moderado,
+      message: moderado ? 'Reporte ocultado del mapa por contenido inapropiado.' : 'Reporte visible de nuevo en el mapa.',
+    });
   } catch (error) { next(error); }
 }
 
+// Incluye la mascota y quién publicó el reporte para que el moderador pueda revisarlo
 async function listarReportes(req, res, next) {
   try {
-    const reportes = await Reporte.findAll({ order: [['created_at', 'DESC']] });
+    const reportes = await Reporte.findAll({
+      include: [
+        { model: Mascota, as: 'mascota', attributes: ['id', 'codigo_publico', 'nombre', 'especie', 'raza', 'foto_urls'] },
+        { model: Usuario, as: 'reportante', attributes: ['id', 'nombre', 'email'] },
+      ],
+      order: [['created_at', 'DESC']],
+    });
     return res.status(200).json({ success: true, reportes });
   } catch (error) { next(error); }
 }

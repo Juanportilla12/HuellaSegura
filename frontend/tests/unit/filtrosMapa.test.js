@@ -1,5 +1,5 @@
 import { describe, test, expect } from 'vitest';
-import { filtrarReportes, tiempoTranscurrido } from '../../src/components/mapa/filtrosMapa';
+import { filtrarReportes, tiempoTranscurrido, tiempoLegible } from '../../src/components/mapa/filtrosMapa';
 import { distanciaKm } from '../../src/utils/distancia';
 
 const hace = (minutos) => new Date(Date.now() - minutos * 60000).toISOString();
@@ -39,6 +39,14 @@ describe('R10 / HU-14 — filtros del mapa', () => {
     expect(tiempoTranscurrido(hace(5))).toBe('5m');
     expect(tiempoTranscurrido(hace(180))).toBe('3h');
     expect(tiempoTranscurrido(hace(3000))).toBe('2d');
+  });
+
+  test('Tiempo legible para el usuario', () => {
+    expect(tiempoLegible(hace(0))).toBe('hace un momento');
+    expect(tiempoLegible(hace(5))).toBe('hace 5 min');
+    expect(tiempoLegible(hace(180))).toBe('hace 3 h');
+    expect(tiempoLegible(hace(1500))).toBe('hace 1 día');
+    expect(tiempoLegible(hace(3000))).toBe('hace 2 días');
   });
 });
 

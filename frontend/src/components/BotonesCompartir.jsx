@@ -21,17 +21,18 @@ export default function BotonesCompartir({ codigoPublico, nombreMascota, buscand
   const facebookUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(urlCompartir)}`;
   const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(`${texto} ${urlCompartir}`)}`;
 
-  const base = 'flex-1 flex items-center justify-center gap-2 py-3 rounded-2xl text-sm font-bold text-white';
+  const base = 'flex-1 h-12 flex items-center justify-center gap-2 rounded-2xl text-[15px] font-semibold text-white ' +
+               'focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-primary/30';
 
   return (
     <div className="flex gap-2" data-testid="botones-compartir">
-      <a href={facebookUrl} target="_blank" rel="noopener noreferrer" data-testid="btn-facebook"
-         className={base} style={{ background: '#1877F2', boxShadow: '0 6px 18px rgba(24,119,242,0.35)' }}>
-        <IconoFacebook /> Facebook
-      </a>
       <a href={whatsappUrl} target="_blank" rel="noopener noreferrer" data-testid="btn-whatsapp"
-         className={base} style={{ background: 'linear-gradient(135deg,#25D366,#128C7E)', boxShadow: '0 6px 18px rgba(37,211,102,0.35)' }}>
-        <MessageCircle size={16} /> WhatsApp
+         className={`${base} bg-[#128C7E] hover:bg-[#0F7A6E]`}>
+        <MessageCircle size={18} aria-hidden="true" /> WhatsApp
+      </a>
+      <a href={facebookUrl} target="_blank" rel="noopener noreferrer" data-testid="btn-facebook"
+         className={`${base} bg-[#1877F2] hover:bg-[#166FE5]`}>
+        <IconoFacebook size={18} /> Facebook
       </a>
     </div>
   );

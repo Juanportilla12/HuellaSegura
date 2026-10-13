@@ -2,11 +2,9 @@ const { Router } = require('express');
 const { body } = require('express-validator');
 const authController = require('../controllers/authController');
 const { authenticate } = require('../middlewares/authMiddleware');
+const { CELULAR_REGEX } = require('../utils/validaciones');
 
 const router = Router();
-
-// Celular: 7 a 15 dígitos, opcionalmente con + inicial, espacios o guiones
-const CELULAR_REGEX = /^\+?[0-9][0-9\s-]{6,18}$/;
 
 const registerValidators = [
   body('nombre').trim().notEmpty().withMessage('El nombre es obligatorio.'),

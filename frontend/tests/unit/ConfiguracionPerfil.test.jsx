@@ -119,7 +119,7 @@ describe('Sprint 5 — ConfiguracionPerfil (DoD)', () => {
   // ── Datos reales (antes había cifras fijas en el código) ──────────────────
   test('Muestra conteos reales de reportes y encontradas', async () => {
     renderPage();
-    expect(await screen.findByText('ENCONTRADAS')).toBeInTheDocument();
+    expect(await screen.findByText('Encontradas')).toBeInTheDocument();
     await waitFor(() => expect(screen.getAllByText('2').length).toBeGreaterThan(0));
     expect(screen.queryByText('Vecino verificado · La Aurora')).not.toBeInTheDocument();
   });
