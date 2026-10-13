@@ -1,6 +1,7 @@
 const { validationResult } = require('express-validator');
 const crypto = require('crypto');
 const bcrypt = require('bcryptjs');
+const { Op, literal } = require('sequelize');
 const { Usuario } = require('../models');
 const { sign } = require('../config/jwt');
 const { enviarCorreoResetCodigo } = require('../services/emailService');
@@ -180,23 +181,37 @@ const MAX_INTENTOS_CODIGO = 5;
  */
 async function validarCodigoRecuperacion(usuario, codigo) {
   const invalido = { ok: false, status: 400, message: 'Código inválido o expirado. Solicita uno nuevo.' };
+  const agotado = { ok: false, status: 429, message: 'Demasiados intentos. Solicita un código nuevo.' };
+  // Al invalidar se conserva el contador: solo un código nuevo (forgotPassword) lo reinicia
+  const invalidar = () => usuario.update({ reset_code: null, reset_code_expires: null });
 
   if (!usuario || !usuario.reset_code || !usuario.reset_code_expires) return invalido;
   if (new Date() > new Date(usuario.reset_code_expires)) return invalido;
 
-  if ((usuario.reset_intentos || 0) >= MAX_INTENTOS_CODIGO) {
-    await usuario.update({ reset_code: null, reset_code_expires: null, reset_intentos: 0 });
-    return { ok: false, status: 429, message: 'Demasiados intentos. Solicita un código nuevo.' };
+  const previos = usuario.reset_intentos || 0;
+  if (previos >= MAX_INTENTOS_CODIGO) {
+    await invalidar();
+    return agotado;
+  }
+
+  // El intento se reserva en la base de datos ANTES de comparar: con peticiones
+  // simultáneas, la condición del UPDATE impide evaluar más de 5 códigos.
+  const [reservado] = await Usuario.update(
+    { reset_intentos: literal('reset_intentos + 1') },
+    { where: { id: usuario.id, reset_code: { [Op.ne]: null }, reset_intentos: { [Op.lt]: MAX_INTENTOS_CODIGO } } }
+  );
+  if (reservado === 0) {
+    await invalidar();
+    return agotado;
   }
 
   const coincide = await bcrypt.compare(String(codigo), usuario.reset_code);
   if (!coincide) {
-    const intentos = (usuario.reset_intentos || 0) + 1;
+    const intentos = previos + 1;
     if (intentos >= MAX_INTENTOS_CODIGO) {
-      await usuario.update({ reset_code: null, reset_code_expires: null, reset_intentos: 0 });
-      return { ok: false, status: 429, message: 'Demasiados intentos. Solicita un código nuevo.' };
+      await invalidar();
+      return agotado;
     }
-    await usuario.update({ reset_intentos: intentos });
     return {
       ok: false,
       status: 400,

@@ -18,14 +18,16 @@ const camposOpcionales = [
 ];
 
 const crearValidators = [
-  body('nombre').trim().notEmpty().withMessage('El nombre es obligatorio.'),
+  body('nombre').trim().notEmpty().withMessage('El nombre es obligatorio.')
+    .isLength({ max: 150 }).withMessage('El nombre admite máximo 150 caracteres.'),
   body('tipo').isIn(TIPOS).withMessage('Tipo inválido.'),
   ...camposOpcionales,
 ];
 
 const actualizarValidators = [
   param('id').isInt({ min: 1 }),
-  body('nombre').optional().trim().notEmpty().withMessage('El nombre no puede quedar vacío.'),
+  body('nombre').optional().trim().notEmpty().withMessage('El nombre no puede quedar vacío.')
+    .isLength({ max: 150 }).withMessage('El nombre admite máximo 150 caracteres.'),
   body('tipo').optional().isIn(TIPOS).withMessage('Tipo inválido.'),
   ...camposOpcionales,
 ];

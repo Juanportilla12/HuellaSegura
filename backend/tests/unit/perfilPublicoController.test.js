@@ -90,6 +90,15 @@ describe('PerfilPublico', () => {
     expect(res.status).toBe(200);
     expect(res.body.reporte_activo).toBeNull();
   });
+
+  test('HU-28: un reporte ocultado por el admin no se busca para el perfil público', async () => {
+    Mascota.findOne.mockResolvedValue(buildMockMascota());
+    Reporte.findOne.mockResolvedValue(null);
+
+    await request(app).get('/api/publico/mascotas/11111111-1111-4111-8111-111111111111');
+
+    expect(Reporte.findOne.mock.calls[0][0].where).toMatchObject({ estado: 'en_busqueda', moderado: false });
+  });
 });
 
 describe('HU-29 — Página para compartir con vista previa', () => {

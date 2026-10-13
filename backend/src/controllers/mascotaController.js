@@ -3,6 +3,7 @@ const { Mascota } = require('../models');
 const { uploadBuffer } = require('../config/cloudinary');
 const { generarQR } = require('../services/qrService');
 const { eliminarArchivos, archivosDeMascotas } = require('../services/archivosService');
+const { descargaAdjunta } = require('../utils/nombreArchivo');
 
 const MAX_FOTOS = 5;
 
@@ -165,10 +166,12 @@ async function subirFotos(req, res, next) {
       });
     }
 
+    // El índice evita que fotos subidas en el mismo milisegundo compartan public_id y se sobrescriban
+    const marca = Date.now();
     const resultados = await Promise.all(
-      archivos.map((archivo) =>
+      archivos.map((archivo, i) =>
         uploadBuffer(archivo.buffer, {
-          public_id: `mascota-${mascota.id}-${Date.now()}`,
+          public_id: `mascota-${mascota.id}-${marca}-${i}`,
           resource_type: 'image',
         })
       )
@@ -230,7 +233,7 @@ async function descargarQR(req, res, next) {
     const { buffer } = await generarQR(mascota.codigo_publico);
     res.set({
       'Content-Type': 'image/png',
-      'Content-Disposition': `attachment; filename="qr-${mascota.nombre.replace(/\s+/g, '-')}.png"`,
+      'Content-Disposition': descargaAdjunta('qr', mascota.nombre, 'png'),
     });
     return res.send(buffer);
   } catch (error) {

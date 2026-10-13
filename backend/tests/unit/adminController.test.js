@@ -158,3 +158,21 @@ describe('adminController', () => {
     expect(res.status).toBe(401);
   });
 });
+
+describe('Entidades aliadas — límites de longitud', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    Usuario.findByPk.mockResolvedValue(mockAdmin);
+  });
+
+  test('Nombre de más de 150 caracteres → 400 (no 500)', async () => {
+    const { EntidadAliada } = require('../../src/models');
+    const res = await request(app)
+      .post('/api/entidades-aliadas')
+      .set('Authorization', `Bearer ${TOKEN_ADMIN}`)
+      .send({ nombre: 'V'.repeat(151), tipo: 'veterinaria' });
+
+    expect(res.status).toBe(400);
+    expect(EntidadAliada.create).not.toHaveBeenCalled();
+  });
+});

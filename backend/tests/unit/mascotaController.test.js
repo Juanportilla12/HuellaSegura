@@ -23,6 +23,7 @@ jest.mock('../../src/config/cloudinary', () => ({
 }));
 
 const { Usuario, Mascota } = require('../../src/models');
+const { uploadBuffer } = require('../../src/config/cloudinary');
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 const TOKEN_USUARIO_1 = sign({ id: 1, rol: 'usuario', tokenVersion: 0 });
@@ -111,6 +112,16 @@ describe('MascotaController', () => {
         .send({ nombre: 'Firulais', sexo: 'macho', color: 'Dorado' });
 
       expect(res.status).toBe(400);
+    });
+
+    test.each(['color', 'raza', 'microchip'])('400 (no 500) si %s supera 100 caracteres', async (campo) => {
+      const res = await request(app)
+        .post('/api/mascotas')
+        .set('Authorization', `Bearer ${TOKEN_USUARIO_1}`)
+        .send({ nombre: 'Firulais', especie: 'perro', sexo: 'macho', color: 'Dorado', [campo]: 'x'.repeat(101) });
+
+      expect(res.status).toBe(400);
+      expect(Mascota.create).not.toHaveBeenCalled();
     });
 
     test('401 sin token JWT', async () => {
@@ -218,6 +229,38 @@ describe('MascotaController', () => {
       expect(res.body.success).toBe(true);
       expect(res.body.foto_urls).toBeDefined();
     });
+
+    test('Varias fotos en una petición se suben con public_id distintos (no se sobrescriben)', async () => {
+      Mascota.findOne.mockResolvedValue(buildMockMascota({ usuario_id: 1, foto_urls: [] }));
+
+      const res = await request(app)
+        .post('/api/mascotas/1/fotos')
+        .set('Authorization', `Bearer ${TOKEN_USUARIO_1}`)
+        .attach('fotos', Buffer.from('a'), { filename: 'a.jpg', contentType: 'image/jpeg' })
+        .attach('fotos', Buffer.from('b'), { filename: 'b.jpg', contentType: 'image/jpeg' })
+        .attach('fotos', Buffer.from('c'), { filename: 'c.jpg', contentType: 'image/jpeg' });
+
+      expect(res.status).toBe(200);
+      const ids = uploadBuffer.mock.calls.map(([, opciones]) => opciones.public_id);
+      expect(ids).toHaveLength(3);
+      expect(new Set(ids).size).toBe(3);
+    });
+  });
+
+  // ── GET /api/mascotas/:id/qr ───────────────────────────────────────────────
+  describe('GET /api/mascotas/:id/qr', () => {
+    test.each(['Luna 🐶', 'Ñoño', 'Lu"na', 'Rex\r\nX-Inyectada: 1'])(
+      'Nombre "%s": responde 200 con un nombre de archivo válido', async (nombre) => {
+        Mascota.findOne.mockResolvedValue(buildMockMascota({ nombre, codigo_publico: '11111111-1111-4111-8111-111111111111' }));
+
+        const res = await request(app)
+          .get('/api/mascotas/1/qr')
+          .set('Authorization', `Bearer ${TOKEN_USUARIO_1}`);
+
+        expect(res.status).toBe(200);
+        expect(res.headers['content-disposition']).toMatch(/^attachment; filename="qr-[A-Za-z0-9_-]+\.png"; filename\*=UTF-8''/);
+        expect(res.headers['x-inyectada']).toBeUndefined();
+      });
   });
 
   // ── Validación de formato de archivo ──────────────────────────────────────

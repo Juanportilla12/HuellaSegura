@@ -19,8 +19,9 @@ async function obtenerPerfil(req, res, next) {
       return res.status(404).json({ success: false, message: 'Mascota no encontrada.' });
     }
 
+    // Un reporte ocultado por el administrador tampoco se muestra aquí (HU-28)
     const reporteActivo = await Reporte.findOne({
-      where: { mascota_id: mascota.id, estado: 'en_busqueda' },
+      where: { mascota_id: mascota.id, estado: 'en_busqueda', moderado: false },
       attributes: ['id', 'latitud', 'longitud', 'descripcion', 'fecha_perdida'],
     });
 
@@ -78,7 +79,7 @@ async function paginaCompartir(req, res, next) {
     if (!mascota) return res.status(404).send('Mascota no encontrada.');
 
     const reporteActivo = await Reporte.findOne({
-      where: { mascota_id: mascota.id, estado: 'en_busqueda' },
+      where: { mascota_id: mascota.id, estado: 'en_busqueda', moderado: false },
       attributes: ['id'],
     });
 

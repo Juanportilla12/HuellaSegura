@@ -18,6 +18,10 @@ const crearValidators = [
     .isIn(['macho', 'hembra'])
     .withMessage('Sexo inválido. Valores: macho, hembra.'),
   body('color').trim().notEmpty().withMessage('El color es obligatorio.'),
+  // Límites de las columnas: sin esto MySQL rechaza el valor y la API responde 500
+  body('color').isLength({ max: 100 }).withMessage('El color admite máximo 100 caracteres.'),
+  body('raza').optional({ values: 'falsy' }).isLength({ max: 100 }).withMessage('La raza admite máximo 100 caracteres.'),
+  body('microchip').optional({ values: 'falsy' }).isLength({ max: 100 }).withMessage('El microchip admite máximo 100 caracteres.'),
   body('edad').optional().isInt({ min: 0 }).withMessage('La edad debe ser un número positivo.'),
   body('edad_unidad').optional().isIn(['meses', 'años']).withMessage('Unidad inválida.'),
 ];

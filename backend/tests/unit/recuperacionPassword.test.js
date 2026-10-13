@@ -5,7 +5,7 @@ const request = require('supertest');
 const bcrypt = require('bcryptjs');
 
 jest.mock('../../src/models', () => ({
-  Usuario: { findOne: jest.fn(), findByPk: jest.fn() },
+  Usuario: { findOne: jest.fn(), findByPk: jest.fn(), update: jest.fn() },
   Mascota: {}, Reporte: {}, Notificacion: {}, Avistamiento: {}, EntidadAliada: {},
 }));
 jest.mock('../../src/config/connection', () => ({ authenticate: jest.fn(), define: jest.fn() }));
@@ -35,7 +35,17 @@ async function usuarioConCodigo(codigo, extra = {}) {
   });
 }
 
-beforeEach(() => jest.clearAllMocks());
+// Simula el UPDATE condicional de MySQL: suma un intento solo si quedan disponibles
+function reservarIntento(fila) {
+  if (!fila.reset_code || (fila.reset_intentos || 0) >= 5) return [0];
+  fila.reset_intentos = (fila.reset_intentos || 0) + 1;
+  return [1];
+}
+
+beforeEach(() => {
+  jest.clearAllMocks();
+  Usuario.update.mockImplementation(async () => reservarIntento(await Usuario.findOne.mock.results.at(-1).value));
+});
 
 describe('Recuperación de contraseña', () => {
   test('El código se guarda cifrado, nunca en texto plano', async () => {
@@ -103,6 +113,21 @@ describe('Recuperación de contraseña', () => {
     expect(res.status).toBe(200);
     const cambios = u.update.mock.calls.at(-1)[0];
     expect(cambios).toMatchObject({ password: 'nuevaClave123', reset_code: null, reset_intentos: 0, token_version: 4 });
+  });
+
+  test('Intentos simultáneos: nunca se evalúan más de 5 códigos', async () => {
+    // Cada petición carga su propia copia del usuario, como ocurre con la base de datos real
+    const fila = await usuarioConCodigo('123456');
+    Usuario.findOne.mockImplementation(async () => ({ ...fila, update: jest.fn(async (c) => Object.assign(fila, c)) }));
+    Usuario.update.mockImplementation(async () => reservarIntento(fila));
+
+    const respuestas = await Promise.all(Array.from({ length: 12 }, (_, i) =>
+      request(app).post('/api/auth/verify-reset-code').send({ email: 'ana@example.com', codigo: String(200000 + i) })));
+
+    const incorrectos = respuestas.filter((r) => /incorrecto/.test(r.body.message)).length;
+    expect(incorrectos).toBeLessThanOrEqual(4);
+    expect(fila.reset_intentos).toBe(5);
+    expect(fila.reset_code).toBeNull();
   });
 
   test('El código debe ser numérico de 6 dígitos', async () => {

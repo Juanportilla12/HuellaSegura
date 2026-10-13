@@ -2,6 +2,7 @@ const { Mascota } = require('../models');
 const { generarCartelMascota, descargarImagen } = require('../services/pdfService');
 const { generarQR } = require('../services/qrService');
 const { generarPdfSemanal } = require('../services/reporteSemanalService');
+const { descargaAdjunta } = require('../utils/nombreArchivo');
 
 // HU-31: cartel A4 con foto, datos y QR
 async function cartelMascota(req, res, next) {
@@ -22,7 +23,7 @@ async function cartelMascota(req, res, next) {
     const buffer = await generarCartelMascota(datos, { qrBuffer, fotoBuffer });
     res.set({
       'Content-Type': 'application/pdf',
-      'Content-Disposition': `attachment; filename="cartel-${mascota.nombre.replace(/\s+/g, '-')}.pdf"`,
+      'Content-Disposition': descargaAdjunta('cartel', mascota.nombre, 'pdf'),
     });
     return res.send(buffer);
   } catch (error) { next(error); }
