@@ -6,8 +6,12 @@ const { cartelMascota } = require('../controllers/pdfController');
 const { authenticate } = require('../middlewares/authMiddleware');
 const upload = require('../middlewares/uploadMiddleware');
 const { uploadVideo } = require('../middlewares/uploadMiddleware');
+const { validarId } = require('../middlewares/validarId');
 
 const router = Router();
+
+// Toda ruta con :id exige un entero positivo (400 si no lo es)
+router.param('id', validarId);
 
 const crearValidators = [
   body('nombre').trim().notEmpty().withMessage('El nombre es obligatorio.'),

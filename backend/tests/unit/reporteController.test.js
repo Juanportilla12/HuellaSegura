@@ -138,6 +138,41 @@ describe('ReporteController', () => {
       const res = await request(app).post('/api/reportes').send(PAYLOAD_VALIDO);
       expect(res.status).toBe(401);
     });
+
+    test('400 si la fecha de pérdida es futura', async () => {
+      const res = await request(app)
+        .post('/api/reportes')
+        .set('Authorization', `Bearer ${TOKEN_U1}`)
+        .send({ ...PAYLOAD_VALIDO, fecha_perdida: '2099-01-01' });
+
+      expect(res.status).toBe(400);
+      expect(Reporte.create).not.toHaveBeenCalled();
+    });
+
+    test('409 si la mascota ya tiene un reporte de búsqueda activo', async () => {
+      Mascota.findOne.mockResolvedValue(buildMockMascota({ usuario_id: 1 }));
+      Reporte.findOne.mockResolvedValueOnce(buildMockReporte({ estado: 'en_busqueda' }));
+
+      const res = await request(app)
+        .post('/api/reportes')
+        .set('Authorization', `Bearer ${TOKEN_U1}`)
+        .send(PAYLOAD_VALIDO);
+
+      expect(res.status).toBe(409);
+      expect(Reporte.create).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('Validación del :id en la ruta', () => {
+    test('400 si el id no es un entero positivo', async () => {
+      const res = await request(app)
+        .put('/api/reportes/abc/estado')
+        .set('Authorization', `Bearer ${TOKEN_U1}`)
+        .send({ estado: 'cerrado' });
+
+      expect(res.status).toBe(400);
+      expect(Reporte.findByPk).not.toHaveBeenCalled();
+    });
   });
 
   // ── GET /api/reportes ──────────────────────────────────────────────────────

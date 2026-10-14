@@ -24,6 +24,15 @@ async function crear(req, res, next) {
       });
     }
 
+    // Una mascota solo puede tener una búsqueda activa a la vez
+    const activo = await Reporte.findOne({ where: { mascota_id, estado: 'en_busqueda' } });
+    if (activo) {
+      return res.status(409).json({
+        success: false,
+        message: 'Esta mascota ya tiene un reporte de búsqueda activo.',
+      });
+    }
+
     const reporte = await Reporte.create({
       mascota_id,
       usuario_id: req.usuario.id,

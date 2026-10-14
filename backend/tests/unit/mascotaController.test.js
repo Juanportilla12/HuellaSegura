@@ -247,6 +247,31 @@ describe('MascotaController', () => {
     });
   });
 
+  // ── Entradas mal formadas ──────────────────────────────────────────────────
+  describe('Entradas mal formadas', () => {
+    test('400 (no 500) si el formulario multipart llega cortado', async () => {
+      Mascota.findOne.mockResolvedValue(buildMockMascota({ usuario_id: 1 }));
+
+      const res = await request(app)
+        .post('/api/mascotas/1/fotos')
+        .set('Authorization', `Bearer ${TOKEN_USUARIO_1}`)
+        .set('Content-Type', 'multipart/form-data; boundary=XYZ')
+        .send('--XYZ\r\nContent-Disposition: form-data; name="fotos"; filename="a.png"\r\nContent-Type: image/png\r\n\r\nsin-cierre');
+
+      expect(res.status).toBe(400);
+      expect(res.body.message).toMatch(/incompleto o dañado/);
+    });
+
+    test.each(['abc', '0', '-1', '1.5'])('400 si el id de la mascota es "%s"', async (id) => {
+      const res = await request(app)
+        .get(`/api/mascotas/${id}`)
+        .set('Authorization', `Bearer ${TOKEN_USUARIO_1}`);
+
+      expect(res.status).toBe(400);
+      expect(Mascota.findOne).not.toHaveBeenCalled();
+    });
+  });
+
   // ── GET /api/mascotas/:id/qr ───────────────────────────────────────────────
   describe('GET /api/mascotas/:id/qr', () => {
     test.each(['Luna 🐶', 'Ñoño', 'Lu"na', 'Rex\r\nX-Inyectada: 1'])(

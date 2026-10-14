@@ -2,10 +2,14 @@ const { Router } = require('express');
 const { body, param } = require('express-validator');
 const entidadAliadaController = require('../controllers/entidadAliadaController');
 const { authenticate, requireAdmin } = require('../middlewares/authMiddleware');
+const { validarId } = require('../middlewares/validarId');
 
 const soloAdmin = [authenticate, requireAdmin];
 
 const router = Router();
+
+// Toda ruta con :id exige un entero positivo (400 si no lo es)
+router.param('id', validarId);
 
 const TIPOS = ['veterinaria', 'albergue', 'otro'];
 

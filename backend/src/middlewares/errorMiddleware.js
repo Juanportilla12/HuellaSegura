@@ -1,3 +1,8 @@
+const ERRORES_FORMULARIO = [
+  'Unexpected end of form', 'Unexpected end of file', 'Malformed part header',
+  'Multipart: Boundary not found', 'Malformed content type', 'Missing Content-Type',
+];
+
 function notFound(req, res) {
   res.status(404).json({
     success: false,
@@ -39,6 +44,11 @@ function errorHandler(err, req, res, next) {
   }
   if (err.tipoArchivoInvalido) {
     return res.status(400).json({ success: false, message: err.message });
+  }
+
+  // Formulario multipart cortado o mal armado (errores del lector busboy que usa multer)
+  if (ERRORES_FORMULARIO.includes(err.message)) {
+    return res.status(400).json({ success: false, message: 'El formulario enviado está incompleto o dañado.' });
   }
 
   const status = err.status || err.statusCode || 500;
