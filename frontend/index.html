@@ -20,15 +20,8 @@
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="apple-touch-icon" href="/pwa-192x192.svg" />
     <title>HuellaSegura</title>
-    <script>
-      // Aplicar tema antes del render para evitar flash.
-      // Light es el default. Dark solo si el usuario lo activó explícitamente en el app.
-      (function () {
-        if (localStorage.getItem('hs-theme') === 'dark') {
-          document.documentElement.classList.add('dark');
-        }
-      })();
-    </script>
+    <!-- Tema antes del render (archivo aparte para cumplir la CSP) -->
+    <script src="/tema.js"></script>
   </head>
   <body>
     <div id="root"></div>
