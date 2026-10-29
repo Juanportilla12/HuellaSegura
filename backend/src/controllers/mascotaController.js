@@ -190,6 +190,66 @@ async function subirFotos(req, res, next) {
   }
 }
 
+/**
+ * Edición de fotos: recibe la lista final en el orden deseado (la primera es la
+ * principal). Solo admite fotos que la mascota ya tiene; las que no vengan en la
+ * lista se quitan y se borran de Cloudinary.
+ */
+async function ordenarFotos(req, res, next) {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ success: false, errors: errors.array() });
+    }
+
+    const mascota = await Mascota.findOne({
+      where: { id: req.params.id, usuario_id: req.usuario.id },
+    });
+    if (!mascota) {
+      return res.status(404).json({ success: false, message: 'Mascota no encontrada.' });
+    }
+
+    const actuales = mascota.foto_urls || [];
+    const nuevas = req.body.foto_urls;
+    const soloActuales = nuevas.every((url) => actuales.includes(url));
+    if (!soloActuales || new Set(nuevas).size !== nuevas.length) {
+      return res.status(400).json({
+        success: false,
+        message: 'Solo puedes conservar o reordenar las fotos que ya tiene la mascota.',
+      });
+    }
+
+    const quitadas = actuales.filter((url) => !nuevas.includes(url));
+    await mascota.update({ foto_urls: nuevas });
+    eliminarArchivos(quitadas).catch(() => {});
+
+    return res.status(200).json({ success: true, message: 'Fotos actualizadas.', foto_urls: nuevas });
+  } catch (error) {
+    next(error);
+  }
+}
+
+// Quita el video de la mascota (y lo borra de Cloudinary)
+async function quitarVideo(req, res, next) {
+  try {
+    const mascota = await Mascota.findOne({
+      where: { id: req.params.id, usuario_id: req.usuario.id },
+    });
+    if (!mascota) {
+      return res.status(404).json({ success: false, message: 'Mascota no encontrada.' });
+    }
+
+    const anterior = mascota.video_url;
+    if (anterior) {
+      await mascota.update({ video_url: null });
+      eliminarArchivos([anterior]).catch(() => {});
+    }
+    return res.status(200).json({ success: true, message: 'Video eliminado.' });
+  } catch (error) {
+    next(error);
+  }
+}
+
 // R5 cargaVideos: sube (o reemplaza) el video de la mascota en Cloudinary
 async function subirVideo(req, res, next) {
   try {
@@ -241,4 +301,6 @@ async function descargarQR(req, res, next) {
   }
 }
 
-module.exports = { crear, listar, obtener, actualizar, eliminar, subirFotos, subirVideo, descargarQR };
+module.exports = {
+  crear, listar, obtener, actualizar, eliminar, subirFotos, ordenarFotos, subirVideo, quitarVideo, descargarQR,
+};

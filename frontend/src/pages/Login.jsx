@@ -3,6 +3,7 @@ import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { Mail, Lock, ArrowRight } from 'lucide-react';
 import { Turnstile } from '@marsidev/react-turnstile';
 import { useAuth } from '../context/AuthContext';
+import { entrarComoInvitado } from '../utils/invitado';
 import {
   PantallaAuth, CabeceraFoto, EmblemaCabecera, TituloCabecera, HojaAuth, EncabezadoHoja,
   CampoAuth, inputAuth, BotonVerClave, AlertaError, BotonPrimario, Huella, focoVisible,
@@ -138,7 +139,7 @@ export default function Login() {
           <span className="flex-1 h-px bg-gray-200 dark:bg-white/10" />
         </div>
 
-        <Link to="/"
+        <Link to="/" onClick={entrarComoInvitado}
               className={`w-full h-12 [@media(max-height:640px)]:h-11 flex items-center justify-center rounded-2xl
                           text-[15px] font-semibold border-[1.5px] border-gray-300 text-dark-700 hover:bg-gray-50
                           dark:border-white/10 dark:text-white/80 dark:hover:bg-white/5 transition-colors ${focoVisible}`}>

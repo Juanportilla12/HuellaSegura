@@ -1,5 +1,5 @@
 import { describe, test, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import MascotaForm from '../../src/pages/MascotaForm';
@@ -17,6 +17,9 @@ vi.mock('../../src/services/mascotaService', () => ({
   actualizarMascota: vi.fn(),
   obtenerMascota:    vi.fn(),
   subirFotos:        vi.fn(),
+  ordenarFotos:      vi.fn(),
+  quitarVideo:       vi.fn(),
+  subirVideo:        vi.fn(),
 }));
 
 vi.mock('sonner', () => ({
@@ -158,5 +161,72 @@ describe('Sprint 2 — MascotaForm (DoD)', () => {
         expect.stringMatching(/registrado|actualizado/i)
       );
     });
+  });
+});
+
+describe('Edición de fotos y video guardados', () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  const A = 'https://res.cloudinary.com/t/image/upload/v1/a.jpg';
+  const B = 'https://res.cloudinary.com/t/image/upload/v1/b.jpg';
+  const C = 'https://res.cloudinary.com/t/image/upload/v1/c.jpg';
+
+  function mascotaGuardada() {
+    mascotaService.obtenerMascota.mockResolvedValue({ data: { mascota: {
+      id: 1, nombre: 'Toby', especie: 'perro', sexo: 'macho', color: 'café', edad: 3, edad_unidad: 'años',
+      foto_urls: [A, B, C], video_url: 'https://res.cloudinary.com/t/video/upload/v1/v.mp4',
+    } } });
+    mascotaService.actualizarMascota.mockResolvedValue({ data: {} });
+    mascotaService.ordenarFotos.mockResolvedValue({ data: {} });
+    mascotaService.quitarVideo.mockResolvedValue({ data: {} });
+  }
+
+  async function guardar(user) {
+    for (let i = 0; i < 3; i++) await user.click(screen.getByTestId('btn-siguiente'));
+    await user.click(screen.getByTestId('btn-guardar'));
+  }
+
+  test('Quitar una foto, elegir otra como principal y quitar el video se aplica al guardar', async () => {
+    const user = userEvent.setup();
+    mascotaGuardada();
+    renderForm('/mascotas/1/editar');
+
+    expect(await screen.findAllByTestId('foto-actual')).toHaveLength(3);
+    await user.click(screen.getByRole('button', { name: /quitar la foto guardada 2/i }));
+    await user.click(screen.getByRole('button', { name: /usar la foto 2 como principal/i }));
+    await user.click(within(screen.getByTestId('video-actual')).getByRole('button', { name: 'Quitar' }));
+    expect(mascotaService.ordenarFotos).not.toHaveBeenCalled(); // nada se borra antes de guardar
+
+    await guardar(user);
+
+    await waitFor(() => expect(mascotaService.ordenarFotos).toHaveBeenCalledWith('1', [C, A]));
+    expect(mascotaService.quitarVideo).toHaveBeenCalledWith('1');
+  });
+
+  test('Si no se tocan las fotos, no se llama a ordenarFotos', async () => {
+    const user = userEvent.setup();
+    mascotaGuardada();
+    renderForm('/mascotas/1/editar');
+
+    await screen.findAllByTestId('foto-actual');
+    await guardar(user);
+
+    await waitFor(() => expect(mascotaService.actualizarMascota).toHaveBeenCalled());
+    expect(mascotaService.ordenarFotos).not.toHaveBeenCalled();
+    expect(mascotaService.quitarVideo).not.toHaveBeenCalled();
+  });
+
+  test('Con 5 fotos guardadas, quitar una vuelve a mostrar el botón Agregar', async () => {
+    const user = userEvent.setup();
+    mascotaService.obtenerMascota.mockResolvedValue({ data: { mascota: {
+      id: 1, nombre: 'Toby', especie: 'perro', sexo: 'macho', color: 'café',
+      foto_urls: [1, 2, 3, 4, 5].map((n) => `https://res.cloudinary.com/t/image/upload/v1/${n}.jpg`),
+    } } });
+    renderForm('/mascotas/1/editar');
+
+    await screen.findAllByTestId('foto-actual');
+    expect(screen.queryByText('Agregar')).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: /quitar la foto guardada 1/i }));
+    expect(screen.getByText('Agregar')).toBeInTheDocument();
   });
 });

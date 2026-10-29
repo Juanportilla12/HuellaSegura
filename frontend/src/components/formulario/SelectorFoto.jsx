@@ -2,22 +2,24 @@ import { useEffect, useMemo } from 'react';
 import { Camera, X } from 'lucide-react';
 import { focoVisible } from '../auth/AuthUI';
 
-const TIPOS = ['image/jpeg', 'image/png'];
-const MAX_MB = 5;
+import { prepararFoto } from '../../utils/imagen';
 
-// Selección de una foto con vista previa (JPG/PNG, máx. 5 MB)
+// Selección de una foto con vista previa. La foto se reduce y convierte a JPG
+// antes de subirla, así se aceptan fotos grandes de cámara (ver utils/imagen.js)
 export default function SelectorFoto({ foto, onCambio, onError, error }) {
   const vista = useMemo(() => (foto ? URL.createObjectURL(foto) : null), [foto]);
 
   useEffect(() => () => { if (vista) URL.revokeObjectURL(vista); }, [vista]);
 
-  function handleArchivo(e) {
+  async function handleArchivo(e) {
     const archivo = e.target.files?.[0];
     e.target.value = '';
     if (!archivo) return;
-    if (!TIPOS.includes(archivo.type)) return onError?.('Solo se permiten fotos JPG o PNG.');
-    if (archivo.size > MAX_MB * 1024 * 1024) return onError?.(`La foto no puede superar ${MAX_MB} MB.`);
-    onCambio(archivo);
+    try {
+      onCambio(await prepararFoto(archivo));
+    } catch (err) {
+      onError?.(err.message);
+    }
   }
 
   if (vista) {
@@ -43,9 +45,9 @@ export default function SelectorFoto({ foto, onCambio, onError, error }) {
       </span>
       <span className="min-w-0">
         <span className="block text-[15px] font-semibold text-dark-900 dark:text-white">Agregar una foto</span>
-        <span className="block text-[13px] text-gray-500 dark:text-white/50">Toma una o elige de tu galería · JPG o PNG, máx. {MAX_MB} MB</span>
+        <span className="block text-[13px] text-gray-500 dark:text-white/50">Toma una o elige de tu galería</span>
       </span>
-      <input type="file" accept="image/jpeg,image/png" className="sr-only" onChange={handleArchivo}
+      <input type="file" accept="image/*" className="sr-only" onChange={handleArchivo}
              data-testid="input-foto" />
     </label>
   );

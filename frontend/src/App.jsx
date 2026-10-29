@@ -1,5 +1,5 @@
-import { lazy, Suspense } from 'react';
-import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { lazy, Suspense, useRef } from 'react';
+import { BrowserRouter, Routes, Route, Navigate, useLocation, useNavigationType } from 'react-router-dom';
 import { AnimatePresence } from 'framer-motion';
 import { AuthProvider } from './context/AuthContext';
 import { NotificacionesProvider } from './context/NotificacionesContext';
@@ -34,8 +34,15 @@ const ModeracionReportes   = lazy(() => import('./pages/admin/ModeracionReportes
 // Wrapper que aplica AnimatePresence por ruta
 function AnimatedRoutes() {
   const location = useLocation();
+  const tipoNavegacion = useNavigationType();
   // Clave: primer segmento del pathname para no re-animar sub-rutas
-  const routeKey = location.pathname.split('/')[1] || 'home';
+  const clave = location.pathname.split('/')[1] || 'home';
+  // Las redirecciones (<Navigate replace>, p. ej. al login sin sesión) cambian de
+  // pantalla sin animación: si ocurren al cargar la app, la salida animada de la
+  // pantalla anterior nunca terminaba y la app quedaba en blanco.
+  const claveAnimada = useRef(clave);
+  if (tipoNavegacion !== 'REPLACE') claveAnimada.current = clave;
+  const routeKey = claveAnimada.current;
 
   return (
     <AnimatePresence mode="wait" initial={false}>
@@ -53,9 +60,14 @@ function AnimatedRoutes() {
           <Route path="/olvide-contrasena"    element={<OlvideContrasena />} />
 
           {/* ── Protegidas — usuarios ────────────────────────────── */}
-          <Route element={<ProtectedRoute />}>
+          {/* ── Visibles también para invitados (solo lectura) ───── */}
+          <Route element={<ProtectedRoute permitirInvitado />}>
             <Route path="/"                    element={<Home />} />
             <Route path="/mapa"                element={<MapaPrincipal />} />
+            <Route path="/directorio"          element={<Directorio />} />
+          </Route>
+
+          <Route element={<ProtectedRoute />}>
             <Route path="/alertas"             element={<AlertasPage />} />
 
             <Route path="/mascotas"            element={<MisMascotas />} />
@@ -68,7 +80,6 @@ function AnimatedRoutes() {
             <Route path="/reportes/nuevo"      element={<CrearReporte />} />
 
             <Route path="/perfil"              element={<ConfiguracionPerfil />} />
-            <Route path="/directorio"          element={<Directorio />} />
           </Route>
 
           {/* ── Protegidas — admin ───────────────────────────────── */}

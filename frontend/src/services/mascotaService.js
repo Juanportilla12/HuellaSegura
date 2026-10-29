@@ -41,3 +41,13 @@ export function subirVideo(id, archivo) {
 export function descargarCartel(id, nombre = 'mascota') {
   return descargarArchivo(`/mascotas/${id}/cartel-pdf`, `cartel-${nombre.replace(/\s+/g, '-')}.pdf`);
 }
+
+// Edición: lista final de fotos guardadas en orden (la primera es la principal);
+// las que no estén en la lista se quitan de la mascota y de Cloudinary
+export function ordenarFotos(id, fotoUrls) {
+  return api.put(`/mascotas/${id}/fotos`, { foto_urls: fotoUrls });
+}
+
+export function quitarVideo(id) {
+  return api.delete(`/mascotas/${id}/video`);
+}

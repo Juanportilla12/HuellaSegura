@@ -51,6 +51,15 @@ router.delete('/:id', param('id').isInt({ min: 1 }), mascotaController.eliminar)
 // POST /api/mascotas/:id/fotos  (max 5 archivos por llamada)
 router.post('/:id/fotos', upload.array('fotos', 5), mascotaController.subirFotos);
 
+// PUT /api/mascotas/:id/fotos  (quitar o reordenar fotos; la primera es la principal)
+router.put('/:id/fotos', [
+  body('foto_urls').isArray({ max: 5 }).withMessage('foto_urls debe ser una lista de máximo 5 fotos.'),
+  body('foto_urls.*').isString().withMessage('Cada foto debe ser una URL.'),
+], mascotaController.ordenarFotos);
+
+// DELETE /api/mascotas/:id/video
+router.delete('/:id/video', mascotaController.quitarVideo);
+
 // POST /api/mascotas/:id/video  (1 video, máx. 30 MB)
 router.post('/:id/video', param('id').isInt({ min: 1 }), uploadVideo.single('video'), mascotaController.subirVideo);
 

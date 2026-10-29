@@ -22,8 +22,14 @@ jest.mock('../../src/config/cloudinary', () => ({
   deleteImage: jest.fn().mockResolvedValue({}),
 }));
 
+jest.mock('../../src/services/archivosService', () => ({
+  eliminarArchivos: jest.fn().mockResolvedValue(0),
+  archivosDeMascotas: jest.fn().mockResolvedValue([]),
+}));
+
 const { Usuario, Mascota } = require('../../src/models');
 const { uploadBuffer } = require('../../src/config/cloudinary');
+const { eliminarArchivos } = require('../../src/services/archivosService');
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 const TOKEN_USUARIO_1 = sign({ id: 1, rol: 'usuario', tokenVersion: 0 });
@@ -244,6 +250,76 @@ describe('MascotaController', () => {
       const ids = uploadBuffer.mock.calls.map(([, opciones]) => opciones.public_id);
       expect(ids).toHaveLength(3);
       expect(new Set(ids).size).toBe(3);
+    });
+  });
+
+  // ── Edición de fotos y video ───────────────────────────────────────────────
+  describe('PUT /api/mascotas/:id/fotos y DELETE /api/mascotas/:id/video', () => {
+    const URLS = ['https://res.cloudinary.com/t/image/upload/v1/a.jpg', 'https://res.cloudinary.com/t/image/upload/v1/b.jpg',
+      'https://res.cloudinary.com/t/image/upload/v1/c.jpg'];
+
+    test('Quita una foto, cambia la principal y borra la quitada de Cloudinary', async () => {
+      const mascota = buildMockMascota({ foto_urls: [...URLS] });
+      Mascota.findOne.mockResolvedValue(mascota);
+
+      const res = await request(app)
+        .put('/api/mascotas/1/fotos')
+        .set('Authorization', `Bearer ${TOKEN_USUARIO_1}`)
+        .send({ foto_urls: [URLS[2], URLS[0]] });
+
+      expect(res.status).toBe(200);
+      expect(mascota.foto_urls).toEqual([URLS[2], URLS[0]]);
+      expect(eliminarArchivos).toHaveBeenCalledWith([URLS[1]]);
+    });
+
+    test('400 si se intenta agregar una URL que la mascota no tenía', async () => {
+      const mascota = buildMockMascota({ foto_urls: [...URLS] });
+      Mascota.findOne.mockResolvedValue(mascota);
+
+      const res = await request(app)
+        .put('/api/mascotas/1/fotos')
+        .set('Authorization', `Bearer ${TOKEN_USUARIO_1}`)
+        .send({ foto_urls: [URLS[0], 'https://sitio-ajeno.example/x.jpg'] });
+
+      expect(res.status).toBe(400);
+      expect(mascota.update).not.toHaveBeenCalled();
+    });
+
+    test('400 si la lista repite una foto o no es una lista', async () => {
+      Mascota.findOne.mockResolvedValue(buildMockMascota({ foto_urls: [...URLS] }));
+      const rep = await request(app).put('/api/mascotas/1/fotos')
+        .set('Authorization', `Bearer ${TOKEN_USUARIO_1}`).send({ foto_urls: [URLS[0], URLS[0]] });
+      const txt = await request(app).put('/api/mascotas/1/fotos')
+        .set('Authorization', `Bearer ${TOKEN_USUARIO_1}`).send({ foto_urls: URLS[0] });
+
+      expect(rep.status).toBe(400);
+      expect(txt.status).toBe(400);
+    });
+
+    test('404 si la mascota es de otro usuario (la búsqueda filtra por dueño)', async () => {
+      Mascota.findOne.mockResolvedValue(null);
+
+      const res = await request(app)
+        .put('/api/mascotas/1/fotos')
+        .set('Authorization', `Bearer ${TOKEN_USUARIO_1}`)
+        .send({ foto_urls: [] });
+
+      expect(res.status).toBe(404);
+      expect(Mascota.findOne.mock.calls[0][0].where).toMatchObject({ usuario_id: 1 });
+    });
+
+    test('Quitar el video lo borra de la mascota y de Cloudinary', async () => {
+      const video = 'https://res.cloudinary.com/t/video/upload/v1/huella-segura/videos/mascota-1.mp4';
+      const mascota = buildMockMascota({ video_url: video });
+      Mascota.findOne.mockResolvedValue(mascota);
+
+      const res = await request(app)
+        .delete('/api/mascotas/1/video')
+        .set('Authorization', `Bearer ${TOKEN_USUARIO_1}`);
+
+      expect(res.status).toBe(200);
+      expect(mascota.video_url).toBeNull();
+      expect(eliminarArchivos).toHaveBeenCalledWith([video]);
     });
   });
 

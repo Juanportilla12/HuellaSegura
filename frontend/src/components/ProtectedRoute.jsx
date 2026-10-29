@@ -2,8 +2,10 @@ import { Navigate, Outlet } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { Huella } from './auth/AuthUI';
 import { bienvenidaVista } from '../utils/bienvenida';
+import { esInvitado } from '../utils/invitado';
 
-export default function ProtectedRoute({ soloAdmin = false }) {
+// permitirInvitado: pantallas de solo lectura (inicio, mapa, directorio) abiertas en modo invitado
+export default function ProtectedRoute({ soloAdmin = false, permitirInvitado = false }) {
   const { estaAutenticado, esAdmin, cargando } = useAuth();
 
   if (cargando) {
@@ -17,6 +19,7 @@ export default function ProtectedRoute({ soloAdmin = false }) {
   }
 
   // Quien abre la app por primera vez sin sesión ve antes la bienvenida
+  if (!estaAutenticado && permitirInvitado && esInvitado()) return <Outlet />;
   if (!estaAutenticado) return <Navigate to={bienvenidaVista() ? '/login' : '/splash'} replace />;
   if (soloAdmin && !esAdmin) return <Navigate to="/" replace />;
 

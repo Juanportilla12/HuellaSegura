@@ -5,7 +5,7 @@ import { useAuth } from '../../context/AuthContext';
 import * as usuarioService from '../../services/usuarioService';
 import { focoVisible } from '../auth/AuthUI';
 
-const MAX_FOTO_MB = 5;
+import { prepararFoto, FotoNoValida } from '../../utils/imagen';
 
 // Foto de perfil (con cambio de imagen), nombre, correo y celular
 export default function CabeceraPerfil() {
@@ -19,17 +19,15 @@ export default function CabeceraPerfil() {
     const archivo = e.target.files?.[0];
     e.target.value = '';
     if (!archivo) return;
-    if (archivo.size > MAX_FOTO_MB * 1024 * 1024) {
-      toast.error(`La imagen no puede superar ${MAX_FOTO_MB} MB.`);
-      return;
-    }
     setSubiendo(true);
     try {
-      const { data } = await usuarioService.actualizarFoto(archivo);
+      // Se reduce y convierte a JPG antes de subirla (ver utils/imagen.js)
+      const { data } = await usuarioService.actualizarFoto(await prepararFoto(archivo));
       actualizarUsuario({ foto_url: data.foto_url });
       toast.success('Foto de perfil actualizada.');
     } catch (err) {
-      toast.error(err.response?.data?.message || 'No se pudo actualizar la foto. Intenta de nuevo.');
+      toast.error(err.response?.data?.message
+        || (err instanceof FotoNoValida ? err.message : 'No se pudo actualizar la foto. Intenta de nuevo.'));
     } finally {
       setSubiendo(false);
     }
@@ -37,7 +35,7 @@ export default function CabeceraPerfil() {
 
   return (
     <section className="mx-4 rounded-3xl p-4 flex items-center gap-4 bg-white dark:bg-white/5 border border-warm-border dark:border-white/10">
-      <input ref={inputRef} type="file" accept="image/jpeg,image/png" className="hidden" onChange={handleFoto} />
+      <input ref={inputRef} type="file" accept="image/*" className="hidden" onChange={handleFoto} />
       <button type="button" onClick={() => inputRef.current?.click()} aria-label="Cambiar foto de perfil"
         className={`relative h-[72px] w-[72px] shrink-0 rounded-full ${focoVisible}`}>
         <span className="h-full w-full rounded-full overflow-hidden flex items-center justify-center bg-primary-700

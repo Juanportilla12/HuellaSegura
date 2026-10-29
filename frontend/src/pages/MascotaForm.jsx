@@ -1,8 +1,9 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Camera, ChevronLeft, X, Video, Check, Cpu, Plus } from 'lucide-react';
+import { Camera, ChevronLeft, X, Video, Check, Cpu, Plus, Star } from 'lucide-react';
 import { toast } from 'sonner';
+import { prepararFotos } from '../utils/imagen';
 import * as mascotaService from '../services/mascotaService';
 import IconoEspecie from '../components/ui/IconoEspecie';
 import AreaTexto from '../components/formulario/AreaTexto';
@@ -66,7 +67,11 @@ export default function MascotaForm() {
   const [form,          setForm]          = useState(FORM_INICIAL);
   const [fotos,         setFotos]         = useState([]);
   const [fotosActuales, setFotosActuales] = useState([]);
+  const [fotosOriginales, setFotosOriginales] = useState([]);
+  const [preparandoFotos, setPreparandoFotos] = useState(false);
   const [video,         setVideo]         = useState(null);
+  const [videoActual,   setVideoActual]   = useState(null);
+  const [quitarVideoActual, setQuitarVideoActual] = useState(false);
   const [errores,       setErrores]       = useState({});
   const [cargando,      setCargando]      = useState(false);
   const [cargandoDatos, setCargandoDatos] = useState(esEdicion);
@@ -81,6 +86,8 @@ export default function MascotaForm() {
           sexo: m.sexo || '', color: m.color || '', edad: m.edad ?? '',
           edad_unidad: m.edad_unidad || 'años', descripcion: m.descripcion || '', microchip: m.microchip || '' });
         setFotosActuales(m.foto_urls || []);
+        setFotosOriginales(m.foto_urls || []);
+        setVideoActual(m.video_url || null);
       })
       .catch(() => toast.error('No se pudo cargar la mascota.'))
       .finally(() => setCargandoDatos(false));
@@ -93,11 +100,19 @@ export default function MascotaForm() {
     setErrores(p => ({ ...p, [name]: '' }));
   }
 
-  function handleFotos(e) {
-    const validos = Array.from(e.target.files).filter(f => ['image/jpeg', 'image/png'].includes(f.type));
+  // Las fotos se reducen y convierten a JPG antes de subirlas (ver utils/imagen.js)
+  async function handleFotos(e) {
+    const elegidas = Array.from(e.target.files);
     e.target.value = '';
-    if (validos.length > cupoFotos) { toast.error(`Puedes agregar ${cupoFotos} foto${cupoFotos === 1 ? '' : 's'} más (máximo ${MAX_FOTOS}).`); return; }
-    setFotos(p => [...p, ...validos.map(f => ({ archivo: f, preview: URL.createObjectURL(f) }))]);
+    if (elegidas.length === 0) return;
+    if (elegidas.length > cupoFotos) { toast.error(`Puedes agregar ${cupoFotos} foto${cupoFotos === 1 ? '' : 's'} más (máximo ${MAX_FOTOS}).`); return; }
+    setPreparandoFotos(true);
+    const { validas, rechazadas } = await prepararFotos(elegidas);
+    setPreparandoFotos(false);
+    if (rechazadas > 0) {
+      toast.error(rechazadas === 1 ? 'Una foto no se pudo leer. Prueba con otra.' : `${rechazadas} fotos no se pudieron leer. Prueba con otras.`);
+    }
+    setFotos(p => [...p, ...validas.map(f => ({ archivo: f, preview: URL.createObjectURL(f) }))]);
   }
 
   // R5: un video corto de la mascota
@@ -113,6 +128,14 @@ export default function MascotaForm() {
     }
     if (video) URL.revokeObjectURL(video.preview);
     setVideo({ archivo, preview: URL.createObjectURL(archivo) });
+  }
+
+  // Edición: las fotos guardadas se quitan o se reordenan aquí y se aplican al guardar
+  function quitarFotoActual(url) {
+    setFotosActuales(p => p.filter(u => u !== url));
+  }
+  function hacerPrincipal(url) {
+    setFotosActuales(p => [url, ...p.filter(u => u !== url)]);
   }
 
   function quitarFoto(i) {
@@ -156,6 +179,11 @@ export default function MascotaForm() {
       // La mascota ya quedó guardada: si fallan los archivos se informa sin
       // reintentar el registro completo (evita mascotas duplicadas).
       try {
+        // Primero se quitan o reordenan las fotos guardadas (libera cupo para las nuevas)
+        if (esEdicion && fotosActuales.join('|') !== fotosOriginales.join('|')) {
+          await mascotaService.ordenarFotos(mascotaId, fotosActuales);
+        }
+        if (esEdicion && quitarVideoActual && !video) await mascotaService.quitarVideo(mascotaId);
         if (fotos.length > 0) await mascotaService.subirFotos(mascotaId, fotos.map(f => f.archivo));
         if (video) await mascotaService.subirVideo(mascotaId, video.archivo);
         toast.success(esEdicion ? '¡Perfil actualizado!' : `¡${form.nombre} quedó registrado!`);
@@ -248,11 +276,20 @@ export default function MascotaForm() {
 
                   <div className="grid grid-cols-3 gap-2">
                     {fotosActuales.map((url, i) => (
-                      <div key={url} className="relative aspect-square">
+                      <div key={url} className="relative aspect-square" data-testid="foto-actual">
                         <img src={url} alt="" className="h-full w-full rounded-2xl object-cover" />
-                        {i === 0 && (
+                        {i === 0 ? (
                           <span className="absolute bottom-1.5 left-1.5 text-[10px] font-bold bg-black/60 text-white px-1.5 py-0.5 rounded-full">Principal</span>
+                        ) : (
+                          <button type="button" onClick={() => hacerPrincipal(url)} aria-label={`Usar la foto ${i + 1} como principal`}
+                            className={`absolute bottom-1 left-1 h-8 px-2 rounded-full bg-black/60 text-white text-[10px] font-bold flex items-center gap-1 ${focoVisible}`}>
+                            <Star size={12} aria-hidden="true" /> Principal
+                          </button>
                         )}
+                        <button type="button" onClick={() => quitarFotoActual(url)} aria-label={`Quitar la foto guardada ${i + 1}`}
+                          className={`absolute top-1 right-1 h-8 w-8 rounded-full bg-black/60 text-white flex items-center justify-center ${focoVisible}`}>
+                          <X size={16} aria-hidden="true" />
+                        </button>
                       </div>
                     ))}
                     {fotos.map((f, i) => (
@@ -268,21 +305,34 @@ export default function MascotaForm() {
                       </motion.div>
                     ))}
                     {cupoFotos > 0 && (
-                      <button type="button" onClick={() => fileRef.current?.click()}
-                        className={`aspect-square rounded-2xl border-[1.5px] border-dashed border-[#D9CFCA] bg-warm-50 dark:bg-white/5
+                      <button type="button" onClick={() => fileRef.current?.click()} disabled={preparandoFotos}
+                        className={`aspect-square disabled:opacity-60 rounded-2xl border-[1.5px] border-dashed border-[#D9CFCA] bg-warm-50 dark:bg-white/5
                                     dark:border-white/15 flex flex-col items-center justify-center gap-1 text-primary-700
                                     dark:text-primary-400 hover:bg-primary-50/60 ${focoVisible}`}>
                         <Camera size={24} aria-hidden="true" />
-                        <span className="text-[12px] font-semibold">Agregar</span>
+                        <span className="text-[12px] font-semibold">{preparandoFotos ? 'Preparando…' : 'Agregar'}</span>
                       </button>
                     )}
                   </div>
-                  <input ref={fileRef} type="file" accept="image/jpeg,image/png" multiple className="hidden"
+                  <input ref={fileRef} type="file" accept="image/*" multiple className="hidden"
                          onChange={handleFotos} data-testid="file-input" />
 
                   {/* Video (R5) */}
                   <div className="mt-4 pt-4 border-t border-warm-border dark:border-white/10">
-                    {video ? (
+                    {!video && videoActual && !quitarVideoActual ? (
+                      <div className="flex items-center gap-3" data-testid="video-actual">
+                        <video src={videoActual} className="h-16 w-24 rounded-xl object-cover" muted preload="metadata" />
+                        <span className="flex-1 text-[13px] text-gray-600 dark:text-white/60">Video guardado</span>
+                        <button type="button" onClick={() => videoRef.current?.click()}
+                          className={`h-9 px-3 rounded-full text-[13px] font-semibold text-primary-700 hover:bg-primary-50 ${focoVisible}`}>
+                          Cambiar
+                        </button>
+                        <button type="button" onClick={() => setQuitarVideoActual(true)}
+                          className={`h-9 px-3 rounded-full text-[13px] font-semibold text-red-600 hover:bg-red-50 ${focoVisible}`}>
+                          Quitar
+                        </button>
+                      </div>
+                    ) : video ? (
                       <div className="flex items-center gap-3">
                         <video src={video.preview} className="h-16 w-24 rounded-xl object-cover" muted data-testid="video-preview" />
                         <span className="flex-1 text-[13px] text-gray-600 dark:text-white/60">Video agregado</span>
