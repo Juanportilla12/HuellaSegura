@@ -2,6 +2,7 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { Toaster } from 'sonner';
 import { MotionConfig } from 'framer-motion';
+import { registerSW } from 'virtual:pwa-register';
 import './index.css';
 import App from './App';
 import { ThemeProvider } from './providers/ThemeProvider';
@@ -31,3 +32,7 @@ createRoot(document.getElementById('root')).render(
     </ThemeProvider>
   </StrictMode>
 );
+
+// PWA: con registerType 'autoUpdate', al activarse una versión nueva del service
+// worker la página se recarga y el usuario ve de inmediato lo último publicado
+registerSW({ immediate: true });

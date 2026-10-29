@@ -7,6 +7,9 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
+      // El registro se hace en main.jsx con registerSW para que la app se recargue
+      // sola al publicarse una versión nueva (antes se veía la vieja hasta reabrirla)
+      injectRegister: false,
       includeAssets: ['favicon.svg', 'pwa-192x192.svg', 'pwa-512x512.svg'],
       manifest: {
         name: 'HuellaSegura',
