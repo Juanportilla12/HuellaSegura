@@ -55,6 +55,10 @@ export default defineConfig({
         ],
       },
       workbox: {
+        // La versión nueva se activa en cuanto se descarga, sin esperar a que se
+        // cierren todas las pestañas (las versiones viejas nunca le avisaban)
+        skipWaiting: true,
+        clientsClaim: true,
         globPatterns: ['**/*.{js,css,html,svg,png,ico,woff2}'],
         runtimeCaching: [
           {
