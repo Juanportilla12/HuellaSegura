@@ -50,3 +50,7 @@ frontend/.vite/
 
 # Configuración local de herramientas
 .claude/
+
+# Resultados de Playwright
+test-results/
+playwright-report/

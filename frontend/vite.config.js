@@ -1,4 +1,4 @@
-import { defineConfig } from 'vite';
+import { defineConfig, configDefaults } from 'vitest/config';
 import react from '@vitejs/plugin-react';
 import { VitePWA } from 'vite-plugin-pwa';
 
@@ -126,6 +126,8 @@ export default defineConfig({
     environment: 'jsdom',
     globals: true,
     setupFiles: './tests/setup.js',
+    // e2e/ son pruebas de navegador de Playwright (npm run test:navegador)
+    exclude: [...configDefaults.exclude, 'e2e/**'],
     coverage: {
       reporter: ['text', 'lcov'],
     },

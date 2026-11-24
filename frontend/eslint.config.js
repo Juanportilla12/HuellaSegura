@@ -4,7 +4,7 @@ import react from 'eslint-plugin-react';
 import reactHooks from 'eslint-plugin-react-hooks';
 
 export default [
-  { ignores: ['dist/', 'coverage/', 'dev-dist/'] },
+  { ignores: ['dist/', 'coverage/', 'dev-dist/', 'test-results/', 'playwright-report/'] },
   js.configs.recommended,
   {
     files: ['**/*.{js,jsx}'],
@@ -25,7 +25,7 @@ export default [
     },
   },
   {
-    files: ['tests/**/*.{js,jsx}', '*.config.js'],
+    files: ['tests/**/*.{js,jsx}', 'e2e/**/*.js', '*.config.js'],
     languageOptions: { globals: { ...globals.node, ...globals.vitest } },
   },
 ];
