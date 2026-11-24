@@ -31,6 +31,8 @@ const normalizarOrigen = (url) => url.trim().replace(/\/+$/, '').toLowerCase();
 
 const originesPermitidos = new Set([
   ...(process.env.FRONTEND_URL || '').split(','),
+  // Dominio público de la app en Vercel: permitido aunque FRONTEND_URL no esté configurada
+  'https://huella-segura-three.vercel.app',
   'http://localhost:5173',
   'http://localhost:4173',
 ].map(normalizarOrigen).filter(Boolean));
