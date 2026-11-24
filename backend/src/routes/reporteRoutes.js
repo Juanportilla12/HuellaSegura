@@ -29,6 +29,7 @@ const crearValidators = [
     .isDate().withMessage('Formato de fecha inválido (YYYY-MM-DD).')
     .bail()
     .custom((fecha) => String(fecha).replace(/\//g, '-') <= hoyMasAdelantado()).withMessage('La fecha de pérdida no puede ser futura.'),
+  body('descripcion').optional({ values: 'falsy' }).isLength({ max: 500 }).withMessage('La descripción admite máximo 500 caracteres.'),
 ];
 
 const estadoValidator = [

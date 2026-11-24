@@ -7,10 +7,11 @@ import SelectorMisMascotas from '../components/formulario/SelectorMisMascotas';
 import AreaTexto from '../components/formulario/AreaTexto';
 import EncabezadoPagina from '../components/ui/EncabezadoPagina';
 import PantallaExito from '../components/ui/PantallaExito';
-import { AlertaError, BotonPrimario, focoVisible } from '../components/auth/AuthUI';
+import { AlertaError, BotonPrimario, MarcaObligatorio, focoVisible } from '../components/auth/AuthUI';
 import * as reporteService from '../services/reporteService';
 import { listarMascotas } from '../services/mascotaService';
 import { geocodificarReversa } from '../services/geocodificacionService';
+import { mostrarPrimerError } from '../utils/formulario';
 
 // HU-09 / R6 registroUbicacionPerdida.
 // Flujo de tres pasos recomendado por el experto: elegir la mascota, confirmar la
@@ -20,6 +21,13 @@ const MAX_DESC = 500;
 
 function hoyISO() {
   const d = new Date();
+  return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().split('T')[0];
+}
+
+// Un reporte de pérdida de hace más de un año ya no sirve para alertar a los vecinos
+function haceUnAnioISO() {
+  const d = new Date();
+  d.setFullYear(d.getFullYear() - 1);
   return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().split('T')[0];
 }
 
@@ -84,13 +92,15 @@ export default function CrearReporte() {
     if (!coords.lat || !coords.lng)   e.coords  = 'Marca en el mapa dónde se perdió.';
     if (!fechaPerdida)                e.fecha   = 'Indica la fecha de pérdida.';
     else if (fechaPerdida > hoyISO()) e.fecha   = 'La fecha no puede ser futura.';
+    else if (fechaPerdida < haceUnAnioISO()) e.fecha = 'La fecha no puede ser de hace más de un año.';
     setErrores(e);
-    return Object.keys(e).length === 0;
+    if (Object.keys(e).length) { mostrarPrimerError(); return false; }
+    return true;
   }
 
   async function handleSubmit(ev) {
     ev.preventDefault();
-    if (!validar()) return;
+    if (enviando || !validar()) return;
     setEnviando(true);
     setErrorGlobal('');
     try {
@@ -137,13 +147,13 @@ export default function CrearReporte() {
         <div className="px-4 pt-4 flex flex-col gap-4">
           <AlertaError mensaje={errorGlobal} />
 
-          <SeccionFormulario paso={1} titulo="¿Cuál de tus mascotas se perdió?">
+          <SeccionFormulario paso={1} titulo="¿Cuál de tus mascotas se perdió?" requerido conError={Boolean(errores.mascota)}>
             <SelectorMisMascotas mascotas={mascotas} cargando={cargandoMasc} valor={mascotaId}
               error={errores.mascota} onRegistrar={() => navigate('/mascotas/nueva')}
               onCambio={(id) => { setMascotaId(id); setErrores((p) => ({ ...p, mascota: '' })); }} />
           </SeccionFormulario>
 
-          <SeccionFormulario paso={2} titulo="¿Dónde se perdió?" sinRelleno accion={
+          <SeccionFormulario paso={2} titulo="¿Dónde se perdió?" sinRelleno requerido conError={Boolean(errores.coords)} accion={
             <button type="button" onClick={usarMiUbicacion} disabled={buscandoGPS}
               className={`shrink-0 -my-1 h-9 px-3 rounded-full flex items-center gap-1.5 text-[13px] font-semibold
                           text-primary-700 dark:text-primary-400 bg-primary-50 dark:bg-white/10 disabled:opacity-60 ${focoVisible}`}>
@@ -158,9 +168,9 @@ export default function CrearReporte() {
             <div className="flex flex-col gap-4">
               <div className="flex flex-col gap-1.5">
                 <label htmlFor="fecha-perdida" className="text-[13px] font-semibold text-dark-700 dark:text-white/70">
-                  Fecha de pérdida
+                  Fecha de pérdida<MarcaObligatorio />
                 </label>
-                <input id="fecha-perdida" type="date" value={fechaPerdida} max={hoyISO()} data-testid="input-fecha"
+                <input id="fecha-perdida" type="date" value={fechaPerdida} min={haceUnAnioISO()} max={hoyISO()} data-testid="input-fecha" required aria-required="true"
                   aria-invalid={Boolean(errores.fecha)}
                   onChange={(e) => { setFechaPerdida(e.target.value); setErrores((p) => ({ ...p, fecha: '' })); }}
                   className="w-full h-[52px] rounded-2xl px-4 text-[15px] outline-none transition-all border-[1.5px]

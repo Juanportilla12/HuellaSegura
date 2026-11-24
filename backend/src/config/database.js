@@ -1,5 +1,14 @@
 require('dotenv').config();
 
+// En Railway, el servicio MySQL publica MYSQLHOST, MYSQLPORT, MYSQLDATABASE, MYSQLUSER y
+// MYSQLPASSWORD. Si el backend no definió las DB_* equivalentes, se usan esas.
+const RESPALDO_RAILWAY = {
+  DB_HOST: 'MYSQLHOST', DB_PORT: 'MYSQLPORT', DB_NAME: 'MYSQLDATABASE', DB_USER: 'MYSQLUSER', DB_PASSWORD: 'MYSQLPASSWORD',
+};
+Object.entries(RESPALDO_RAILWAY).forEach(([propia, railway]) => {
+  if (!process.env[propia] && process.env[railway]) process.env[propia] = process.env[railway];
+});
+
 // En producción la conexión debe venir completa del entorno. Sin esta
 // verificación, sequelize-cli intentaría conectarse a localhost y el error
 // (ECONNREFUSED ::1:3306) no diría qué falta.

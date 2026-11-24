@@ -3,7 +3,7 @@ const cors       = require('cors');
 const morgan     = require('morgan');
 const helmet     = require('helmet');
 const routes     = require('./routes');
-const { limitadorGlobal, limitadorAuth } = require('./middlewares/rateLimiters');
+const { limitadorGlobal } = require('./middlewares/rateLimiters');
 const { errorHandler, notFound } = require('./middlewares/errorMiddleware');
 
 const app = express();
@@ -25,17 +25,22 @@ app.use(helmet({
 app.use(limitadorGlobal);
 
 // ── CORS ─────────────────────────────────────────────────────────────────────
-const originesPermitidos = [
-  process.env.FRONTEND_URL || 'http://localhost:5173',
+// FRONTEND_URL admite varias URLs separadas por coma. Se ignoran la barra final y
+// las mayúsculas: "https://app.vercel.app/" y "https://app.vercel.app" son el mismo origen.
+const normalizarOrigen = (url) => url.trim().replace(/\/+$/, '').toLowerCase();
+
+const originesPermitidos = new Set([
+  ...(process.env.FRONTEND_URL || '').split(','),
   'http://localhost:5173',
   'http://localhost:4173',
-].filter(Boolean);
+].map(normalizarOrigen).filter(Boolean));
 
 app.use(cors({
   origin: (origin, callback) => {
     // Permitir peticiones sin origen (mobile, Postman, curl)
     if (!origin) return callback(null, true);
-    if (originesPermitidos.includes(origin)) return callback(null, true);
+    if (originesPermitidos.has(normalizarOrigen(origin))) return callback(null, true);
+    console.warn(`[CORS] Origen rechazado: ${origin}. Agrégalo a FRONTEND_URL.`);
     const error = new Error('Origen no permitido por CORS.');
     error.status = 403;
     callback(error);
@@ -59,7 +64,6 @@ app.get('/health', (_req, res) => {
 });
 
 // ── Rutas principales ────────────────────────────────────────────────────────
-app.use('/api/auth', limitadorAuth); // Límite estricto en autenticación
 app.use('/api', routes);
 
 app.use(notFound);

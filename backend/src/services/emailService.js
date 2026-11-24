@@ -1,4 +1,5 @@
 const nodemailer = require('nodemailer');
+const { urlFrontend } = require('../utils/urlFrontend');
 
 // Colores de la marca (los mismos de la app)
 const NARANJA = '#E8732F';
@@ -23,6 +24,10 @@ function crearTransporte() {
     host: process.env.EMAIL_HOST || 'smtp.gmail.com',
     port: parseInt(process.env.EMAIL_PORT, 10) || 587,
     secure: false,
+    // Sin estos límites, un servidor SMTP que no responde deja conexiones colgadas
+    connectionTimeout: 10000,
+    greetingTimeout: 10000,
+    socketTimeout: 20000,
     auth: {
       user: process.env.EMAIL_USER,
       pass: process.env.EMAIL_PASS,
@@ -30,7 +35,7 @@ function crearTransporte() {
   });
 }
 
-const urlApp = (ruta = '') => `${process.env.FRONTEND_URL || 'http://localhost:5173'}${ruta}`;
+const urlApp = urlFrontend;
 
 // Plantilla común: franja naranja con la marca, tarjeta blanca y pie con el aviso de correo automático.
 // `contenido` es HTML ya escapado por quien llama.

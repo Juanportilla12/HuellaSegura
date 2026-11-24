@@ -7,7 +7,7 @@ async function crear(req, res, next) {
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(400).json({ success: false, errors: errors.array() });
+      return res.status(400).json({ success: false, message: errors.array()[0].msg, errors: errors.array() });
     }
 
     const { mascota_id, latitud, longitud, descripcion, fecha_perdida } = req.body;
@@ -102,7 +102,7 @@ async function cambiarEstado(req, res, next) {
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(400).json({ success: false, errors: errors.array() });
+      return res.status(400).json({ success: false, message: errors.array()[0].msg, errors: errors.array() });
     }
 
     const { estado } = req.body;

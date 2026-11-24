@@ -143,7 +143,7 @@ r = await req('GET', '/admin/estadisticas', { token: tDueno });
 check('Usuario normal no accede al panel admin', r.status === 403);
 r = await req('GET', '/admin/estadisticas', { token: tAdmin });
 check('HU-25 estadísticas admin', r.status === 200 && r.data.estadisticas.reportes_activos >= 1);
-r = await req('POST', '/entidades-aliadas', { token: tAdmin, body: { nombre: 'Veterinaria Prueba', tipo: 'veterinaria', horario: 'Lun–Sáb 8:00–18:00', latitud: 1.214, longitud: -77.281, activo: false } });
+r = await req('POST', '/entidades-aliadas', { token: tAdmin, body: { nombre: 'Veterinaria Prueba', tipo: 'veterinaria', direccion: 'Cra 25 # 18-30', telefono: '300 123 4567', horario: 'Lun–Sáb 8:00–18:00', latitud: 1.214, longitud: -77.281, activo: false } });
 check('HU-27 admin crea entidad con horario', r.status === 201 && r.data.entidad.horario && r.data.entidad.activo !== false);
 const entidadId = r.data.entidad.id;
 r = await req('GET', '/entidades-aliadas');

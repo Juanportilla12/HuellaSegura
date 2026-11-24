@@ -6,6 +6,7 @@ import { useThemeContext } from '../../providers/ThemeProvider';
 import * as usuarioService from '../../services/usuarioService';
 import Interruptor from '../ui/Interruptor';
 import { focoVisible, inputAuth } from '../auth/AuthUI';
+import { CELULAR_REGEX } from '../../utils/formulario';
 
 // Grupo de ajustes con título, al estilo de las apps nativas
 export function Grupo({ titulo, children }) {
@@ -123,17 +124,21 @@ function AjusteCelular() {
   const { usuario, actualizarUsuario } = useAuth();
   const [celular, setCelular] = useState(usuario?.celular || '');
   const [guardando, setGuardando] = useState(false);
+  const [error, setError] = useState('');
   const cambiado = celular.trim() !== (usuario?.celular || '');
 
   async function guardar(e) {
     e.preventDefault();
+    if (!celular.trim()) { setError('El celular es obligatorio: así te contacta quien encuentre a tu mascota.'); return; }
+    if (!CELULAR_REGEX.test(celular.trim())) { setError('Ingresa un celular válido (ej.: 300 123 4567).'); return; }
+    setError('');
     setGuardando(true);
     try {
       const { data } = await usuarioService.actualizarPerfil({ celular: celular.trim() });
       actualizarUsuario({ celular: data.usuario.celular });
       toast.success('Celular actualizado.');
     } catch (err) {
-      toast.error(err.response?.data?.errors?.[0]?.msg || err.response?.data?.message || 'No se pudo actualizar el celular.');
+      setError(err.response?.data?.message || 'No se pudo actualizar el celular.');
     } finally {
       setGuardando(false);
     }
@@ -150,14 +155,16 @@ function AjusteCelular() {
       </div>
       <div className="flex gap-2 mt-3">
         <input id="celular-perfil" type="tel" inputMode="tel" autoComplete="tel" value={celular}
-          onChange={(e) => setCelular(e.target.value)} placeholder="300 123 4567" data-testid="input-celular"
-          className={`${inputAuth(false)} !pl-4 pr-4 !h-12`} />
+          onChange={(e) => { setCelular(e.target.value); setError(''); }} placeholder="300 123 4567" data-testid="input-celular"
+          maxLength={20} aria-required="true" aria-invalid={Boolean(error)} aria-describedby={error ? 'celular-perfil-error' : undefined}
+          className={`${inputAuth(error)} !pl-4 pr-4 !h-12`} />
         <button type="submit" disabled={guardando || !cambiado}
           className={`shrink-0 h-12 px-4 rounded-2xl text-[14px] font-semibold text-white bg-primary-700 hover:bg-primary-800
                       disabled:opacity-40 ${focoVisible}`}>
           {guardando ? '…' : 'Guardar'}
         </button>
       </div>
+      {error && <p id="celular-perfil-error" className="mt-1.5 text-xs font-medium text-red-600 dark:text-red-400">{error}</p>}
     </form>
   );
 }

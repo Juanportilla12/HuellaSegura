@@ -90,7 +90,7 @@ describe('Ley 1581 — privacidad y derechos del titular', () => {
       .delete('/api/usuarios/cuenta')
       .set('Authorization', `Bearer ${TOKEN_USUARIO}`)
       .send({ password: 'incorrecta' });
-    expect(res.status).toBe(401);
+    expect(res.status).toBe(400); // 400 y no 401: un 401 cerraría la sesión en la app
     expect(u.destroy).not.toHaveBeenCalled();
   });
 
@@ -132,7 +132,7 @@ describe('HU-27 — Entidades aliadas', () => {
     const res = await request(app)
       .post('/api/entidades-aliadas')
       .set('Authorization', `Bearer ${TOKEN_ADMIN}`)
-      .send({ nombre: 'Vet Centro', tipo: 'veterinaria', horario: 'Lun–Sáb 8–18', id: 999, activo: false });
+      .send({ nombre: 'Vet Centro', tipo: 'veterinaria', direccion: 'Cra 25 # 18-30', telefono: '300 123 4567', horario: 'Lun–Sáb 8–18', id: 999, activo: false });
     expect(res.status).toBe(201);
     const datos = EntidadAliada.create.mock.calls[0][0];
     expect(datos).toMatchObject({ nombre: 'Vet Centro', horario: 'Lun–Sáb 8–18' });

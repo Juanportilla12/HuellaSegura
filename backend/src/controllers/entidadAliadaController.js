@@ -20,7 +20,7 @@ async function listar(req, res, next) {
 async function crear(req, res, next) {
   try {
     const errors = validationResult(req);
-    if (!errors.isEmpty()) return res.status(400).json({ success: false, errors: errors.array() });
+    if (!errors.isEmpty()) return res.status(400).json({ success: false, message: errors.array()[0].msg, errors: errors.array() });
     const entidad = await EntidadAliada.create(camposPermitidos(req.body));
     return res.status(201).json({ success: true, message: 'Entidad registrada.', entidad });
   } catch (error) { next(error); }
@@ -31,7 +31,7 @@ async function actualizar(req, res, next) {
     const entidad = await EntidadAliada.findByPk(req.params.id);
     if (!entidad) return res.status(404).json({ success: false, message: 'Entidad no encontrada.' });
     const errors = validationResult(req);
-    if (!errors.isEmpty()) return res.status(400).json({ success: false, errors: errors.array() });
+    if (!errors.isEmpty()) return res.status(400).json({ success: false, message: errors.array()[0].msg, errors: errors.array() });
     await entidad.update(camposPermitidos(req.body));
     return res.status(200).json({ success: true, message: 'Entidad actualizada.', entidad });
   } catch (error) { next(error); }

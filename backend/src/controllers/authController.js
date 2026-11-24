@@ -6,24 +6,50 @@ const { Usuario } = require('../models');
 const { sign } = require('../config/jwt');
 const { enviarCorreoResetCodigo } = require('../services/emailService');
 
-async function verificarTurnstile(token) {
-  const resp = await fetch('https://challenges.cloudflare.com/turnstile/v0/siteverify', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      secret: process.env.TURNSTILE_SECRET_KEY,
-      response: token,
-    }),
-  });
-  const data = await resp.json();
-  return data.success === true;
+// Errores de Cloudflare que indican mala configuración del servidor (clave secreta
+// ausente o que no corresponde a la clave del sitio), no un intento sospechoso.
+const ERRORES_CONFIG_TURNSTILE = ['missing-input-secret', 'invalid-input-secret'];
+
+/**
+ * Verifica el token de Cloudflare Turnstile. Devuelve false solo cuando Cloudflare
+ * confirma que el token es inválido. Si el widget no pudo cargar en el navegador
+ * (red que bloquea Cloudflare) o las claves están mal configuradas, se deja pasar:
+ * el límite de intentos fallidos (limitadorAuth) sigue protegiendo contra fuerza bruta.
+ */
+async function turnstileValido(token) {
+  if (process.env.NODE_ENV !== 'production' || !process.env.TURNSTILE_SECRET_KEY) return true;
+  if (!token) {
+    console.warn('[Turnstile] Login sin token (el widget no cargó en el navegador).');
+    return true;
+  }
+  try {
+    const resp = await fetch('https://challenges.cloudflare.com/turnstile/v0/siteverify', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ secret: process.env.TURNSTILE_SECRET_KEY, response: token }),
+      signal: AbortSignal.timeout(5000),
+    });
+    const data = await resp.json();
+    if (data.success === true) return true;
+    const codigos = data['error-codes'] || [];
+    if (codigos.some((c) => ERRORES_CONFIG_TURNSTILE.includes(c))) {
+      console.error(`[Turnstile] Configuración inválida (${codigos.join(', ')}). Revisa TURNSTILE_SECRET_KEY y VITE_TURNSTILE_SITE_KEY.`);
+      return true;
+    }
+    console.warn(`[Turnstile] Token rechazado: ${codigos.join(', ')}`);
+    return false;
+  } catch (error) {
+    // Si Cloudflare no responde, no se bloquea el login
+    console.error('[Turnstile] Error de verificación:', error.message);
+    return true;
+  }
 }
 
 async function register(req, res, next) {
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(400).json({ success: false, errors: errors.array() });
+      return res.status(400).json({ success: false, message: errors.array()[0].msg, errors: errors.array() });
     }
 
     const { nombre, email, celular, password } = req.body;
@@ -59,27 +85,16 @@ async function login(req, res, next) {
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(400).json({ success: false, errors: errors.array() });
+      return res.status(400).json({ success: false, message: errors.array()[0].msg, errors: errors.array() });
     }
 
     const { email, password, turnstileToken } = req.body;
 
-    // Verificar Turnstile solo en producción
-    if (process.env.NODE_ENV === 'production' && process.env.TURNSTILE_SECRET_KEY) {
-      try {
-        const tokenValido = turnstileToken
-          ? await verificarTurnstile(turnstileToken)
-          : false;
-        if (!tokenValido) {
-          return res.status(400).json({
-            success: false,
-            message: 'Verificación de seguridad fallida. Por favor intenta de nuevo.',
-          });
-        }
-      } catch (turnstileError) {
-        // Si Cloudflare no responde, permitir continuar (no bloquear el login)
-        console.error('[Turnstile] Error de verificación:', turnstileError.message);
-      }
+    if (!(await turnstileValido(turnstileToken))) {
+      return res.status(400).json({
+        success: false,
+        message: 'La verificación de seguridad expiró. Intenta iniciar sesión de nuevo.',
+      });
     }
 
     // Mismo mensaje si el correo no existe o la contraseña es incorrecta (no revela cuentas)
@@ -141,7 +156,7 @@ async function forgotPassword(req, res, next) {
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(400).json({ success: false, errors: errors.array() });
+      return res.status(400).json({ success: false, message: errors.array()[0].msg, errors: errors.array() });
     }
 
     const { email } = req.body;
@@ -226,7 +241,7 @@ async function verifyResetCode(req, res, next) {
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(400).json({ success: false, errors: errors.array() });
+      return res.status(400).json({ success: false, message: errors.array()[0].msg, errors: errors.array() });
     }
 
     const { email, codigo } = req.body;
@@ -246,7 +261,7 @@ async function resetPassword(req, res, next) {
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(400).json({ success: false, errors: errors.array() });
+      return res.status(400).json({ success: false, message: errors.array()[0].msg, errors: errors.array() });
     }
 
     const { email, codigo, nuevaPassword } = req.body;

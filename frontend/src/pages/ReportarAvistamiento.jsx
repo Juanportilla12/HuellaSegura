@@ -10,16 +10,15 @@ import SelectorMascotaPerdida from '../components/formulario/SelectorMascotaPerd
 import EncabezadoPagina from '../components/ui/EncabezadoPagina';
 import PantallaExito from '../components/ui/PantallaExito';
 import IconoEspecie from '../components/ui/IconoEspecie';
-import { AlertaError, BotonPrimario, focoVisible } from '../components/auth/AuthUI';
+import { AlertaError, BotonPrimario, MarcaObligatorio, focoVisible } from '../components/auth/AuthUI';
 import { crearAvistamiento } from '../services/avistamientoService';
 import { obtenerPerfilPublico } from '../services/perfilPublicoService';
 import { geocodificarReversa } from '../services/geocodificacionService';
+import { CELULAR_REGEX, mostrarPrimerError } from '../utils/formulario';
 
 // R7 reporteAvistamiento / R11: cualquier persona, sin cuenta, reporta dónde vio
 // una mascota perdida. Si llega desde el QR o el mapa, la mascota ya viene elegida.
 
-// Mismo formato que acepta el backend: dígitos con espacios o guiones opcionales
-const CELULAR_REGEX = /^\+?[0-9][0-9\s-]{6,18}$/;
 const MAX_DESC = 500;
 
 function MascotaDesdeQR({ codigo, onResuelta, onNoEncontrada }) {
@@ -71,7 +70,12 @@ export default function ReportarAvistamiento() {
   const [enviando,    setEnviando]    = useState(false);
   const [exito,       setExito]       = useState(false);
 
-  const mascotaNoEncontrada = useCallback(() => setErrorGlobal('No encontramos esa mascota. Elige una de la lista.'), []);
+  // Si el código del QR no existe, se muestra la lista para elegir la mascota a mano
+  const [qrInvalido, setQrInvalido] = useState(false);
+  const mascotaNoEncontrada = useCallback(() => {
+    setQrInvalido(true);
+    setErrorGlobal('No encontramos esa mascota. Elige una de la lista.');
+  }, []);
 
   function handleCoordsChange(lat, lng) {
     setCoords({ lat, lng });
@@ -98,14 +102,15 @@ export default function ReportarAvistamiento() {
     if (!coords.lat || !coords.lng) e.coords = 'Marca en el mapa dónde la viste.';
     if (!foto) e.foto = 'Agrega una foto: ayuda al dueño a confirmar que es su mascota.';
     if (!telefono.trim()) e.telefono = 'Tu número de celular es obligatorio.';
-    else if (!CELULAR_REGEX.test(telefono.trim())) e.telefono = 'Ingresa un número de celular válido.';
+    else if (!CELULAR_REGEX.test(telefono.trim())) e.telefono = 'Ingresa un celular válido (ej.: 300 123 4567).';
     setErrores(e);
-    return Object.keys(e).length === 0;
+    if (Object.keys(e).length) { mostrarPrimerError(); return false; }
+    return true;
   }
 
   async function handleSubmit(ev) {
     ev.preventDefault();
-    if (!validar()) return;
+    if (enviando || !validar()) return;
     setEnviando(true);
     setErrorGlobal('');
     try {
@@ -148,14 +153,14 @@ export default function ReportarAvistamiento() {
         <div className="px-4 pt-4 flex flex-col gap-4">
           <AlertaError mensaje={errorGlobal} />
 
-          <SeccionFormulario paso={1} titulo="¿Qué mascota viste?">
-            {codigoDesdeUrl
+          <SeccionFormulario paso={1} titulo="¿Qué mascota viste?" requerido conError={Boolean(errores.mascota)}>
+            {codigoDesdeUrl && !qrInvalido
               ? <MascotaDesdeQR codigo={codigoDesdeUrl} onResuelta={setMascotaId} onNoEncontrada={mascotaNoEncontrada} />
               : <SelectorMascotaPerdida valor={mascotaId} error={errores.mascota}
                   onCambio={(id, cod) => { setMascotaId(id); setCodigo(cod); setErrores((p) => ({ ...p, mascota: '' })); }} />}
           </SeccionFormulario>
 
-          <SeccionFormulario paso={2} titulo="¿Dónde la viste?" sinRelleno accion={
+          <SeccionFormulario paso={2} titulo="¿Dónde la viste?" sinRelleno requerido conError={Boolean(errores.coords)} accion={
             <button type="button" onClick={usarMiUbicacion} disabled={buscandoGPS}
               className={`shrink-0 -my-1 h-9 px-3 rounded-full flex items-center gap-1.5 text-[13px] font-semibold
                           text-primary-700 dark:text-primary-400 bg-primary-50 dark:bg-white/10 disabled:opacity-60 ${focoVisible}`}>
@@ -168,9 +173,10 @@ export default function ReportarAvistamiento() {
             </p>
           </SeccionFormulario>
 
-          <SeccionFormulario paso={3} titulo="Foto y detalles">
+          <SeccionFormulario paso={3} titulo="Foto y detalles" conError={Boolean(errores.foto)}>
             <div className="flex flex-col gap-4">
               <div className="flex flex-col gap-1.5">
+                <p className="text-[13px] font-semibold text-dark-700 dark:text-white/70">Foto de la mascota<MarcaObligatorio /></p>
                 <SelectorFoto foto={foto} error={errores.foto} onError={setErrorGlobal}
                   onCambio={(f) => { setFoto(f); setErrores((p) => ({ ...p, foto: '' })); }} />
                 {errores.foto && <p className="text-xs font-medium text-red-600 dark:text-red-400">{errores.foto}</p>}
@@ -187,8 +193,8 @@ export default function ReportarAvistamiento() {
                 <ShieldCheck size={16} className="shrink-0 mt-0.5 text-emerald-600" aria-hidden="true" />
                 El dueño te contactará a este número. Solo él lo verá.
               </p>
-              <CampoTexto id="telefono-testigo" etiqueta="Tu celular" icono={Phone} type="tel" inputMode="tel"
-                placeholder="300 123 4567" autoComplete="tel" maxLength={20} aria-required="true"
+              <CampoTexto id="telefono-testigo" etiqueta="Tu celular" requerido icono={Phone} type="tel" inputMode="tel"
+                placeholder="300 123 4567" autoComplete="tel" maxLength={20}
                 value={telefono} onChange={(e) => { setTelefono(e.target.value); setErrores((p) => ({ ...p, telefono: '' })); }}
                 error={errores.telefono} />
               <CampoTexto id="nombre-testigo" etiqueta="Tu nombre (opcional)" icono={User} placeholder="Cómo te llamas"

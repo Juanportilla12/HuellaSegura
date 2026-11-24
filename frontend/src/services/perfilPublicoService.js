@@ -1,6 +1,5 @@
-import api from './api';
+import api, { API_URL } from './api';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
 
 // HU-23: perfil público de la mascota (sin iniciar sesión, al escanear el QR).
 // Se identifica con su código público aleatorio, no con el id interno (Ley 1581).

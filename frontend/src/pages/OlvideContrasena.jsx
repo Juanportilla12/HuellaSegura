@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Mail, Lock, ArrowRight } from 'lucide-react';
 import * as authService from '../services/authService';
+import { CORREO_REGEX } from '../utils/formulario';
 import fotoGatosPitbull from '../assets/gatos-pitbull.webp';
 import {
   PantallaAuth, CabeceraFoto, HojaAuth, EncabezadoHoja,
@@ -40,10 +41,11 @@ export default function OlvideContrasena() {
 
   // ── Paso 1: enviar código ──────────────────────────────────
   async function enviarCodigo() {
-    if (!email) return setError('Ingresa tu correo electrónico.');
+    if (!email.trim()) return setError('Ingresa tu correo electrónico.');
+    if (!CORREO_REGEX.test(email.trim())) return setError('Ingresa un correo válido (ej.: nombre@correo.com).');
     setError(''); setLoading(true);
     try {
-      await authService.solicitarCodigoRecuperacion(email);
+      await authService.solicitarCodigoRecuperacion(email.trim());
       setCodigo(CODIGO_VACIO);
       setEspera(ESPERA_REENVIO);
       setStep(1);
@@ -84,7 +86,7 @@ export default function OlvideContrasena() {
     if (cod.length < 6) return setError('Ingresa los 6 dígitos del código.');
     setError(''); setLoading(true);
     try {
-      await authService.verificarCodigoRecuperacion(email, cod);
+      await authService.verificarCodigoRecuperacion(email.trim(), cod);
       setStep(2);
     } catch (err) {
       setError(err.response?.data?.message || 'Código inválido o expirado.');
@@ -103,7 +105,7 @@ export default function OlvideContrasena() {
     if (!coincide) return setError('Las contraseñas no coinciden.');
     setError(''); setLoading(true);
     try {
-      await authService.restablecerPassword(email, codigo.join(''), pass);
+      await authService.restablecerPassword(email.trim(), codigo.join(''), pass);
       setStep(3);
     } catch (err) {
       setError(err.response?.data?.message || 'Error al restablecer la contraseña.');
@@ -131,7 +133,7 @@ export default function OlvideContrasena() {
                   Escribe tu correo y te enviaremos un código para crear una nueva.
                 </EncabezadoHoja>
                 <form onSubmit={handleEnviarCodigo} noValidate className={formClase}>
-                  <CampoAuth id="email" label="Correo electrónico" icon={Mail}>
+                  <CampoAuth id="email" label="Correo electrónico" icon={Mail} requerido>
                     <input id="email" type="email" inputMode="email" value={email}
                       onChange={e => { setEmail(e.target.value); setError(''); }}
                       placeholder="tucorreo@ejemplo.com" autoComplete="email"
@@ -210,7 +212,7 @@ export default function OlvideContrasena() {
                   Usa una que no hayas usado antes.
                 </EncabezadoHoja>
                 <form onSubmit={handleResetear} noValidate className={formClase}>
-                  <CampoAuth id="nueva" label="Nueva contraseña" icon={Lock}>
+                  <CampoAuth id="nueva" label="Nueva contraseña" icon={Lock} requerido>
                     <input id="nueva" type={showPass ? 'text' : 'password'} value={pass}
                       onChange={e => { setPass(e.target.value); setError(''); }}
                       placeholder="Mínimo 8 caracteres" autoComplete="new-password"
@@ -218,7 +220,7 @@ export default function OlvideContrasena() {
                       className={`${inputAuth(false)} pr-12`} />
                     <BotonVerClave visible={showPass} onClick={() => setShowPass(p => !p)} />
                   </CampoAuth>
-                  <CampoAuth id="confirmar" label="Confirmar contraseña" icon={Lock}>
+                  <CampoAuth id="confirmar" label="Confirmar contraseña" icon={Lock} requerido>
                     <input id="confirmar" type={showPass ? 'text' : 'password'} value={passConf}
                       onChange={e => { setPassConf(e.target.value); setError(''); }}
                       placeholder="Repite tu contraseña" autoComplete="new-password"

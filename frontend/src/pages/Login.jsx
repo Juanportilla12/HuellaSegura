@@ -4,6 +4,7 @@ import { Mail, Lock, ArrowRight } from 'lucide-react';
 import { Turnstile } from '@marsidev/react-turnstile';
 import { useAuth } from '../context/AuthContext';
 import { entrarComoInvitado } from '../utils/invitado';
+import { CORREO_REGEX } from '../utils/formulario';
 import {
   PantallaAuth, CabeceraFoto, EmblemaCabecera, TituloCabecera, HojaAuth, EncabezadoHoja,
   CampoAuth, inputAuth, BotonVerClave, AlertaError, BotonPrimario, Huella, focoVisible,
@@ -20,12 +21,7 @@ export default function Login() {
   const [loading,         setLoading]         = useState(false);
   const [showPass,        setShowPass]        = useState(false);
   const [turnstileToken,  setTurnstileToken]  = useState('');
-  const [turnstileOk,     setTurnstileOk]     = useState(false);
-  const [turnstileError,  setTurnstileError]  = useState(false);
   const turnstileRef = useRef(null);
-
-  // Puede enviar si: pasó Turnstile, o si hubo error de carga (graceful fallback)
-  const puedeEnviar = turnstileOk || turnstileError;
 
   const destino  = location.state?.from?.pathname || '/';
   const esOscuro = typeof document !== 'undefined' && document.documentElement.classList.contains('dark');
@@ -38,8 +34,10 @@ export default function Login() {
 
   function validate() {
     const e = {};
-    if (!form.email)    e.email    = 'El correo es obligatorio.';
-    if (!form.password) e.password = 'La contraseña es obligatoria.';
+    const email = form.email.trim();
+    if (!email)                         e.email    = 'El correo es obligatorio.';
+    else if (!CORREO_REGEX.test(email)) e.email    = 'Ingresa un correo válido (ej.: nombre@correo.com).';
+    if (!form.password)                 e.password = 'La contraseña es obligatoria.';
     setErrors(e);
     return !Object.keys(e).length;
   }
@@ -47,20 +45,17 @@ export default function Login() {
   async function handleSubmit(e) {
     e.preventDefault();
     if (!validate()) return;
-    if (!turnstileOk && !turnstileError) {
-      setApiError('Completa la verificación de seguridad.');
-      return;
-    }
     setLoading(true);
     try {
-      await login(form.email, form.password, turnstileToken);
+      // Si la verificación de Cloudflare no alcanzó a cargar (red lenta o bloqueada) se
+      // envía sin token: el servidor lo permite y el botón nunca queda bloqueado.
+      await login(form.email.trim(), form.password, turnstileToken);
       navigate(destino, { replace: true });
     } catch (err) {
       setApiError(err.response?.data?.message || 'Correo o contraseña incorrectos.');
       // Resetear Turnstile para que el usuario pueda volver a intentarlo
       turnstileRef.current?.reset();
       setTurnstileToken('');
-      setTurnstileOk(false);
     } finally {
       setLoading(false);
     }
@@ -82,27 +77,27 @@ export default function Login() {
 
         <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-4 [@media(max-height:640px)]:gap-3">
 
-          <CampoAuth id="email" label="Correo electrónico" icon={Mail} error={errors.email}>
+          <CampoAuth id="email" label="Correo electrónico" icon={Mail} error={errors.email} requerido>
             <input
               id="email" name="email" type="email" inputMode="email"
               placeholder="tucorreo@ejemplo.com"
               value={form.email} onChange={handleChange}
               autoComplete="email"
-              aria-invalid={!!errors.email}
+              aria-invalid={!!errors.email} aria-required="true"
               aria-describedby={errors.email ? 'email-error' : undefined}
               className={`${inputAuth(errors.email)} pr-4`}
             />
           </CampoAuth>
 
           <div className="flex flex-col gap-2">
-            <CampoAuth id="password" label="Contraseña" icon={Lock} error={errors.password}>
+            <CampoAuth id="password" label="Contraseña" icon={Lock} error={errors.password} requerido>
               <input
                 id="password" name="password"
                 type={showPass ? 'text' : 'password'}
                 placeholder="Tu contraseña"
                 value={form.password} onChange={handleChange}
                 autoComplete="current-password"
-                aria-invalid={!!errors.password}
+                aria-invalid={!!errors.password} aria-required="true"
                 aria-describedby={errors.password ? 'password-error' : undefined}
                 className={`${inputAuth(errors.password)} pr-12`}
               />
@@ -117,16 +112,16 @@ export default function Login() {
             <Turnstile
               ref={turnstileRef}
               siteKey={import.meta.env.VITE_TURNSTILE_SITE_KEY || '1x00000000000000000000AA'}
-              onSuccess={(token) => { setTurnstileToken(token); setTurnstileOk(true); setTurnstileError(false); }}
-              onExpire={() => { setTurnstileToken(''); setTurnstileOk(false); }}
-              onError={() => { setTurnstileError(true); }}
+              onSuccess={(token) => setTurnstileToken(token)}
+              onExpire={() => setTurnstileToken('')}
+              onError={() => setTurnstileToken('')}
               options={{ theme: esOscuro ? 'dark' : 'light', language: 'es', size: 'flexible', appearance: 'interaction-only' }}
             />
           </div>
 
           <AlertaError mensaje={apiError} />
 
-          <BotonPrimario type="submit" loading={loading} disabled={!puedeEnviar} textoCargando="Ingresando…">
+          <BotonPrimario type="submit" loading={loading} textoCargando="Ingresando…">
             Iniciar sesión
             <ArrowRight size={18} strokeWidth={2.5} aria-hidden="true"
                         className="transition-transform group-hover:translate-x-0.5" />

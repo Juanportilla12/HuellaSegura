@@ -4,10 +4,11 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Mail, Lock, User, Phone, ArrowRight, X } from 'lucide-react';
 import { actualizarUbicacion } from '../services/usuarioService';
 import { useAuth } from '../context/AuthContext';
+import { CORREO_REGEX, CELULAR_REGEX } from '../utils/formulario';
 import fotoPasto from '../assets/mascotas-pasto.webp';
 import {
   PantallaAuth, CabeceraFoto, HojaAuth, EncabezadoHoja, Progreso,
-  CampoAuth, inputAuth, BotonVerClave, AlertaError, BotonPrimario, focoVisible,
+  CampoAuth, inputAuth, BotonVerClave, AlertaError, BotonPrimario, MarcaObligatorio, focoVisible,
 } from '../components/auth/AuthUI';
 
 const NIVELES = [
@@ -97,10 +98,10 @@ function DetalleDatos({ abierto, onCerrar }) {
   );
 }
 
-function Casilla({ checked, onChange, testId, children }) {
+function Casilla({ checked, onChange, testId, invalido = false, children }) {
   return (
     <label className="flex items-start gap-3 cursor-pointer text-[13px] leading-snug text-gray-600 dark:text-white/70">
-      <input type="checkbox" checked={checked} onChange={onChange} data-testid={testId}
+      <input type="checkbox" checked={checked} onChange={onChange} data-testid={testId} aria-invalid={invalido || undefined}
              className="mt-0.5 h-[18px] w-[18px] shrink-0 rounded accent-primary-700 cursor-pointer" />
       <span>{children}</span>
     </label>
@@ -130,12 +131,14 @@ export default function Register() {
 
   function validarDatos() {
     const e = {};
-    if (!form.nombre.trim())                 e.nombre = 'El nombre es obligatorio.';
-    else if (form.nombre.trim().length < 2)  e.nombre = 'Mínimo 2 caracteres.';
-    if (!form.email)                         e.email  = 'El correo es obligatorio.';
-    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) e.email = 'Correo inválido.';
-    if (!form.celular.trim())                e.celular = 'El celular es obligatorio.';
-    else if (!/^\+?[0-9][0-9\s-]{6,18}$/.test(form.celular.trim())) e.celular = 'Celular inválido.';
+    const nombre = form.nombre.trim();
+    if (!nombre)                                 e.nombre  = 'El nombre es obligatorio.';
+    else if (nombre.length < 2)                  e.nombre  = 'El nombre debe tener al menos 2 caracteres.';
+    else if (!/\p{L}/u.test(nombre))             e.nombre  = 'Escribe un nombre válido.';
+    if (!form.email.trim())                      e.email   = 'El correo es obligatorio.';
+    else if (!CORREO_REGEX.test(form.email.trim())) e.email = 'Ingresa un correo válido (ej.: nombre@correo.com).';
+    if (!form.celular.trim())                    e.celular = 'El celular es obligatorio.';
+    else if (!CELULAR_REGEX.test(form.celular.trim())) e.celular = 'Ingresa un celular válido (ej.: 300 123 4567).';
     setErrors(e);
     return !Object.keys(e).length;
   }
@@ -143,8 +146,9 @@ export default function Register() {
   function validarSeguridad() {
     const e = {};
     if (!form.password)                      e.password = 'La contraseña es obligatoria.';
-    else if (form.password.length < 8)       e.password = 'Mínimo 8 caracteres.';
-    if (form.password !== form.confirmPassword) e.confirmPassword = 'Las contraseñas no coinciden.';
+    else if (form.password.length < 8)       e.password = 'La contraseña debe tener al menos 8 caracteres.';
+    if (!form.confirmPassword)               e.confirmPassword = 'Confirma tu contraseña.';
+    else if (form.password !== form.confirmPassword) e.confirmPassword = 'Las contraseñas no coinciden.';
     if (!aceptaDatos)                        e.aceptaDatos = 'Debes autorizar el tratamiento de tus datos.';
     setErrors(e);
     return !Object.keys(e).length;
@@ -167,7 +171,7 @@ export default function Register() {
     setLoading(true);
     try {
       await register({
-        nombre: form.nombre.trim(), email: form.email, celular: form.celular.trim(), password: form.password,
+        nombre: form.nombre.trim(), email: form.email.trim(), celular: form.celular.trim(), password: form.password,
       });
       // Consentimiento explícito de ubicación para alertas por proximidad (Ley 1581)
       if (aceptaUbicacion && navigator.geolocation) {
@@ -180,10 +184,13 @@ export default function Register() {
       navigate('/', { replace: true });
     } catch (err) {
       const msg = err.response?.data?.message || 'Error al registrarse. Intenta de nuevo.';
-      // Si el problema es el correo, se vuelve al paso donde se puede corregir
-      if (/correo/i.test(msg)) {
+      // Si el problema está en un dato del primer paso, se vuelve allí para corregirlo
+      const campo = err.response?.data?.errors?.[0]?.path || (/correo/i.test(msg) ? 'email' : null);
+      if (['nombre', 'email', 'celular'].includes(campo)) {
         setPaso(0);
-        setErrors({ email: msg });
+        setErrors({ [campo]: msg });
+      } else if (campo === 'password') {
+        setErrors({ password: msg });
       } else {
         setApiError(msg);
       }
@@ -213,21 +220,21 @@ export default function Register() {
                   Únete a la red que cuida a las mascotas.
                 </EncabezadoHoja>
                 <form onSubmit={handleContinuar} noValidate className={formClase}>
-                  <CampoAuth id="nombre" label="Nombre completo" icon={User} error={errors.nombre}>
+                  <CampoAuth id="nombre" label="Nombre completo" icon={User} error={errors.nombre} requerido>
                     <input id="nombre" name="nombre" value={form.nombre} onChange={handleChange}
-                      placeholder="Ej. Juan Ortiz" autoComplete="name" autoCapitalize="words"
+                      placeholder="Ej. Juan Ortiz" autoComplete="name" autoCapitalize="words" maxLength={100} aria-required="true"
                       aria-invalid={!!errors.nombre} aria-describedby={errors.nombre ? 'nombre-error' : undefined}
                       className={`${inputAuth(errors.nombre)} pr-4`} />
                   </CampoAuth>
-                  <CampoAuth id="email" label="Correo electrónico" icon={Mail} error={errors.email}>
+                  <CampoAuth id="email" label="Correo electrónico" icon={Mail} error={errors.email} requerido>
                     <input id="email" name="email" type="email" inputMode="email" value={form.email} onChange={handleChange}
-                      placeholder="tucorreo@ejemplo.com" autoComplete="email"
+                      placeholder="tucorreo@ejemplo.com" autoComplete="email" maxLength={150} aria-required="true"
                       aria-invalid={!!errors.email} aria-describedby={errors.email ? 'email-error' : undefined}
                       className={`${inputAuth(errors.email)} pr-4`} />
                   </CampoAuth>
-                  <CampoAuth id="celular" label="Celular" icon={Phone} error={errors.celular}>
+                  <CampoAuth id="celular" label="Celular" icon={Phone} error={errors.celular} requerido>
                     <input id="celular" name="celular" type="tel" inputMode="tel" value={form.celular} onChange={handleChange}
-                      placeholder="300 123 4567" autoComplete="tel"
+                      placeholder="300 123 4567" autoComplete="tel" maxLength={20} aria-required="true"
                       aria-invalid={!!errors.celular} aria-describedby={errors.celular ? 'celular-error' : undefined}
                       className={`${inputAuth(errors.celular)} pr-4`} />
                   </CampoAuth>
@@ -247,20 +254,20 @@ export default function Register() {
                 </EncabezadoHoja>
                 <form onSubmit={handleSubmit} noValidate className={formClase}>
                   <div className="flex flex-col gap-2">
-                    <CampoAuth id="password" label="Contraseña" icon={Lock} error={errors.password}>
+                    <CampoAuth id="password" label="Contraseña" icon={Lock} error={errors.password} requerido>
                       <input id="password" name="password" type={showPass ? 'text' : 'password'}
                         value={form.password} onChange={handleChange}
-                        placeholder="Mínimo 8 caracteres" autoComplete="new-password" autoFocus
+                        placeholder="Mínimo 8 caracteres" autoComplete="new-password" autoFocus maxLength={100} aria-required="true"
                         aria-invalid={!!errors.password} aria-describedby={errors.password ? 'password-error' : undefined}
                         className={`${inputAuth(errors.password)} pr-12`} />
                       <BotonVerClave visible={showPass} onClick={() => setShowPass(p => !p)} />
                     </CampoAuth>
                     <FuerzaClave password={form.password} />
                   </div>
-                  <CampoAuth id="confirmPassword" label="Confirmar contraseña" icon={Lock} error={errors.confirmPassword}>
+                  <CampoAuth id="confirmPassword" label="Confirmar contraseña" icon={Lock} error={errors.confirmPassword} requerido>
                     <input id="confirmPassword" name="confirmPassword" type={showPass ? 'text' : 'password'}
                       value={form.confirmPassword} onChange={handleChange}
-                      placeholder="Repite tu contraseña" autoComplete="new-password"
+                      placeholder="Repite tu contraseña" autoComplete="new-password" maxLength={100} aria-required="true"
                       aria-invalid={!!errors.confirmPassword}
                       aria-describedby={errors.confirmPassword ? 'confirmPassword-error' : undefined}
                       className={`${inputAuth(errors.confirmPassword)} pr-4`} />
@@ -269,9 +276,9 @@ export default function Register() {
                   {/* Consentimientos (Ley 1581 de 2012) */}
                   <div className="flex flex-col gap-2.5">
                     <div>
-                      <Casilla checked={aceptaDatos} testId="check-datos"
+                      <Casilla checked={aceptaDatos} testId="check-datos" invalido={Boolean(errors.aceptaDatos)}
                                onChange={e => { setAceptaDatos(e.target.checked); setErrors(p => ({ ...p, aceptaDatos: '' })); }}>
-                        Autorizo el tratamiento de mis datos según la Ley 1581 de 2012.{' '}
+                        Autorizo el tratamiento de mis datos según la Ley 1581 de 2012.<MarcaObligatorio />{' '}
                         <button type="button" onClick={(e) => { e.preventDefault(); setVerDetalle(true); }}
                                 className={`font-semibold text-primary-700 dark:text-primary-400 underline rounded ${focoVisible}`}>
                           Ver detalles

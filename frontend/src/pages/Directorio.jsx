@@ -12,6 +12,7 @@ import CampoTexto from '../components/formulario/CampoTexto';
 import AreaTexto from '../components/formulario/AreaTexto';
 import { BuscadorAdmin, FiltrosAdmin } from '../components/admin/ListaAdmin';
 import { AlertaError, BotonPrimario, focoVisible } from '../components/auth/AuthUI';
+import { CELULAR_REGEX } from '../utils/formulario';
 
 // HU-27: directorio de veterinarias, albergues y centros de bienestar animal.
 // Cualquier usuario lo consulta; el administrador puede agregar, editar y eliminar.
@@ -35,11 +36,21 @@ function enlaceComoLlegar(e) {
 }
 
 function FormularioEntidad({ inicial, onCancelar, onGuardado }) {
-  const [form, setForm] = useState(inicial?.id ? { ...FORM_VACIO, ...inicial } : FORM_VACIO);
+  // Los campos vacíos en la base de datos (null) se muestran como texto vacío
+  const [form, setForm] = useState(() => {
+    if (!inicial?.id) return FORM_VACIO;
+    const datos = { ...FORM_VACIO };
+    Object.keys(FORM_VACIO).forEach((k) => { if (inicial[k] != null) datos[k] = String(inicial[k]); });
+    return datos;
+  });
+  const [errores, setErrores] = useState({});
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState('');
 
-  const cambiar = (campo) => (ev) => setForm((p) => ({ ...p, [campo]: ev.target.value }));
+  const cambiar = (campo) => (ev) => {
+    setForm((p) => ({ ...p, [campo]: ev.target.value }));
+    setErrores((p) => ({ ...p, [campo]: '' }));
+  };
   const coords = { lat: form.latitud ? parseFloat(form.latitud) : null, lng: form.longitud ? parseFloat(form.longitud) : null };
 
   useEffect(() => {
@@ -50,12 +61,19 @@ function FormularioEntidad({ inicial, onCancelar, onGuardado }) {
 
   async function handleSubmit(ev) {
     ev.preventDefault();
-    if (!form.nombre.trim()) { setError('El nombre es obligatorio.'); return; }
+    if (guardando) return;
+    const e = {};
+    if (!form.nombre.trim())    e.nombre    = 'El nombre es obligatorio.';
+    if (!form.direccion.trim()) e.direccion = 'La dirección es obligatoria.';
+    if (!form.telefono.trim())  e.telefono  = 'El teléfono es obligatorio.';
+    else if (!CELULAR_REGEX.test(form.telefono.trim())) e.telefono = 'Teléfono inválido (ej.: 300 123 4567).';
+    setErrores(e);
+    if (Object.keys(e).length) { setError('Completa los campos obligatorios marcados con *.'); return; }
     setGuardando(true);
     setError('');
     const datos = {
-      nombre: form.nombre.trim(), tipo: form.tipo, direccion: form.direccion, telefono: form.telefono,
-      horario: form.horario, latitud: form.latitud, longitud: form.longitud, descripcion: form.descripcion,
+      nombre: form.nombre.trim(), tipo: form.tipo, direccion: form.direccion.trim(), telefono: form.telefono.trim(),
+      horario: form.horario.trim(), latitud: form.latitud, longitud: form.longitud, descripcion: form.descripcion,
     };
     try {
       const { data } = inicial?.id
@@ -90,11 +108,13 @@ function FormularioEntidad({ inicial, onCancelar, onGuardado }) {
 
         <AlertaError mensaje={error} />
 
-        <CampoTexto id="nombre" etiqueta="Nombre" placeholder="Ej.: Veterinaria San Francisco" required maxLength={150}
-          value={form.nombre} onChange={cambiar('nombre')} />
+        <p className="text-[12px] text-gray-500 dark:text-white/50 -mt-2">Los campos con <span className="text-red-600">*</span> son obligatorios.</p>
+
+        <CampoTexto id="nombre" etiqueta="Nombre" requerido placeholder="Ej.: Veterinaria San Francisco" maxLength={150}
+          value={form.nombre} onChange={cambiar('nombre')} error={errores.nombre} />
 
         <fieldset>
-          <legend className="text-[13px] font-semibold text-dark-700 dark:text-white/70">Tipo</legend>
+          <legend className="text-[13px] font-semibold text-dark-700 dark:text-white/70">Tipo<span className="text-red-600 ml-0.5" aria-hidden="true">*</span></legend>
           <div className="grid grid-cols-3 gap-2 mt-1.5">
             {Object.entries(TIPOS).map(([id, cfg]) => {
               const Icon = cfg.icon;
@@ -111,17 +131,17 @@ function FormularioEntidad({ inicial, onCancelar, onGuardado }) {
           </div>
         </fieldset>
 
-        <CampoTexto id="direccion" etiqueta="Dirección" placeholder="Cra 25 # 18-30, Centro" maxLength={255}
-          value={form.direccion} onChange={cambiar('direccion')} />
+        <CampoTexto id="direccion" etiqueta="Dirección" requerido placeholder="Cra 25 # 18-30, Centro" maxLength={255}
+          value={form.direccion} onChange={cambiar('direccion')} error={errores.direccion} />
         <div className="grid grid-cols-2 gap-3">
-          <CampoTexto id="telefono" etiqueta="Teléfono" type="tel" inputMode="tel" placeholder="300 123 4567" maxLength={20}
-            value={form.telefono} onChange={cambiar('telefono')} />
-          <CampoTexto id="horario" etiqueta="Horario" placeholder="L–S 8:00–18:00" maxLength={150}
+          <CampoTexto id="telefono" etiqueta="Teléfono" requerido type="tel" inputMode="tel" placeholder="300 123 4567" maxLength={20}
+            value={form.telefono} onChange={cambiar('telefono')} error={errores.telefono} />
+          <CampoTexto id="horario" etiqueta="Horario (opcional)" placeholder="L–S 8:00–18:00" maxLength={150}
             value={form.horario} onChange={cambiar('horario')} />
         </div>
 
         <div>
-          <p className="text-[13px] font-semibold text-dark-700 dark:text-white/70 mb-1.5">Ubicación en el mapa</p>
+          <p className="text-[13px] font-semibold text-dark-700 dark:text-white/70 mb-1.5">Ubicación en el mapa (opcional)</p>
           <div className="rounded-2xl overflow-hidden border border-warm-border dark:border-white/10">
             <MapaSelector coords={coords}
               onCoordsChange={(lat, lng) => setForm((p) => ({ ...p, latitud: lat.toFixed(6), longitud: lng.toFixed(6) }))} />

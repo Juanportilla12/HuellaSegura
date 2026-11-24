@@ -14,7 +14,8 @@ const router = Router();
 router.param('id', validarId);
 
 const crearValidators = [
-  body('nombre').trim().notEmpty().withMessage('El nombre es obligatorio.'),
+  body('nombre').trim().notEmpty().withMessage('El nombre es obligatorio.')
+    .bail().isLength({ max: 100 }).withMessage('El nombre admite máximo 100 caracteres.'),
   body('especie')
     .isIn(['perro', 'gato', 'ave', 'reptil', 'otro'])
     .withMessage('Especie inválida. Valores: perro, gato, ave, reptil, otro.'),
@@ -26,7 +27,7 @@ const crearValidators = [
   body('color').isLength({ max: 100 }).withMessage('El color admite máximo 100 caracteres.'),
   body('raza').optional({ values: 'falsy' }).isLength({ max: 100 }).withMessage('La raza admite máximo 100 caracteres.'),
   body('microchip').optional({ values: 'falsy' }).isLength({ max: 100 }).withMessage('El microchip admite máximo 100 caracteres.'),
-  body('edad').optional().isInt({ min: 0 }).withMessage('La edad debe ser un número positivo.'),
+  body('edad').optional({ values: 'null' }).isInt({ min: 0, max: 480 }).withMessage('La edad debe ser un número entero entre 0 y 480.'),
   body('edad_unidad').optional().isIn(['meses', 'años']).withMessage('Unidad inválida.'),
 ];
 

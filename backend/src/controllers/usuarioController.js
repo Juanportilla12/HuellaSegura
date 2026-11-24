@@ -6,7 +6,7 @@ async function actualizarRadioAlerta(req, res, next) {
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(400).json({ success: false, errors: errors.array() });
+      return res.status(400).json({ success: false, message: errors.array()[0].msg, errors: errors.array() });
     }
     const { radio_alerta } = req.body;
     await req.usuario.update({ radio_alerta });
@@ -22,7 +22,7 @@ async function actualizarUbicacion(req, res, next) {
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(400).json({ success: false, errors: errors.array() });
+      return res.status(400).json({ success: false, message: errors.array()[0].msg, errors: errors.array() });
     }
     const { latitud, longitud } = req.body;
     await req.usuario.update({ ubicacion_lat: latitud, ubicacion_lng: longitud });
@@ -59,7 +59,7 @@ async function actualizarPerfil(req, res, next) {
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(400).json({ success: false, errors: errors.array() });
+      return res.status(400).json({ success: false, message: errors.array()[0].msg, errors: errors.array() });
     }
     const { nombre, celular } = req.body;
     const cambios = {};
@@ -88,11 +88,12 @@ async function eliminarCuenta(req, res, next) {
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(400).json({ success: false, errors: errors.array() });
+      return res.status(400).json({ success: false, message: errors.array()[0].msg, errors: errors.array() });
     }
     const passwordValida = await req.usuario.verificarPassword(req.body.password);
     if (!passwordValida) {
-      return res.status(401).json({ success: false, message: 'Contraseña incorrecta.' });
+      // 400 y no 401: un 401 haría que la app cerrara la sesión del usuario
+      return res.status(400).json({ success: false, message: 'La contraseña no es correcta.' });
     }
     const archivos = await archivosDeUsuario(req.usuario).catch(() => []);
     await req.usuario.destroy();

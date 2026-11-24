@@ -3,6 +3,7 @@ const { body } = require('express-validator');
 const usuarioController = require('../controllers/usuarioController');
 const { authenticate } = require('../middlewares/authMiddleware');
 const upload = require('../middlewares/uploadMiddleware');
+const { CELULAR_REGEX } = require('../utils/validaciones');
 
 const router = Router();
 router.use(authenticate);
@@ -33,8 +34,11 @@ router.put(
   '/perfil',
   [
     body('nombre').optional().trim().isLength({ min: 2, max: 100 }).withMessage('El nombre debe tener entre 2 y 100 caracteres.'),
-    body('celular').optional({ values: 'falsy' }).trim()
-      .matches(/^\+?[0-9][0-9\s-]{6,18}$/).withMessage('Ingresa un número de celular válido.'),
+    // El celular es obligatorio (se pide al registrarse): se puede cambiar, no borrar
+    body('celular').optional().trim()
+      .notEmpty().withMessage('El celular es obligatorio.')
+      .bail()
+      .matches(CELULAR_REGEX).withMessage('Ingresa un número de celular válido.'),
   ],
   usuarioController.actualizarPerfil
 );

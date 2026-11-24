@@ -8,7 +8,8 @@ import * as mascotaService from '../services/mascotaService';
 import IconoEspecie from '../components/ui/IconoEspecie';
 import AreaTexto from '../components/formulario/AreaTexto';
 import CampoTexto from '../components/formulario/CampoTexto';
-import { BotonPrimario, focoVisible, inputAuth } from '../components/auth/AuthUI';
+import { BotonPrimario, MarcaObligatorio, focoVisible, inputAuth } from '../components/auth/AuthUI';
+import { mostrarPrimerError } from '../utils/formulario';
 
 const PASOS = ['Fotos', 'Características', 'Detalles', 'Confirmar'];
 const MAX_FOTOS = 5;      // HU-06 (el backend acepta hasta 5 por mascota)
@@ -28,6 +29,7 @@ const ESPECIES = [
 ];
 const SEXOS    = [{ value: 'macho', label: 'Macho' }, { value: 'hembra', label: 'Hembra' }];
 const UNIDADES = [{ value: 'años', label: 'Años' }, { value: 'meses', label: 'Meses' }];
+const EDAD_MAXIMA = { años: 40, meses: 480 };
 const COLORES_SUGERIDOS = ['Negro', 'Blanco', 'Café', 'Dorado/Miel', 'Gris', 'Naranja', 'Manchado', 'Atigrado', 'Crema'];
 
 const etiqueta = 'text-[13px] font-semibold text-dark-700 dark:text-white/70';
@@ -143,16 +145,31 @@ export default function MascotaForm() {
     setFotos(p => p.filter((_, j) => j !== i));
   }
 
-  function validarPaso() {
+  // Errores de un paso (sin tocar el estado), para validarlo al avanzar o al guardar
+  function erroresDelPaso(n) {
     const e = {};
-    if (paso === 1 && !form.nombre.trim()) e.nombre = 'El nombre es obligatorio.';
-    if (paso === 2) {
-      if (!form.especie) e.especie = 'Selecciona la especie.';
-      if (!form.sexo)    e.sexo    = 'Selecciona el sexo.';
-      if (!form.color.trim()) e.color = 'El color es obligatorio.';
+    if (n === 1) {
+      if (!form.nombre.trim()) e.nombre = 'El nombre es obligatorio.';
+      else if (!/\p{L}/u.test(form.nombre)) e.nombre = 'Escribe un nombre válido.';
     }
+    if (n === 2) {
+      if (!form.especie) e.especie = 'Selecciona la especie (tipo de animal).';
+      if (!form.sexo)    e.sexo    = 'Selecciona el sexo.';
+      if (!form.color.trim()) e.color = 'El color es obligatorio: elige uno o escríbelo.';
+    }
+    if (n === 3 && String(form.edad).trim() !== '') {
+      const edad = Number(form.edad);
+      if (!Number.isInteger(edad) || edad < 0) e.edad = 'La edad debe ser un número entero positivo.';
+      else if (edad > EDAD_MAXIMA[form.edad_unidad]) e.edad = `La edad máxima es ${EDAD_MAXIMA[form.edad_unidad]} ${form.edad_unidad}.`;
+    }
+    return e;
+  }
+
+  function validarPaso() {
+    const e = erroresDelPaso(paso);
     setErrores(e);
-    return !Object.keys(e).length;
+    if (Object.keys(e).length) { mostrarPrimerError(); return false; }
+    return true;
   }
 
   function siguiente() {
@@ -166,9 +183,20 @@ export default function MascotaForm() {
 
   async function handleSubmit(e) {
     e?.preventDefault();
+    if (cargando) return;
+    // Se revisan de nuevo todos los pasos antes de guardar y se vuelve al primero con errores
+    for (let n = 1; n < PASOS.length; n += 1) {
+      const errs = erroresDelPaso(n);
+      if (Object.keys(errs).length) {
+        setErrores(errs); setDir(-1); setPaso(n);
+        toast.error('Faltan datos obligatorios. Revisa los campos marcados en rojo.');
+        return;
+      }
+    }
     setCargando(true);
     try {
-      const payload = { ...form, edad: form.edad !== '' ? parseInt(form.edad, 10) : undefined,
+      const payload = { ...form, nombre: form.nombre.trim(), color: form.color.trim(),
+        edad: String(form.edad).trim() !== '' ? parseInt(form.edad, 10) : undefined,
         raza: form.raza || undefined, descripcion: form.descripcion || undefined, microchip: form.microchip || undefined };
       let mascotaId;
       if (esEdicion) {
@@ -359,8 +387,8 @@ export default function MascotaForm() {
                 </section>
 
                 <div>
-                  <label htmlFor="nombre-mascota" className={etiqueta}>Nombre de la mascota</label>
-                  <input id="nombre-mascota" name="nombre" placeholder="¿Cómo se llama?" autoComplete="off"
+                  <label htmlFor="nombre-mascota" className={etiqueta}>Nombre de la mascota<MarcaObligatorio /></label>
+                  <input id="nombre-mascota" name="nombre" placeholder="¿Cómo se llama?" autoComplete="off" maxLength={100} aria-required="true"
                     value={form.nombre} onChange={e => set('nombre', e.target.value)}
                     aria-invalid={Boolean(errores.nombre)}
                     className={`${inputAuth(errores.nombre)} !pl-4 pr-4 mt-1.5 font-semibold`} />
@@ -374,8 +402,8 @@ export default function MascotaForm() {
               <div className="flex flex-col gap-6" data-testid="paso-2">
                 <Titulo>{form.nombre ? <>¿Cómo es <span className="text-primary-700">{form.nombre}</span>?</> : 'Características'}</Titulo>
 
-                <fieldset>
-                  <legend className={etiqueta}>Tipo de animal</legend>
+                <fieldset data-error={Boolean(errores.especie) || undefined}>
+                  <legend className={etiqueta}>Tipo de animal<MarcaObligatorio /></legend>
                   <div className="grid grid-cols-5 gap-2 mt-2">
                     {ESPECIES.map(e => (
                       <Opcion key={e.value} activo={form.especie === e.value} onClick={() => set('especie', e.value)}
@@ -388,8 +416,8 @@ export default function MascotaForm() {
                   <MensajeError>{errores.especie}</MensajeError>
                 </fieldset>
 
-                <fieldset>
-                  <legend className={etiqueta}>Sexo</legend>
+                <fieldset data-error={Boolean(errores.sexo) || undefined}>
+                  <legend className={etiqueta}>Sexo<MarcaObligatorio /></legend>
                   <div className="grid grid-cols-2 gap-2 mt-2">
                     {SEXOS.map(s => (
                       <Opcion key={s.value} activo={form.sexo === s.value} onClick={() => set('sexo', s.value)} className="h-12">
@@ -401,7 +429,7 @@ export default function MascotaForm() {
                 </fieldset>
 
                 <fieldset>
-                  <legend className={etiqueta}>Color</legend>
+                  <legend className={etiqueta}>Color<MarcaObligatorio /></legend>
                   <div className="flex flex-wrap gap-2 mt-2 mb-3">
                     {COLORES_SUGERIDOS.map(c => (
                       <Opcion key={c} activo={form.color === c} onClick={() => set('color', c)} className="h-10 px-3.5 !rounded-full">
@@ -409,7 +437,7 @@ export default function MascotaForm() {
                       </Opcion>
                     ))}
                   </div>
-                  <input placeholder="O escribe el color exacto…" aria-label="Color exacto" value={form.color}
+                  <input placeholder="O escribe el color exacto…" aria-label="Color exacto" value={form.color} maxLength={100}
                     onChange={e => set('color', e.target.value)} aria-invalid={Boolean(errores.color)}
                     className={`${inputAuth(errores.color)} !pl-4 pr-4`} />
                   <MensajeError>{errores.color}</MensajeError>
@@ -417,7 +445,7 @@ export default function MascotaForm() {
 
                 <div>
                   <label htmlFor="raza-mascota" className={etiqueta}>Raza (opcional)</label>
-                  <input id="raza-mascota" name="raza" placeholder="Ej.: Labrador, Persa, Criollo…"
+                  <input id="raza-mascota" name="raza" placeholder="Ej.: Labrador, Persa, Criollo…" maxLength={100}
                     value={form.raza} onChange={e => set('raza', e.target.value)}
                     className={`${inputAuth(false)} !pl-4 pr-4 mt-1.5`} />
                 </div>
@@ -430,26 +458,28 @@ export default function MascotaForm() {
                 <Titulo sub="Todo es opcional, pero cada detalle ayuda a reconocerla.">Detalles</Titulo>
 
                 <fieldset>
-                  <legend className={etiqueta}>Edad</legend>
+                  <legend className={etiqueta}>Edad (opcional)</legend>
                   <div className="flex gap-2 mt-1.5">
-                    <input name="edad" type="number" min="0" inputMode="numeric" placeholder="Ej.: 3" aria-label="Edad"
+                    <input name="edad" type="number" min="0" max={EDAD_MAXIMA[form.edad_unidad]} step="1" inputMode="numeric"
+                      placeholder="Ej.: 3" aria-label="Edad" aria-invalid={Boolean(errores.edad)}
                       value={form.edad} onChange={e => set('edad', e.target.value)}
-                      className={`${inputAuth(false)} !pl-4 pr-4 !w-28 text-center font-semibold`} />
+                      className={`${inputAuth(errores.edad)} !pl-4 pr-4 !w-28 text-center font-semibold`} />
                     <div className="flex-1 grid grid-cols-2 gap-2">
                       {UNIDADES.map(u => (
-                        <Opcion key={u.value} activo={form.edad_unidad === u.value} onClick={() => set('edad_unidad', u.value)} className="h-[52px]">
+                        <Opcion key={u.value} activo={form.edad_unidad === u.value} onClick={() => { set('edad_unidad', u.value); setErrores(p => ({ ...p, edad: '' })); }} className="h-[52px]">
                           {u.label}
                         </Opcion>
                       ))}
                     </div>
                   </div>
+                  <MensajeError>{errores.edad}</MensajeError>
                 </fieldset>
 
-                <AreaTexto id="descripcion-mascota" etiqueta="Señas particulares" rows={4} maxLength={500}
+                <AreaTexto id="descripcion-mascota" etiqueta="Señas particulares (opcional)" rows={4} maxLength={500}
                   placeholder="Marcas, manchas, cicatrices, collar, comportamiento…"
                   value={form.descripcion} onChange={e => set('descripcion', e.target.value)} />
 
-                <CampoTexto id="microchip-mascota" etiqueta="Número de microchip" icono={Cpu}
+                <CampoTexto id="microchip-mascota" etiqueta="Número de microchip (opcional)" icono={Cpu} maxLength={100}
                   placeholder="Si tiene, es muy útil" value={form.microchip} onChange={e => set('microchip', e.target.value)} />
               </div>
             )}

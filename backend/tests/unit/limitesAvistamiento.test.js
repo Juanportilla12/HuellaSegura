@@ -65,11 +65,11 @@ describe('Correo al dueño por avistamientos', () => {
 });
 
 describe('Límite de avistamientos por IP', () => {
-  test('La sexta petición en una hora desde la misma IP recibe 429', async () => {
+  test('La petición 21 en una hora desde la misma IP recibe 429', async () => {
     Avistamiento.count.mockResolvedValue(0);
     const enviar = () => enviarDesde('10.0.0.50');
 
-    for (let i = 0; i < 5; i += 1) {
+    for (let i = 0; i < 20; i += 1) {
       expect((await enviar()).status).toBe(201);
     }
     const bloqueada = await enviar();

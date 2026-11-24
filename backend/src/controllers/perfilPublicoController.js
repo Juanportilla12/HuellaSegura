@@ -1,4 +1,5 @@
 const { Mascota, Usuario, Reporte } = require('../models');
+const { urlFrontend } = require('../utils/urlFrontend');
 
 // Formato del código público (UUID). Cualquier otro valor se trata como inexistente.
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -83,14 +84,13 @@ async function paginaCompartir(req, res, next) {
       attributes: ['id'],
     });
 
-    const frontend = process.env.FRONTEND_URL || 'http://localhost:5173';
-    const destino = `${frontend}/publico/mascotas/${mascota.codigo_publico}`;
+    const destino = urlFrontend(`/publico/mascotas/${mascota.codigo_publico}`);
     const titulo = reporteActivo
       ? `¡Se busca a ${mascota.nombre}! — HuellaSegura`
       : `${mascota.nombre} — HuellaSegura`;
     const descripcion = [mascota.especie, mascota.raza, mascota.color].filter(Boolean).join(' · ')
       + '. Ayúdanos a encontrarla en Pasto.';
-    const imagen = (mascota.foto_urls || [])[0] || `${frontend}/pwa-512x512.svg`;
+    const imagen = (mascota.foto_urls || [])[0] || urlFrontend('/pwa-512x512.svg');
 
     res.set('Content-Type', 'text/html; charset=utf-8');
     return res.send(`<!doctype html>

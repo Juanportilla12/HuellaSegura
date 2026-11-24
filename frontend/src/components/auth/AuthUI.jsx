@@ -132,11 +132,21 @@ export function EncabezadoHoja({ titulo, children }) {
 }
 
 // Campo con ícono, etiqueta visible y estados de foco/error
-export function CampoAuth({ id, label, icon: Icon, error, children }) {
+// Asterisco rojo para los campos obligatorios (los lectores de pantalla leen "obligatorio")
+export function MarcaObligatorio() {
+  return (
+    <>
+      <span className="text-red-600 dark:text-red-400 ml-0.5" aria-hidden="true">*</span>
+      <span className="sr-only"> (obligatorio)</span>
+    </>
+  );
+}
+
+export function CampoAuth({ id, label, icon: Icon, error, requerido = false, children }) {
   return (
     <div className="flex flex-col gap-1.5">
       <label htmlFor={id} className="text-[13px] font-semibold text-dark-700 dark:text-white/70">
-        {label}
+        {label}{requerido && <MarcaObligatorio />}
       </label>
       <div className="relative group">
         <Icon size={18} aria-hidden="true"

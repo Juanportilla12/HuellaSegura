@@ -3,31 +3,44 @@ const { body } = require('express-validator');
 const authController = require('../controllers/authController');
 const { authenticate } = require('../middlewares/authMiddleware');
 const { CELULAR_REGEX } = require('../utils/validaciones');
+const { limitadorAuth } = require('../middlewares/rateLimiters');
 
 const router = Router();
 
 const registerValidators = [
-  body('nombre').trim().notEmpty().withMessage('El nombre es obligatorio.'),
-  body('email').isEmail().normalizeEmail().withMessage('Ingresa un correo válido.'),
+  body('nombre').trim().notEmpty().withMessage('El nombre es obligatorio.')
+    .bail()
+    .isLength({ min: 2, max: 100 }).withMessage('El nombre debe tener entre 2 y 100 caracteres.'),
+  body('email').trim().notEmpty().withMessage('El correo es obligatorio.')
+    .bail()
+    .isEmail().withMessage('Ingresa un correo válido.')
+    .normalizeEmail(),
   body('celular')
     .trim()
+    .notEmpty().withMessage('El celular es obligatorio.')
+    .bail()
     .matches(CELULAR_REGEX)
     .withMessage('Ingresa un número de celular válido.'),
   body('password')
-    .isLength({ min: 8 })
-    .withMessage('La contraseña debe tener al menos 8 caracteres.'),
+    .notEmpty().withMessage('La contraseña es obligatoria.')
+    .bail()
+    .isLength({ min: 8, max: 100 })
+    .withMessage('La contraseña debe tener entre 8 y 100 caracteres.'),
 ];
 
 const loginValidators = [
-  body('email').isEmail().normalizeEmail().withMessage('Ingresa un correo válido.'),
+  body('email').trim().notEmpty().withMessage('El correo es obligatorio.')
+    .bail()
+    .isEmail().withMessage('Ingresa un correo válido.')
+    .normalizeEmail(),
   body('password').notEmpty().withMessage('La contraseña es obligatoria.'),
 ];
 
 // POST /api/auth/register
-router.post('/register', registerValidators, authController.register);
+router.post('/register', limitadorAuth, registerValidators, authController.register);
 
 // POST /api/auth/login
-router.post('/login', loginValidators, authController.login);
+router.post('/login', limitadorAuth, loginValidators, authController.login);
 
 // POST /api/auth/logout  (requiere token válido)
 router.post('/logout', authenticate, authController.logout);
@@ -37,12 +50,14 @@ router.get('/me', authenticate, authController.me);
 
 // POST /api/auth/forgot-password
 router.post('/forgot-password',
+  limitadorAuth,
   [body('email').isEmail().normalizeEmail().withMessage('Ingresa un correo válido.')],
   authController.forgotPassword
 );
 
 // POST /api/auth/verify-reset-code
 router.post('/verify-reset-code',
+  limitadorAuth,
   [
     body('email').isEmail().normalizeEmail().withMessage('Correo inválido.'),
     body('codigo').isLength({ min: 6, max: 6 }).isNumeric().withMessage('El código debe tener 6 dígitos.'),
@@ -52,6 +67,7 @@ router.post('/verify-reset-code',
 
 // POST /api/auth/reset-password
 router.post('/reset-password',
+  limitadorAuth,
   [
     body('email').isEmail().normalizeEmail().withMessage('Correo inválido.'),
     body('codigo').isLength({ min: 6, max: 6 }).isNumeric().withMessage('Código inválido.'),

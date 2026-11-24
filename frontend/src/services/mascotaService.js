@@ -24,7 +24,7 @@ export function subirFotos(id, archivos) {
   const formData = new FormData();
   archivos.forEach((archivo) => formData.append('fotos', archivo));
   return api.post(`/mascotas/${id}/fotos`, formData, {
-    headers: { 'Content-Type': 'multipart/form-data' },
+    headers: { 'Content-Type': 'multipart/form-data' }, timeout: 0, // subir fotos o video puede tardar
   });
 }
 
@@ -33,7 +33,7 @@ export function subirVideo(id, archivo) {
   const formData = new FormData();
   formData.append('video', archivo);
   return api.post(`/mascotas/${id}/video`, formData, {
-    headers: { 'Content-Type': 'multipart/form-data' },
+    headers: { 'Content-Type': 'multipart/form-data' }, timeout: 0, // subir fotos o video puede tardar
   });
 }
 

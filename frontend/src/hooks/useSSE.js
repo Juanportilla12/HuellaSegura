@@ -1,5 +1,6 @@
 import { useEffect, useRef, useCallback } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { API_URL } from '../services/api';
 
 export function useSSE(onEvento) {
   const { estaAutenticado } = useAuth();
@@ -14,8 +15,7 @@ export function useSSE(onEvento) {
     const token = localStorage.getItem('token');
     if (!token) return;
 
-    const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
-    const url    = `${apiUrl}/sse/eventos`;
+    const url    = `${API_URL}/sse/eventos`;
 
     // Añadir token como query param (EventSource no soporta headers)
     const es = new EventSource(`${url}?token=${token}`);

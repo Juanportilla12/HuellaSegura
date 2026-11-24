@@ -8,7 +8,7 @@ export function actualizarFoto(archivo) {
   const formData = new FormData();
   formData.append('foto', archivo);
   return api.put('/usuarios/foto', formData, {
-    headers: { 'Content-Type': 'multipart/form-data' },
+    headers: { 'Content-Type': 'multipart/form-data' }, timeout: 0, // subir fotos o video puede tardar
   });
 }
 
