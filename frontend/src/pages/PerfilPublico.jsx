@@ -106,7 +106,11 @@ export default function PerfilPublico() {
   const perdida = Boolean(reporte);
   const datosMascota = [mascota.raza, mascota.sexo, mascota.color].filter(Boolean);
   const dueno   = propietario?.nombre || 'el dueño';
-  const mensajeWa = `Hola ${dueno}, vi el perfil de ${mascota.nombre} en HuellaSegura y tengo información: ${window.location.href}`;
+  // El mensaje depende del estado: si no está reportada como perdida no se habla de "información",
+  // que hacía creer al dueño que su mascota aparecía como perdida
+  const mensajeWa = perdida
+    ? `Hola ${dueno}, vi que ${mascota.nombre} está ${mascota.sexo === 'hembra' ? 'perdida' : 'perdido'} en HuellaSegura y tengo información: ${window.location.href}`
+    : `Hola ${dueno}, te escribo desde el perfil de ${mascota.nombre} en HuellaSegura: ${window.location.href}`;
 
   return (
     <div className="min-h-dvh bg-warm-50 dark:bg-dark-800 pb-[calc(env(safe-area-inset-bottom,0px)+6.5rem)]">
