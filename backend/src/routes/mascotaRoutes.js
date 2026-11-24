@@ -26,7 +26,12 @@ const crearValidators = [
   // Límites de las columnas: sin esto MySQL rechaza el valor y la API responde 500
   body('color').isLength({ max: 100 }).withMessage('El color admite máximo 100 caracteres.'),
   body('raza').optional({ values: 'falsy' }).isLength({ max: 100 }).withMessage('La raza admite máximo 100 caracteres.'),
-  body('microchip').optional({ values: 'falsy' }).isLength({ max: 100 }).withMessage('El microchip admite máximo 100 caracteres.'),
+  // Un microchip real tiene de 9 a 15 dígitos o letras (normalmente 15 dígitos, ISO 11784).
+  // Se ignoran espacios y guiones. Es único: textos como "No" chocaban entre mascotas.
+  body('microchip').optional({ values: 'falsy' })
+    .customSanitizer((v) => String(v).replace(/[\s-]/g, ''))
+    .matches(/^[A-Za-z0-9]{9,15}$/)
+    .withMessage('El microchip debe tener entre 9 y 15 dígitos. Si tu mascota no tiene, deja el campo vacío.'),
   body('edad').optional({ values: 'null' }).isInt({ min: 0, max: 480 }).withMessage('La edad debe ser un número entero entre 0 y 480.'),
   body('edad_unidad').optional().isIn(['meses', 'años']).withMessage('Unidad inválida.'),
 ];

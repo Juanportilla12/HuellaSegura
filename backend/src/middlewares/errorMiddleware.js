@@ -15,9 +15,16 @@ function errorHandler(err, req, res, next) {
 
   // Error de validación de Sequelize (campo único duplicado, etc.)
   if (err.name === 'SequelizeUniqueConstraintError') {
+    // Mensaje según el campo repetido, para que el usuario sepa qué corregir
+    const campos = Object.keys(err.fields || {}).join(' ') + ' ' + (err.errors || []).map((e) => e.path).join(' ');
+    const MENSAJES = {
+      microchip: 'Ese número de microchip ya está registrado en otra mascota. Revisa el número o deja el campo vacío.',
+      email: 'Ya existe una cuenta con ese correo electrónico.',
+    };
+    const campo = Object.keys(MENSAJES).find((c) => campos.includes(c));
     return res.status(409).json({
       success: false,
-      message: 'Ya existe un registro con esos datos.',
+      message: campo ? MENSAJES[campo] : 'Ya existe un registro con esos datos.',
     });
   }
 

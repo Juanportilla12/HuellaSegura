@@ -17,7 +17,7 @@ const MAX_VIDEO_MB = 30;  // R5
 
 const FORM_INICIAL = {
   nombre: '', especie: '', raza: '', sexo: '', color: '',
-  edad: '', edad_unidad: 'años', descripcion: '', microchip: '',
+  edad: '', edad_unidad: 'años', descripcion: '', microchip: '', tieneMicrochip: 'no',
 };
 
 const ESPECIES = [
@@ -86,7 +86,8 @@ export default function MascotaForm() {
         const m = data.mascota;
         setForm({ nombre: m.nombre || '', especie: m.especie || '', raza: m.raza || '',
           sexo: m.sexo || '', color: m.color || '', edad: m.edad ?? '',
-          edad_unidad: m.edad_unidad || 'años', descripcion: m.descripcion || '', microchip: m.microchip || '' });
+          edad_unidad: m.edad_unidad || 'años', descripcion: m.descripcion || '', microchip: m.microchip || '',
+          tieneMicrochip: m.microchip ? 'si' : 'no' });
         setFotosActuales(m.foto_urls || []);
         setFotosOriginales(m.foto_urls || []);
         setVideoActual(m.video_url || null);
@@ -157,6 +158,12 @@ export default function MascotaForm() {
       if (!form.sexo)    e.sexo    = 'Selecciona el sexo.';
       if (!form.color.trim()) e.color = 'El color es obligatorio: elige uno o escríbelo.';
     }
+    // Si dice que tiene microchip, el número es obligatorio; si no tiene, se sigue sin pedirlo
+    if (n === 3 && form.tieneMicrochip === 'si') {
+      const chip = form.microchip.replace(/[\s-]/g, '');
+      if (!chip) e.microchip = 'Escribe el número del microchip.';
+      else if (!/^[A-Za-z0-9]{9,15}$/.test(chip)) e.microchip = 'El microchip debe tener entre 9 y 15 dígitos.';
+    }
     if (n === 3 && String(form.edad).trim() !== '') {
       const edad = Number(form.edad);
       if (!Number.isInteger(edad) || edad < 0) e.edad = 'La edad debe ser un número entero positivo.';
@@ -195,9 +202,12 @@ export default function MascotaForm() {
     }
     setCargando(true);
     try {
-      const payload = { ...form, nombre: form.nombre.trim(), color: form.color.trim(),
+      const { tieneMicrochip, ...datos } = form;
+      const payload = { ...datos, nombre: form.nombre.trim(), color: form.color.trim(),
         edad: String(form.edad).trim() !== '' ? parseInt(form.edad, 10) : undefined,
-        raza: form.raza || undefined, descripcion: form.descripcion || undefined, microchip: form.microchip || undefined };
+        raza: form.raza || undefined, descripcion: form.descripcion || undefined,
+        // Sin microchip se envía null: así también se borra al editar
+        microchip: tieneMicrochip === 'si' ? form.microchip.replace(/[\s-]/g, '') : null };
       let mascotaId;
       if (esEdicion) {
         await mascotaService.actualizarMascota(id, payload); mascotaId = id;
@@ -234,7 +244,7 @@ export default function MascotaForm() {
 
   const fotoPortada = fotos[0]?.preview || fotosActuales[0];
   const resumen = [form.raza, form.sexo && (form.sexo === 'macho' ? 'Macho' : 'Hembra'), form.color,
-    form.edad ? `${form.edad} ${form.edad_unidad}` : null, form.microchip ? 'Con microchip' : null].filter(Boolean);
+    form.edad ? `${form.edad} ${form.edad_unidad}` : null, form.tieneMicrochip === 'si' && form.microchip ? 'Con microchip' : null].filter(Boolean);
 
   const deslizar = {
     enter:  (d) => ({ x: d > 0 ? 40 : -40, opacity: 0 }),
@@ -479,8 +489,23 @@ export default function MascotaForm() {
                   placeholder="Marcas, manchas, cicatrices, collar, comportamiento…"
                   value={form.descripcion} onChange={e => set('descripcion', e.target.value)} />
 
-                <CampoTexto id="microchip-mascota" etiqueta="Número de microchip (opcional)" icono={Cpu} maxLength={100}
-                  placeholder="Si tiene, es muy útil" value={form.microchip} onChange={e => set('microchip', e.target.value)} />
+                <fieldset>
+                  <legend className={etiqueta}>¿Tiene microchip?</legend>
+                  <div className="grid grid-cols-2 gap-2 mt-1.5">
+                    {[{ value: 'si', label: 'Sí' }, { value: 'no', label: 'No' }].map(o => (
+                      <Opcion key={o.value} activo={form.tieneMicrochip === o.value} className="h-12"
+                        onClick={() => { set('tieneMicrochip', o.value); setErrores(p => ({ ...p, microchip: '' })); }}>
+                        {o.label}
+                      </Opcion>
+                    ))}
+                  </div>
+                </fieldset>
+
+                {form.tieneMicrochip === 'si' && (
+                  <CampoTexto id="microchip-mascota" etiqueta="Número de microchip" requerido icono={Cpu} maxLength={20}
+                    inputMode="numeric" error={errores.microchip} autoFocus
+                    placeholder="Ej.: 985112003456789" value={form.microchip} onChange={e => set('microchip', e.target.value)} />
+                )}
               </div>
             )}
 

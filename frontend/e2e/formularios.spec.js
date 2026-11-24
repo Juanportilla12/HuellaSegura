@@ -58,6 +58,15 @@ test.describe('Registrar mascota', () => {
     await page.getByTestId('btn-siguiente').click();
     await expect(page.getByText(/la edad máxima es 40 años/i)).toBeVisible();
     await page.getByLabel('Edad').fill('3');
+
+    // Microchip: si marca "Sí" el número es obligatorio y debe ser válido; con "No" sigue
+    await page.getByRole('button', { name: 'Sí', exact: true }).click();
+    await page.getByTestId('btn-siguiente').click();
+    await expect(page.getByText('Escribe el número del microchip.')).toBeVisible();
+    await page.getByLabel(/número de microchip/i).fill('No');
+    await page.getByTestId('btn-siguiente').click();
+    await expect(page.getByText(/entre 9 y 15 dígitos/i)).toBeVisible();
+    await page.getByRole('button', { name: 'No', exact: true }).click();
     await page.getByTestId('btn-siguiente').click();
 
     await expect(page.getByTestId('paso-4')).toBeVisible();
