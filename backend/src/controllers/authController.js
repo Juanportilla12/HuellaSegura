@@ -176,7 +176,18 @@ async function forgotPassword(req, res, next) {
     const codigoHash = await bcrypt.hash(codigo, 10);
     await usuario.update({ reset_code: codigoHash, reset_code_expires: expira, reset_intentos: 0 });
 
-    enviarCorreoResetCodigo({ email: usuario.email, nombre: usuario.nombre, codigo }).catch(console.error);
+    // Se espera el envío: si el correo no sale, el usuario debe saberlo en vez de
+    // quedarse esperando un código que nunca llegará
+    try {
+      await enviarCorreoResetCodigo({ email: usuario.email, nombre: usuario.nombre, codigo });
+    } catch (errorCorreo) {
+      console.error('[Correo] No se pudo enviar el código de recuperación:', errorCorreo.message);
+      await usuario.update({ reset_code: null, reset_code_expires: null });
+      return res.status(503).json({
+        success: false,
+        message: 'No pudimos enviar el correo en este momento. Intenta de nuevo en unos minutos.',
+      });
+    }
 
     return res.status(200).json({
       success: true,

@@ -61,6 +61,16 @@ describe('Recuperación de contraseña', () => {
     expect(u.update.mock.calls[0][0].reset_intentos).toBe(0);
   });
 
+  test('Si el correo no se puede enviar, avisa (503) y anula el código', async () => {
+    const u = crearUsuario();
+    Usuario.findOne.mockResolvedValue(u);
+    enviarCorreoResetCodigo.mockRejectedValueOnce(new Error('SMTP bloqueado'));
+    const res = await request(app).post('/api/auth/forgot-password').send({ email: 'ana@example.com' });
+    expect(res.status).toBe(503);
+    expect(res.body.message).toMatch(/no pudimos enviar el correo/i);
+    expect(u.update).toHaveBeenLastCalledWith({ reset_code: null, reset_code_expires: null });
+  });
+
   test('Correo inexistente → misma respuesta genérica', async () => {
     Usuario.findOne.mockResolvedValue(null);
     const res = await request(app).post('/api/auth/forgot-password').send({ email: 'nadie@example.com' });

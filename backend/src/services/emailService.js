@@ -19,7 +19,39 @@ function esc(valor) {
     .replace(/'/g, '&#39;');
 }
 
+// Railway bloquea el correo por SMTP en los planes Free, Trial y Hobby: allí los correos
+// salen por la API HTTPS de Brevo (variable BREVO_API_KEY). Sin esa variable, como en
+// desarrollo, se usa SMTP. Ambos ofrecen la misma interfaz sendMail() de nodemailer.
+const REMITENTE_RE = /^"?([^"<]*)"?\s*<([^>]+)>$/;
+
+function transporteBrevo() {
+  return {
+    async sendMail({ from, to, subject, html, text, attachments = [] }) {
+      const [, nombre = 'HuellaSegura', correo] = String(from).match(REMITENTE_RE) || [];
+      const resp = await fetch('https://api.brevo.com/v3/smtp/email', {
+        method: 'POST',
+        headers: { 'api-key': process.env.BREVO_API_KEY, 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify({
+          sender: { name: nombre.trim() || 'HuellaSegura', email: process.env.EMAIL_FROM || correo || process.env.EMAIL_USER },
+          to: String(to).split(',').map((email) => ({ email: email.trim() })),
+          subject,
+          htmlContent: html,
+          ...(text ? { textContent: text } : {}),
+          ...(attachments.length ? {
+            attachment: attachments.map((a) => ({ name: a.filename, content: Buffer.from(a.content).toString('base64') })),
+          } : {}),
+        }),
+        signal: AbortSignal.timeout(15000),
+      });
+      const datos = await resp.json().catch(() => ({}));
+      if (!resp.ok) throw new Error(`Brevo respondió ${resp.status}: ${datos.message || 'error desconocido'}`);
+      return { messageId: datos.messageId };
+    },
+  };
+}
+
 function crearTransporte() {
+  if (process.env.BREVO_API_KEY) return transporteBrevo();
   return nodemailer.createTransport({
     host: process.env.EMAIL_HOST || 'smtp.gmail.com',
     port: parseInt(process.env.EMAIL_PORT, 10) || 587,
