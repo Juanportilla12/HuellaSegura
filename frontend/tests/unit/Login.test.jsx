@@ -52,19 +52,15 @@ describe('Login Component', () => {
   test('renderiza el formulario con campos correo y contraseña', () => {
     renderLogin();
     expect(screen.getByLabelText(/correo electrónico/i)).toBeInTheDocument();
-    expect(screen.getByLabelText(/^contraseña$/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/^contraseña/i)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /iniciar sesión/i })).toBeInTheDocument();
   });
 
   test('muestra error si se envía el formulario vacío', async () => {
     renderLogin();
     fireEvent.click(screen.getByRole('button', { name: /iniciar sesión/i }));
-    // El error se muestra como texto en la UI (puede ser via alert role o text)
-    await waitFor(() => {
-      const alertEl = screen.queryByRole('alert');
-      const textEl  = screen.queryByText(/completa|obligatorio/i);
-      expect(alertEl || textEl).toBeTruthy();
-    });
+    expect(await screen.findByText('El correo es obligatorio.')).toBeInTheDocument();
+    expect(screen.getByText('La contraseña es obligatoria.')).toBeInTheDocument();
     expect(mockLogin).not.toHaveBeenCalled();
   });
 
@@ -74,7 +70,7 @@ describe('Login Component', () => {
     const user = userEvent.setup();
 
     await user.type(screen.getByLabelText(/correo electrónico/i), 'ana@example.com');
-    await user.type(screen.getByLabelText(/^contraseña$/i), 'password123');
+    await user.type(screen.getByLabelText(/^contraseña/i), 'password123');
     await user.click(screen.getByRole('button', { name: /iniciar sesión/i }));
 
     await waitFor(() => {
@@ -88,7 +84,7 @@ describe('Login Component', () => {
     const user = userEvent.setup();
 
     await user.type(screen.getByLabelText(/correo electrónico/i), 'ana@example.com');
-    await user.type(screen.getByLabelText(/^contraseña$/i), 'password123');
+    await user.type(screen.getByLabelText(/^contraseña/i), 'password123');
     await user.click(screen.getByRole('button', { name: /iniciar sesión/i }));
 
     await waitFor(() => {
@@ -104,7 +100,7 @@ describe('Login Component', () => {
     const user = userEvent.setup();
 
     await user.type(screen.getByLabelText(/correo electrónico/i), 'ana@example.com');
-    await user.type(screen.getByLabelText(/^contraseña$/i), 'wrongpassword');
+    await user.type(screen.getByLabelText(/^contraseña/i), 'wrongpassword');
     await user.click(screen.getByRole('button', { name: /iniciar sesión/i }));
 
     await waitFor(() => {
@@ -118,7 +114,7 @@ describe('Login Component', () => {
     const user = userEvent.setup();
 
     await user.type(screen.getByLabelText(/correo electrónico/i), 'ana@example.com');
-    await user.type(screen.getByLabelText(/^contraseña$/i), 'password123');
+    await user.type(screen.getByLabelText(/^contraseña/i), 'password123');
     await user.click(screen.getByRole('button', { name: /iniciar sesión/i }));
 
     await waitFor(() => {
@@ -133,6 +129,6 @@ describe('Login Component', () => {
     expect(boton).toHaveAttribute('aria-pressed', 'false');
     await user.click(boton);
     expect(screen.getByRole('button', { name: /ocultar la contraseña/i })).toHaveAttribute('aria-pressed', 'true');
-    expect(screen.getByLabelText(/^contraseña$/i)).toHaveAttribute('type', 'text');
+    expect(screen.getByLabelText(/^contraseña/i)).toHaveAttribute('type', 'text');
   });
 });
