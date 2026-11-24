@@ -66,3 +66,37 @@ describe('pdfService', () => {
     expect(bufferCartel.length).toBeGreaterThan(0);
   });
 });
+
+// El cartel solo anuncia a la mascota como perdida si tiene un reporte activo
+describe('HU-31: texto del cartel según el estado de la mascota', () => {
+  const PDFDocument = require('pdfkit');
+  let textos;
+  beforeEach(() => {
+    textos = [];
+    const original = PDFDocument.prototype.text;
+    jest.spyOn(PDFDocument.prototype, 'text').mockImplementation(function (texto, ...resto) {
+      textos.push(String(texto));
+      return original.call(this, texto, ...resto);
+    });
+  });
+  afterEach(() => jest.restoreAllMocks());
+
+  test('Sin reporte activo es una ficha de identificación y no dice "perdida" ni "se busca"', async () => {
+    await generarCartelMascota(MASCOTA_MOCK);
+    const todo = textos.join(' | ');
+    expect(todo).toMatch(/FICHA DE IDENTIFICACIÓN/);
+    expect(todo).not.toMatch(/perdid|se busca/i);
+  });
+
+  test('Con reporte activo dice "¡Se busca!" y la fecha de pérdida, con el género correcto', async () => {
+    await generarCartelMascota(MASCOTA_MOCK, { reporte: { fecha_perdida: '2026-11-20' } });
+    const todo = textos.join(' | ');
+    expect(todo).toMatch(/¡SE BUSCA!/);
+    expect(todo).toMatch(/Perdido desde el 20\/11\/2026/);
+    expect(todo).toMatch(/Si lo viste/);
+
+    textos = [];
+    await generarCartelMascota({ ...MASCOTA_MOCK, sexo: 'hembra' }, { reporte: { fecha_perdida: '2026-11-20' } });
+    expect(textos.join(' | ')).toMatch(/Perdida desde el 20\/11\/2026.*Si la viste/);
+  });
+});

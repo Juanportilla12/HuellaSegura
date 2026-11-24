@@ -1,4 +1,4 @@
-const { Mascota } = require('../models');
+const { Mascota, Reporte } = require('../models');
 const { generarCartelMascota, descargarImagen } = require('../services/pdfService');
 const { generarQR } = require('../services/qrService');
 const { generarPdfSemanal } = require('../services/reporteSemanalService');
@@ -15,12 +15,17 @@ async function cartelMascota(req, res, next) {
     }
 
     const datos = mascota.toPublicJSON();
-    const [{ buffer: qrBuffer }, fotoBuffer] = await Promise.all([
+    // El cartel dice "Se busca" solo si la mascota tiene un reporte de pérdida activo
+    const [{ buffer: qrBuffer }, fotoBuffer, reporteActivo] = await Promise.all([
       generarQR(mascota.codigo_publico),
       descargarImagen(datos.foto_principal),
+      Reporte.findOne({
+        where: { mascota_id: mascota.id, estado: 'en_busqueda', moderado: false },
+        attributes: ['fecha_perdida'],
+      }),
     ]);
 
-    const buffer = await generarCartelMascota(datos, { qrBuffer, fotoBuffer });
+    const buffer = await generarCartelMascota(datos, { qrBuffer, fotoBuffer, reporte: reporteActivo });
     res.set({
       'Content-Type': 'application/pdf',
       'Content-Disposition': descargaAdjunta('cartel', mascota.nombre, 'pdf'),

@@ -38,17 +38,27 @@ async function descargarImagen(url) {
   }
 }
 
+// Fecha YYYY-MM-DD → "24/11/2026" (sin pasar por Date para no correr el día por zona horaria)
+function fechaCorta(fecha) {
+  const [a, m, d] = String(fecha).slice(0, 10).split('-');
+  return d && m && a ? `${d}/${m}/${a}` : String(fecha);
+}
+
 /**
  * HU-31: cartel A4 imprimible con foto, datos y código QR de la mascota.
+ * Con un reporte de pérdida activo es un cartel de búsqueda ("¡Se busca!"); sin él es una
+ * ficha de identificación, para no anunciar como perdida a una mascota que está en casa.
  */
-async function generarCartelMascota(mascota, { qrBuffer = null, fotoBuffer = null } = {}) {
+async function generarCartelMascota(mascota, { qrBuffer = null, fotoBuffer = null, reporte = null } = {}) {
   return crearBuffer((doc) => {
     const ancho = doc.page.width;
+    const perdida = Boolean(reporte);
+    const hembra = mascota.sexo === 'hembra';
 
     // Encabezado
-    doc.rect(0, 0, ancho, 80).fill(NARANJA);
+    doc.rect(0, 0, ancho, 80).fill(perdida ? NARANJA : CORAL);
     doc.fillColor('white').fontSize(28).font('Helvetica-Bold')
-      .text('¡MASCOTA PERDIDA!', 50, 24, { align: 'center' });
+      .text(perdida ? '¡SE BUSCA!' : 'FICHA DE IDENTIFICACIÓN', 50, 24, { align: 'center' });
 
     // Foto
     let y = 100;
@@ -62,6 +72,10 @@ async function generarCartelMascota(mascota, { qrBuffer = null, fotoBuffer = nul
     // Nombre
     doc.fontSize(32).font('Helvetica-Bold').fillColor(CORAL)
       .text(mascota.nombre, 50, y, { align: 'center' });
+    if (perdida && reporte.fecha_perdida) {
+      doc.fontSize(14).font('Helvetica-Bold').fillColor(TEXTO)
+        .text(`${hembra ? 'Perdida' : 'Perdido'} desde el ${fechaCorta(reporte.fecha_perdida)}`, { align: 'center' });
+    }
 
     // Detalles
     doc.moveDown(0.4).fontSize(14).font('Helvetica').fillColor(TEXTO);
@@ -89,7 +103,9 @@ async function generarCartelMascota(mascota, { qrBuffer = null, fotoBuffer = nul
 
     // Pie
     doc.moveDown(0.8).fontSize(15).font('Helvetica-Bold').fillColor(CORAL)
-      .text('Si la viste, repórtalo en HuellaSegura', { align: 'center' });
+      .text(perdida
+        ? `Si ${hembra ? 'la' : 'lo'} viste, repórtalo en HuellaSegura`
+        : `Si me encuentras sin mi familia, escanea el código`, { align: 'center' });
     doc.fontSize(11).font('Helvetica').fillColor(SUAVE)
       .text(`Pasto, Nariño — ${new Date().toLocaleDateString('es-CO')}`, { align: 'center' });
   });
