@@ -31,10 +31,10 @@ describe('useGeolocalizacion', () => {
     expect(result.current.cargando).toBe(false);
   });
 
-  test('Retorna error cuando el usuario deniega la geolocalización', async () => {
+  test('Retorna error cuando no se puede obtener la ubicación', async () => {
     const mockGeolocation = {
       getCurrentPosition: vi.fn().mockImplementation((onSuccess, onError) => {
-        onError({ code: 1, message: 'User denied Geolocation' });
+        onError({ code: 2, message: 'Position unavailable' }); // sin señal (el permiso denegado abre la guía)
       }),
     };
     Object.defineProperty(global.navigator, 'geolocation', {
@@ -47,7 +47,7 @@ describe('useGeolocalizacion', () => {
 
     expect(result.current.coords).toBeNull();
     expect(result.current.error).toBeTruthy();
-    expect(result.current.error).toMatch(/ubicación/i);
+    expect(result.current.error).toMatch(/no pudimos ubicarte/i);
     expect(result.current.cargando).toBe(false);
   });
 

@@ -17,6 +17,7 @@ import { geocodificarReversa } from '../services/geocodificacionService';
 import { CELULAR_REGEX, mostrarPrimerError } from '../utils/formulario';
 import { mensajeErrorUbicacion } from '../utils/ubicacion';
 import { usePermisoUbicacion, RECHAZADO } from '../hooks/usePermisoUbicacion';
+import { entrarComoInvitado } from '../utils/invitado';
 
 // R7 reporteAvistamiento / R11: cualquier persona, sin cuenta, reporta dónde vio
 // una mascota perdida. Si llega desde el QR o el mapa, la mascota ya viene elegida.
@@ -53,6 +54,11 @@ function MascotaDesdeQR({ codigo, onResuelta, onNoEncontrada }) {
 }
 
 export default function ReportarAvistamiento() {
+  // Quien llega sin cuenta (escaneó el QR o abrió un enlace) queda como invitado:
+  // así "Volver al inicio", el mapa y el directorio no lo mandan al inicio de sesión
+  useEffect(() => {
+    if (!localStorage.getItem('token')) entrarComoInvitado();
+  }, []);
   const navigate = useNavigate();
   const [params] = useSearchParams();
   const codigoDesdeUrl = params.get('mascota') || '';

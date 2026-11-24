@@ -8,6 +8,7 @@ import BotonesCompartir from '../components/BotonesCompartir';
 import IconoEspecie from '../components/ui/IconoEspecie';
 import MapaEstatico from '../components/mapa/MapaEstatico';
 import { focoVisible } from '../components/auth/AuthUI';
+import { entrarComoInvitado } from '../utils/invitado';
 
 // Días transcurridos desde la fecha de pérdida (AAAA-MM-DD), en hora local
 function diasDesde(fecha) {
@@ -50,6 +51,11 @@ function Cargando() {
 }
 
 export default function PerfilPublico() {
+  // Quien llega sin cuenta (escaneó el QR o abrió un enlace) queda como invitado:
+  // así "Volver al inicio", el mapa y el directorio no lo mandan al inicio de sesión
+  useEffect(() => {
+    if (!localStorage.getItem('token')) entrarComoInvitado();
+  }, []);
   const { codigo } = useParams();
   const navigate = useNavigate();
 

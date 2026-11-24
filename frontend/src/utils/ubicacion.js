@@ -46,3 +46,46 @@ export function mensajeErrorUbicacion(error, { conMapa = true } = {}) {
   }
   return `No pudimos ubicarte (señal de GPS débil).${alternativa}`;
 }
+
+const esAndroid = () => /Android/i.test(navigator.userAgent);
+
+// Pasos para activar el permiso de ubicación cuando el navegador lo tiene bloqueado.
+// Una página web no puede abrir los Ajustes del teléfono (solo las apps instaladas
+// pueden), así que se guía al usuario por el camino más corto en cada plataforma.
+export function pasosActivarUbicacion() {
+  if (esNavegadorDeApp()) {
+    return {
+      pasos: [
+        'Toca el menú (⋯ o ⋮) de esta ventana.',
+        'Elige "Abrir en Safari" o "Abrir en el navegador".',
+        'Allí, cuando te pregunte, toca "Permitir".',
+      ],
+    };
+  }
+  if (esIOS()) {
+    return {
+      pasos: [
+        'Toca el botón de menú junto a la dirección de la página (☰ o "aA").',
+        'Entra a "Configuración del sitio web".',
+        'En "Ubicación", elige "Permitir".',
+      ],
+      nota: 'Si no aparece la opción, ve a Ajustes del iPhone › Privacidad y seguridad › Localización (activada) › Sitios web de Safari › "Al usar la app".',
+    };
+  }
+  if (esAndroid()) {
+    return {
+      pasos: [
+        'Toca el ícono a la izquierda de la dirección de la página.',
+        'Entra a "Permisos" o "Configuración del sitio".',
+        'En "Ubicación", elige "Permitir".',
+      ],
+      nota: 'Revisa también que la ubicación del teléfono esté activada en el panel de accesos rápidos.',
+    };
+  }
+  return {
+    pasos: [
+      'Haz clic en el ícono a la izquierda de la dirección de la página.',
+      'En "Ubicación", elige "Permitir".',
+    ],
+  };
+}

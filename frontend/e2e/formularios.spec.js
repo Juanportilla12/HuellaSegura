@@ -142,13 +142,21 @@ test.describe('Permiso de ubicación', () => {
     await expect(page.getByText('Ubicación marcada. Toca otro punto para moverla.')).toBeVisible();
   });
 
-  test('si el navegador niega el permiso, explica cómo activarlo sin bloquear el formulario', async ({ page }) => {
+  test('si el navegador tiene bloqueada la ubicación, guía cómo activarla y permite reintentar', async ({ page, context }) => {
     await page.addInitScript(() => localStorage.setItem('hs-bienvenida-vista', '1'));
     await page.goto('/avistamientos/nuevo');
     await page.getByRole('button', { name: /estoy aquí/i }).click();
     await page.getByRole('button', { name: 'Permitir' }).click();
-    await expect(page.getByText(/no hay permiso de ubicación/i)).toBeVisible();
-    await expect(page.getByText(/mientras tanto, toca el mapa/i)).toBeVisible();
+
+    // El navegador la niega: en vez de un error aparece la guía con los pasos
+    await expect(page.getByRole('alertdialog', { name: /activa la ubicación/i })).toBeVisible();
+    await expect(page.getByTestId('pasos-ubicacion')).toContainText(/ubicación/i);
+
+    // El usuario la activa y reintenta sin salir de la pantalla
+    await context.grantPermissions(['geolocation']);
+    await context.setGeolocation({ latitude: 1.2136, longitude: -77.2811 });
+    await page.getByRole('button', { name: /ya lo activé/i }).click();
+    await expect(page.getByText('Ubicación marcada. Toca otro punto para moverla.')).toBeVisible();
   });
 });
 
