@@ -131,7 +131,22 @@ describe('Sprint 5 — ConfiguracionPerfil (DoD)', () => {
     };
     usuarioService.actualizarUbicacion.mockResolvedValue({});
     renderPage();
-    await userEvent.setup().click(screen.getByRole('switch', { name: /alertas por proximidad/i }));
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('switch', { name: /alertas por proximidad/i }));
+    // La app pregunta antes de pedir la ubicación al navegador
+    await user.click(await screen.findByRole('button', { name: 'Permitir' }));
     await waitFor(() => expect(usuarioService.actualizarUbicacion).toHaveBeenCalledWith(1.21, -77.28));
+  });
+
+  test('Si el usuario elige "Ahora no", no se pide la ubicación ni se activan las alertas', async () => {
+    const getCurrentPosition = vi.fn();
+    global.navigator.geolocation = { getCurrentPosition };
+    renderPage();
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('switch', { name: /alertas por proximidad/i }));
+    await user.click(await screen.findByRole('button', { name: 'Ahora no' }));
+    await waitFor(() => expect(screen.queryByRole('button', { name: 'Permitir' })).not.toBeInTheDocument());
+    expect(getCurrentPosition).not.toHaveBeenCalled();
+    expect(usuarioService.actualizarUbicacion).not.toHaveBeenCalled();
   });
 });

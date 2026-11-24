@@ -15,6 +15,8 @@ import { crearAvistamiento } from '../services/avistamientoService';
 import { obtenerPerfilPublico } from '../services/perfilPublicoService';
 import { geocodificarReversa } from '../services/geocodificacionService';
 import { CELULAR_REGEX, mostrarPrimerError } from '../utils/formulario';
+import { mensajeErrorUbicacion } from '../utils/ubicacion';
+import { usePermisoUbicacion, RECHAZADO } from '../hooks/usePermisoUbicacion';
 
 // R7 reporteAvistamiento / R11: cualquier persona, sin cuenta, reporta dónde vio
 // una mascota perdida. Si llega desde el QR o el mapa, la mascota ya viene elegida.
@@ -55,6 +57,10 @@ export default function ReportarAvistamiento() {
   const [params] = useSearchParams();
   const codigoDesdeUrl = params.get('mascota') || '';
   const geocodeTimer = useRef(null);
+  const { solicitarUbicacion, dialogoUbicacion } = usePermisoUbicacion({
+    motivo: 'Así marcamos en el mapa dónde viste a la mascota. Solo se usa para este aviso.',
+  });
+  const [avisoGPS, setAvisoGPS] = useState('');
 
   const [mascotaId,   setMascotaId]   = useState('');
   const [codigo,      setCodigo]      = useState(codigoDesdeUrl);
@@ -79,6 +85,7 @@ export default function ReportarAvistamiento() {
 
   function handleCoordsChange(lat, lng) {
     setCoords({ lat, lng });
+    setAvisoGPS('');
     setErrores((p) => ({ ...p, coords: '' }));
     setDireccion('Buscando dirección…');
     clearTimeout(geocodeTimer.current);
@@ -87,13 +94,13 @@ export default function ReportarAvistamiento() {
 
   // Quien la está viendo en este momento puede usar su ubicación actual
   function usarMiUbicacion() {
-    if (!navigator.geolocation) return setErrores((p) => ({ ...p, coords: 'Tu navegador no permite obtener la ubicación. Márcala en el mapa.' }));
     setBuscandoGPS(true);
-    navigator.geolocation.getCurrentPosition(
-      ({ coords: c }) => { handleCoordsChange(c.latitude, c.longitude); setBuscandoGPS(false); },
-      () => { setErrores((p) => ({ ...p, coords: 'No se pudo obtener tu ubicación. Toca el mapa para marcarla.' })); setBuscandoGPS(false); },
-      { timeout: 10000, enableHighAccuracy: true }
-    );
+    setAvisoGPS('');
+    solicitarUbicacion()
+      .then(({ lat, lng }) => { setAvisoGPS(''); handleCoordsChange(lat, lng); })
+      // Si el usuario prefiere no compartirla, no es un error: marca el punto en el mapa
+      .catch((error) => { if (error.code !== RECHAZADO) setAvisoGPS(mensajeErrorUbicacion(error)); })
+      .finally(() => setBuscandoGPS(false));
   }
 
   function validar() {
@@ -168,8 +175,9 @@ export default function ReportarAvistamiento() {
             </button>
           }>
             <MapaSelector coords={coords} onCoordsChange={handleCoordsChange} address={direccion} />
-            <p className={`px-4 py-3 text-[13px] ${errores.coords ? 'font-medium text-red-600 dark:text-red-400' : 'text-gray-500 dark:text-white/50'}`}>
-              {errores.coords || (coords.lat ? 'Ubicación marcada. Toca otro punto para moverla.' : 'Toca el mapa para marcar el lugar exacto.')}
+            <p className={`px-4 py-3 text-[13px] ${errores.coords ? 'font-medium text-red-600 dark:text-red-400'
+              : avisoGPS ? 'text-amber-700 dark:text-amber-400' : 'text-gray-500 dark:text-white/50'}`}>
+              {errores.coords || avisoGPS || (coords.lat ? 'Ubicación marcada. Toca otro punto para moverla.' : 'Toca el mapa para marcar el lugar exacto.')}
             </p>
           </SeccionFormulario>
 
@@ -211,6 +219,7 @@ export default function ReportarAvistamiento() {
           </BotonPrimario>
         </div>
       </form>
+      {dialogoUbicacion}
     </div>
   );
 }

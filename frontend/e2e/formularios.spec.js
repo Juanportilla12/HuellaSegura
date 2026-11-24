@@ -83,6 +83,10 @@ test.describe('Reportar mascota perdida', () => {
     const mascota = await crearMascotaPorApi(request, cuenta.token, { nombre: 'Kira' });
     await entrarConSesion(page, cuenta);
     await page.goto('/reportes/nuevo');
+    // Al abrir, la app pregunta si puede usar la ubicación; el usuario prefiere marcarla a mano
+    await expect(page.getByRole('alertdialog', { name: /usar tu ubicación/i })).toBeVisible();
+    await page.getByRole('button', { name: 'Ahora no' }).click();
+    await expect(page.getByText('Toca el mapa para marcar dónde se perdió.')).toBeVisible();
 
     await page.getByRole('button', { name: /publicar reporte/i }).click();
     await expect(page.getByText('Selecciona la mascota que se perdió.')).toBeVisible();
@@ -99,6 +103,7 @@ test.describe('Reportar mascota perdida', () => {
     const mascota = await crearMascotaPorApi(request, cuenta.token);
     await entrarConSesion(page, cuenta);
     await page.goto('/reportes/nuevo');
+    await page.getByRole('button', { name: 'Ahora no' }).click();
     await page.getByTestId(`mascota-opcion-${mascota.id}`).click();
     await marcarEnMapa(page);
     await page.getByTestId('input-fecha').fill('2099-01-01');
@@ -120,6 +125,30 @@ test.describe('Reportar avistamiento (sin cuenta)', () => {
     await page.getByLabel(/tu celular/i).fill('abc');
     await page.getByTestId('btn-enviar-avistamiento').click();
     await expect(page.getByText(/ingresa un celular válido/i)).toBeVisible();
+  });
+});
+
+test.describe('Permiso de ubicación', () => {
+  test('"Estoy aquí" pregunta antes; con permiso del navegador marca el punto', async ({ page, context }) => {
+    await page.addInitScript(() => localStorage.setItem('hs-bienvenida-vista', '1'));
+    await page.goto('/avistamientos/nuevo');
+    await page.getByRole('button', { name: /estoy aquí/i }).click();
+    await expect(page.getByRole('alertdialog', { name: /usar tu ubicación/i })).toBeVisible();
+
+    // El navegador concede el permiso cuando el usuario acepta
+    await context.grantPermissions(['geolocation']);
+    await context.setGeolocation({ latitude: 1.2136, longitude: -77.2811 });
+    await page.getByRole('button', { name: 'Permitir' }).click();
+    await expect(page.getByText('Ubicación marcada. Toca otro punto para moverla.')).toBeVisible();
+  });
+
+  test('si el navegador niega el permiso, explica cómo activarlo sin bloquear el formulario', async ({ page }) => {
+    await page.addInitScript(() => localStorage.setItem('hs-bienvenida-vista', '1'));
+    await page.goto('/avistamientos/nuevo');
+    await page.getByRole('button', { name: /estoy aquí/i }).click();
+    await page.getByRole('button', { name: 'Permitir' }).click();
+    await expect(page.getByText(/no hay permiso de ubicación/i)).toBeVisible();
+    await expect(page.getByText(/mientras tanto, toca el mapa/i)).toBeVisible();
   });
 });
 

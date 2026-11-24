@@ -7,6 +7,8 @@ import * as usuarioService from '../../services/usuarioService';
 import Interruptor from '../ui/Interruptor';
 import { focoVisible, inputAuth } from '../auth/AuthUI';
 import { CELULAR_REGEX } from '../../utils/formulario';
+import { mensajeErrorUbicacion } from '../../utils/ubicacion';
+import { usePermisoUbicacion, RECHAZADO } from '../../hooks/usePermisoUbicacion';
 
 // Grupo de ajustes con título, al estilo de las apps nativas
 export function Grupo({ titulo, children }) {
@@ -38,16 +40,22 @@ function AjusteAlertas() {
   const { usuario, actualizarUsuario } = useAuth();
   const [cambiando, setCambiando] = useState(false);
   const activas = Boolean(usuario?.alertas_activas);
+  const { solicitarUbicacion, dialogoUbicacion } = usePermisoUbicacion({
+    motivo: 'Así te avisamos cuando se pierda una mascota cerca de ti. Puedes desactivarlo cuando quieras.',
+  });
 
   async function cambiar(activar) {
     setCambiando(true);
     try {
       if (activar) {
-        const pos = await new Promise((resolve, reject) => {
-          if (!navigator.geolocation) reject(new Error('sin-geo'));
-          else navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 10000 });
-        });
-        await usuarioService.actualizarUbicacion(pos.coords.latitude, pos.coords.longitude);
+        let pos;
+        try {
+          pos = await solicitarUbicacion();
+        } catch (errorGps) {
+          if (errorGps.code !== RECHAZADO) toast.error(mensajeErrorUbicacion(errorGps, { conMapa: false }));
+          return;
+        }
+        await usuarioService.actualizarUbicacion(pos.lat, pos.lng);
         toast.success('Alertas activadas. Te avisaremos de mascotas perdidas cerca de ti.');
       } else {
         await usuarioService.desactivarUbicacion();
@@ -71,6 +79,7 @@ function AjusteAlertas() {
         </p>
       </div>
       <Interruptor etiqueta="Alertas por proximidad" activo={activas} deshabilitado={cambiando} onCambio={cambiar} />
+      {dialogoUbicacion}
     </div>
   );
 }

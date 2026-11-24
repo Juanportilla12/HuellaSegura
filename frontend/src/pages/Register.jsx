@@ -6,6 +6,7 @@ import { actualizarUbicacion } from '../services/usuarioService';
 import { useAuth } from '../context/AuthContext';
 import { CORREO_REGEX, CELULAR_REGEX } from '../utils/formulario';
 import fotoPasto from '../assets/mascotas-pasto.webp';
+import { obtenerUbicacion } from '../utils/ubicacion';
 import {
   PantallaAuth, CabeceraFoto, HojaAuth, EncabezadoHoja, Progreso,
   CampoAuth, inputAuth, BotonVerClave, AlertaError, BotonPrimario, MarcaObligatorio, focoVisible,
@@ -174,12 +175,10 @@ export default function Register() {
         nombre: form.nombre.trim(), email: form.email.trim(), celular: form.celular.trim(), password: form.password,
       });
       // Consentimiento explícito de ubicación para alertas por proximidad (Ley 1581)
-      if (aceptaUbicacion && navigator.geolocation) {
-        navigator.geolocation.getCurrentPosition(
-          ({ coords }) => actualizarUbicacion(coords.latitude, coords.longitude).catch(() => {}),
-          () => {},
-          { timeout: 10000 }
-        );
+      if (aceptaUbicacion) {
+        obtenerUbicacion()
+          .then(({ lat, lng }) => actualizarUbicacion(lat, lng))
+          .catch(() => {});
       }
       navigate('/', { replace: true });
     } catch (err) {

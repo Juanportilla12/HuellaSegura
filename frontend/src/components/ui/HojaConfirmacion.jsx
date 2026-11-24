@@ -4,7 +4,7 @@ import { focoVisible } from '../auth/AuthUI';
 
 // Hoja inferior para confirmar acciones importantes (p. ej. eliminar). Se cierra con Escape o tocando fuera.
 // `extra` permite agregar contenido debajo del texto (p. ej. un campo de contraseña).
-export default function HojaConfirmacion({ abierta, titulo, children, extra, textoConfirmar, peligro = false, cargando = false, onConfirmar, onCancelar }) {
+export default function HojaConfirmacion({ abierta, titulo, children, extra, textoConfirmar, textoCancelar = 'Cancelar', peligro = false, cargando = false, onConfirmar, onCancelar }) {
   const cancelarRef = useRef(null);
 
   useEffect(() => {
@@ -38,7 +38,7 @@ export default function HojaConfirmacion({ abierta, titulo, children, extra, tex
               <button ref={cancelarRef} type="button" onClick={onCancelar}
                 className={`h-12 rounded-2xl font-semibold text-[15px] text-dark-700 dark:text-white/80
                             hover:bg-gray-100 dark:hover:bg-white/5 ${focoVisible}`}>
-                Cancelar
+                {textoCancelar}
               </button>
             </div>
           </motion.div>

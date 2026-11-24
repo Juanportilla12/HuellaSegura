@@ -5,6 +5,8 @@ import { useAuth } from './AuthContext';
 import { useSSE } from '../hooks/useSSE';
 import { listarNotificaciones } from '../services/notificacionService';
 import { actualizarUbicacion } from '../services/usuarioService';
+import { obtenerUbicacion } from '../utils/ubicacion';
+import { permisoYaConcedido } from '../hooks/usePermisoUbicacion';
 
 const NotificacionesContext = createContext({ noLeidas: 0, refrescar: () => {} });
 
@@ -31,12 +33,13 @@ export function NotificacionesProvider({ children }) {
   }, [estaAutenticado, refrescar]);
 
   useEffect(() => {
-    if (!usuario?.alertas_activas || !navigator.geolocation) return;
-    navigator.geolocation.getCurrentPosition(
-      ({ coords }) => actualizarUbicacion(coords.latitude, coords.longitude).catch(() => {}),
-      () => {},
-      { timeout: 10000, maximumAge: 5 * 60 * 1000 }
-    );
+    // Actualiza la ubicación en segundo plano solo si el navegador ya tiene el permiso:
+    // nunca aparece una solicitud de ubicación sin que el usuario la haya pedido
+    if (!usuario?.alertas_activas) return;
+    permisoYaConcedido()
+      .then((concedido) => (concedido ? obtenerUbicacion() : null))
+      .then((pos) => pos && actualizarUbicacion(pos.lat, pos.lng))
+      .catch(() => {});
   }, [usuario?.id, usuario?.alertas_activas]);
 
   useSSE(useCallback((tipo, datos) => {

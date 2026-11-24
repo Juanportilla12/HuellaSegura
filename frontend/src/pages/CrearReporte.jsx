@@ -12,6 +12,8 @@ import * as reporteService from '../services/reporteService';
 import { listarMascotas } from '../services/mascotaService';
 import { geocodificarReversa } from '../services/geocodificacionService';
 import { mostrarPrimerError } from '../utils/formulario';
+import { mensajeErrorUbicacion } from '../utils/ubicacion';
+import { usePermisoUbicacion, RECHAZADO } from '../hooks/usePermisoUbicacion';
 
 // HU-09 / R6 registroUbicacionPerdida.
 // Flujo de tres pasos recomendado por el experto: elegir la mascota, confirmar la
@@ -35,6 +37,9 @@ export default function CrearReporte() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const geocodeTimer = useRef(null);
+  const { solicitarUbicacion, dialogoUbicacion } = usePermisoUbicacion({
+    motivo: 'Así marcamos en el mapa dónde se perdió tu mascota. Solo se usa para este reporte.',
+  });
 
   const [mascotas,     setMascotas]     = useState([]);
   const [cargandoMasc, setCargandoMasc] = useState(true);
@@ -68,21 +73,14 @@ export default function CrearReporte() {
 
   // Sugiere la ubicación actual; si el usuario la niega, puede marcarla en el mapa
   const usarMiUbicacion = useCallback(() => {
-    if (!navigator.geolocation) {
-      setAvisoGPS('Tu navegador no permite obtener la ubicación. Márcala en el mapa.');
-      return;
-    }
     setBuscandoGPS(true);
     setAvisoGPS('');
-    navigator.geolocation.getCurrentPosition(
-      ({ coords: c }) => { handleCoordsChange(c.latitude, c.longitude); setBuscandoGPS(false); },
-      () => {
-        setAvisoGPS('No se pudo obtener tu ubicación. Toca el mapa para marcar dónde se perdió.');
-        setBuscandoGPS(false);
-      },
-      { timeout: 10000, enableHighAccuracy: true }
-    );
-  }, [handleCoordsChange]);
+    solicitarUbicacion()
+      .then(({ lat, lng }) => handleCoordsChange(lat, lng))
+      // Si el usuario prefiere no compartirla, no es un error: marca el punto en el mapa
+      .catch((error) => { if (error.code !== RECHAZADO) setAvisoGPS(mensajeErrorUbicacion(error)); })
+      .finally(() => setBuscandoGPS(false));
+  }, [handleCoordsChange, solicitarUbicacion]);
 
   useEffect(() => { usarMiUbicacion(); }, [usarMiUbicacion]);
 
@@ -135,7 +133,8 @@ export default function CrearReporte() {
     );
   }
 
-  const textoMapa = errores.coords || avisoGPS || 'Toca el mapa para ajustar el punto exacto.';
+  const textoMapa = errores.coords || avisoGPS
+    || (coords.lat ? 'Toca el mapa para ajustar el punto exacto.' : 'Toca el mapa para marcar dónde se perdió.');
   const colorMapa = errores.coords ? 'font-medium text-red-600 dark:text-red-400'
     : avisoGPS ? 'text-amber-700 dark:text-amber-400' : 'text-gray-500 dark:text-white/50';
 
@@ -193,6 +192,7 @@ export default function CrearReporte() {
           </BotonPrimario>
         </div>
       </form>
+      {dialogoUbicacion}
     </div>
   );
 }

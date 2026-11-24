@@ -4,7 +4,13 @@ import { useGeolocalizacion } from '../../src/hooks/useGeolocalizacion';
 
 // ─── Suite ────────────────────────────────────────────────────────────────────
 describe('useGeolocalizacion', () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => {
+    vi.clearAllMocks();
+    // Permiso ya concedido en el navegador: no se muestra la ventana de la app
+    Object.defineProperty(global.navigator, 'permissions', {
+      value: { query: vi.fn().mockResolvedValue({ state: 'granted' }) }, configurable: true,
+    });
+  });
 
   test('Retorna coordenadas cuando el navegador las concede', async () => {
     const mockGeolocation = {
@@ -18,7 +24,7 @@ describe('useGeolocalizacion', () => {
 
     const { result } = renderHook(() => useGeolocalizacion());
 
-    act(() => { result.current.obtenerUbicacion(); });
+    await act(async () => { result.current.obtenerUbicacion(); });
 
     expect(result.current.coords).toEqual({ lat: 1.2136, lng: -77.2811 });
     expect(result.current.error).toBeNull();
@@ -37,7 +43,7 @@ describe('useGeolocalizacion', () => {
 
     const { result } = renderHook(() => useGeolocalizacion());
 
-    act(() => { result.current.obtenerUbicacion(); });
+    await act(async () => { result.current.obtenerUbicacion(); });
 
     expect(result.current.coords).toBeNull();
     expect(result.current.error).toBeTruthy();

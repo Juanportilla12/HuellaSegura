@@ -16,6 +16,7 @@ import PanelFiltrosMapa from '../components/mapa/PanelFiltrosMapa';
 import { crearPinReporte, PIN_ENTIDAD } from '../components/mapa/pinesMapa';
 import { filtrarReportes } from '../components/mapa/filtrosMapa';
 import { focoVisible } from '../components/auth/AuthUI';
+import { toast } from 'sonner';
 
 // R10 / HU-10, HU-13 a HU-16: mapa de reportes activos y entidades aliadas
 
@@ -38,7 +39,7 @@ export default function MapaPrincipal() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const reporteParam = searchParams.get('reporte');
-  const { coords: ubicacionUsuario, obtenerUbicacion } = useGeolocalizacion();
+  const { coords: ubicacionUsuario, obtenerUbicacion, error: errorUbicacion, dialogoUbicacion } = useGeolocalizacion();
 
   const [reportes,  setReportes]  = useState([]);
   const [entidades, setEntidades] = useState([]);
@@ -70,6 +71,8 @@ export default function MapaPrincipal() {
   useEffect(() => {
     if (ubicacionUsuario) setCentrarEn(ubicacionUsuario);
   }, [ubicacionUsuario]);
+
+  useEffect(() => { if (errorUbicacion) toast.error(errorUbicacion); }, [errorUbicacion]);
 
   function irAMiUbicacion() {
     if (ubicacionUsuario) setCentrarEn({ ...ubicacionUsuario });
@@ -148,6 +151,7 @@ export default function MapaPrincipal() {
         )}
       </AnimatePresence>
 
+      {dialogoUbicacion}
       <BottomNav />
     </div>
   );
