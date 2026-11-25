@@ -1,4 +1,4 @@
-import { lazy, Suspense, useRef } from 'react';
+import { lazy, Suspense, useRef, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useLocation, useNavigationType } from 'react-router-dom';
 import { AnimatePresence } from 'framer-motion';
 import { AuthProvider } from './context/AuthContext';
@@ -43,6 +43,13 @@ function AnimatedRoutes() {
   const claveAnimada = useRef(clave);
   if (tipoNavegacion !== 'REPLACE') claveAnimada.current = clave;
   const routeKey = claveAnimada.current;
+
+  // Cada pantalla nueva empieza arriba. Sin esto, al pasar de una pantalla larga (Inicio)
+  // al mapa el navegador conservaba el desplazamiento: se escondía la barra de búsqueda
+  // y quedaba un espacio vacío bajo el menú. Al volver atrás se respeta la posición.
+  useEffect(() => {
+    if (tipoNavegacion !== 'POP') window.scrollTo(0, 0);
+  }, [location.pathname, tipoNavegacion]);
 
   return (
     <AnimatePresence mode="wait" initial={false}>

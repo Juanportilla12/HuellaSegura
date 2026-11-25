@@ -11,12 +11,28 @@
     font-family: 'Inter', system-ui, sans-serif;
     -webkit-tap-highlight-color: transparent;
     scroll-behavior: smooth;
+    /* Mismo fondo que la app: en el "rebote" del iPhone se veía negro en los bordes */
+    @apply bg-warm-50 dark:bg-dark-800;
+    /* iOS no agranda el texto por su cuenta al girar el teléfono */
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+  }
+
+  /* La página nunca se desplaza de lado (clip no crea un contenedor de scroll y no rompe sticky) */
+  html, body {
+    overflow-x: clip;
+    overscroll-behavior: none;
   }
 
   body {
     @apply bg-warm-50 dark:bg-dark-800 text-dark-900 dark:text-white antialiased;
     font-family: 'Inter', system-ui, sans-serif;
-    overscroll-behavior-y: none;
+  }
+
+  /* Pantallas de alto fijo (mapa): la página no se desplaza ni rebota */
+  html.pantalla-fija, html.pantalla-fija body {
+    height: 100%;
+    overflow: hidden;
   }
 
   h1, h2, h3, h4, h5, h6 {

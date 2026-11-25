@@ -90,6 +90,15 @@ export default function MapaPrincipal() {
     else obtenerUbicacion();
   }
 
+  // Mientras el mapa está abierto la página no se desplaza: en iPhone el mapa quedaba
+  // corrido hacia arriba (sin barra de búsqueda) con un espacio vacío bajo el menú
+  useEffect(() => {
+    const html = document.documentElement;
+    window.scrollTo(0, 0);
+    html.classList.add('pantalla-fija');
+    return () => html.classList.remove('pantalla-fija');
+  }, []);
+
   const cerrarFichas  = useCallback(() => { setSeleccion(null); setEntidadSel(null); setGrupoSel(null); }, []);
   const cerrarFiltros = useCallback(() => setPanelAbierto(false), []);
 
