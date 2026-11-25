@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Camera, ChevronLeft, X, Video, Check, Cpu, Plus, Star } from 'lucide-react';
 import { toast } from 'sonner';
 import { prepararFotos } from '../utils/imagen';
+import { duracionVideo, MAX_VIDEO_SEGUNDOS } from '../utils/video';
 import * as mascotaService from '../services/mascotaService';
 import IconoEspecie from '../components/ui/IconoEspecie';
 import AreaTexto from '../components/formulario/AreaTexto';
@@ -118,8 +119,8 @@ export default function MascotaForm() {
     setFotos(p => [...p, ...validas.map(f => ({ archivo: f, preview: URL.createObjectURL(f) }))]);
   }
 
-  // R5: un video corto de la mascota
-  function handleVideo(e) {
+  // R5: un video corto de la mascota (máx. 30 s y 30 MB)
+  async function handleVideo(e) {
     const archivo = e.target.files?.[0];
     e.target.value = '';
     if (!archivo) return;
@@ -127,7 +128,11 @@ export default function MascotaForm() {
       toast.error('Formato no permitido. Usa MP4, WebM o MOV.'); return;
     }
     if (archivo.size > MAX_VIDEO_MB * 1024 * 1024) {
-      toast.error(`El video no puede superar ${MAX_VIDEO_MB} MB.`); return;
+      toast.error(`El video es muy pesado (máx. ${MAX_VIDEO_MB} MB). Graba uno más corto, de unos ${MAX_VIDEO_SEGUNDOS} segundos.`); return;
+    }
+    const segundos = await duracionVideo(archivo);
+    if (segundos && segundos > MAX_VIDEO_SEGUNDOS + 1) {
+      toast.error(`El video dura ${Math.round(segundos)} segundos. Elige uno corto, de máximo ${MAX_VIDEO_SEGUNDOS} segundos.`); return;
     }
     if (video) URL.revokeObjectURL(video.preview);
     setVideo({ archivo, preview: URL.createObjectURL(archivo) });
@@ -359,7 +364,7 @@ export default function MascotaForm() {
                   <div className="mt-4 pt-4 border-t border-warm-border dark:border-white/10">
                     {!video && videoActual && !quitarVideoActual ? (
                       <div className="flex items-center gap-3" data-testid="video-actual">
-                        <video src={videoActual} className="h-16 w-24 rounded-xl object-cover" muted preload="metadata" />
+                        <video src={videoActual} className="h-16 w-24 rounded-xl object-cover bg-black" muted playsInline preload="metadata" />
                         <span className="flex-1 text-[13px] text-gray-600 dark:text-white/60">Video guardado</span>
                         <button type="button" onClick={() => videoRef.current?.click()}
                           className={`h-9 px-3 rounded-full text-[13px] font-semibold text-primary-700 hover:bg-primary-50 ${focoVisible}`}>
@@ -386,8 +391,10 @@ export default function MascotaForm() {
                           <Video size={20} aria-hidden="true" />
                         </span>
                         <span>
-                          <span className="block text-[14px] font-semibold text-dark-900 dark:text-white">Agregar un video (opcional)</span>
-                          <span className="block text-[12px] text-gray-500 dark:text-white/50">MP4, WebM o MOV · máx. {MAX_VIDEO_MB} MB</span>
+                          <span className="block text-[14px] font-semibold text-dark-900 dark:text-white">Agregar un video corto (opcional)</span>
+                          <span className="block text-[12px] text-gray-500 dark:text-white/50">
+                            Máx. {MAX_VIDEO_SEGUNDOS} segundos · MP4 o MOV · hasta {MAX_VIDEO_MB} MB
+                          </span>
                         </span>
                       </button>
                     )}

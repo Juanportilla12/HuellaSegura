@@ -9,6 +9,7 @@ import IconoEspecie from '../components/ui/IconoEspecie';
 import MapaEstatico from '../components/mapa/MapaEstatico';
 import { focoVisible } from '../components/auth/AuthUI';
 import { entrarComoInvitado } from '../utils/invitado';
+import VideoMascota from '../components/ui/VideoMascota';
 
 // Días transcurridos desde la fecha de pérdida (AAAA-MM-DD), en hora local
 function diasDesde(fecha) {
@@ -210,8 +211,7 @@ export default function PerfilPublico() {
         )}
 
         {mascota.video_url && (
-          <video src={mascota.video_url} controls playsInline preload="metadata"
-                 className="w-full rounded-2xl" data-testid="video-mascota" />
+          <VideoMascota url={mascota.video_url} />
         )}
 
         {/* ── Último lugar donde se vio ─────────────────────────── */}

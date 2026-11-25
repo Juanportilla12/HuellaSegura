@@ -80,7 +80,9 @@ export default defineConfig({
             },
           },
           {
-            urlPattern: /^https:\/\/res\.cloudinary\.com\/.*/i,
+            // Solo fotos: los videos NO se guardan en caché. Safari (iPhone) pide los videos
+            // por partes (Range) y una respuesta completa desde la caché le impide reproducirlos.
+            urlPattern: /^https:\/\/res\.cloudinary\.com\/[^/]+\/image\/upload\//i,
             handler: 'CacheFirst',
             options: {
               cacheName: 'cloudinary-images-cache',

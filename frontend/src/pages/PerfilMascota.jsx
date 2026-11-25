@@ -9,6 +9,7 @@ import { urlPerfilPublico } from '../services/perfilPublicoService';
 import IconoEspecie from '../components/ui/IconoEspecie';
 import HojaConfirmacion from '../components/ui/HojaConfirmacion';
 import { focoVisible } from '../components/auth/AuthUI';
+import VideoMascota from '../components/ui/VideoMascota';
 
 const capitalizar = (texto) => texto.charAt(0).toUpperCase() + texto.slice(1);
 
@@ -203,8 +204,7 @@ export default function PerfilMascota() {
         )}
 
         {mascota.video_url && (
-          <video src={mascota.video_url} controls playsInline preload="metadata"
-                 className="w-full rounded-2xl" data-testid="video-mascota" />
+          <VideoMascota url={mascota.video_url} />
         )}
 
         {/* ── Herramientas ──────────────────────────────────────── */}
