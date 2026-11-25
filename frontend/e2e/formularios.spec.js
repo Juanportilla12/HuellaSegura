@@ -149,6 +149,32 @@ test.describe('Permiso de ubicación', () => {
   });
 });
 
+test.describe('Ubicación imprecisa', () => {
+  test('el botón de mi ubicación no lleva el mapa a otra ciudad si el celular da una ubicación aproximada', async ({ page, context, request }) => {
+    const cuenta = await registrarPorApi(request, datosUsuario('impreciso'));
+    await entrarConSesion(page, cuenta);
+    await context.grantPermissions(['geolocation']);
+    // Lo que pasó en el iPhone: la red móvil ubicó el teléfono en Cali con ~40 km de error
+    await context.setGeolocation({ latitude: 3.4516, longitude: -76.532, accuracy: 40000 });
+    await page.goto('/mapa');
+    // Nivel de zoom de los cuadros visibles del mapa (el botón centra con zoom 16)
+    const zoomCuadros = () => page.evaluate(() => [...new Set([...document.querySelectorAll('.leaflet-tile-loaded')]
+      .map((t) => t.src.match(/\/(\d+)\/\d+\/\d+\.png/)?.[1]))].join(','));
+    await page.waitForTimeout(1500);
+    expect(await zoomCuadros()).toBe('14');
+
+    await page.getByRole('button', { name: /centrar en mi ubicación/i }).click();
+    await expect(page.getByText(/ubicación aproximada \(con un error de unos 40 km\)/i)).toBeVisible();
+    await page.waitForTimeout(1500);
+    expect(await zoomCuadros()).toBe('14'); // el mapa no se movió a Cali
+
+    // Con una ubicación precisa sí centra el mapa en la persona
+    await context.setGeolocation({ latitude: 1.2140, longitude: -77.2790, accuracy: 20 });
+    await page.getByRole('button', { name: /centrar en mi ubicación/i }).click();
+    await expect.poll(zoomCuadros, { timeout: 8000 }).toContain('16');
+  });
+});
+
 test.describe('Perfil', () => {
   test('el celular no se puede dejar vacío', async ({ page, request }) => {
     const cuenta = await registrarPorApi(request, datosUsuario('perfil'));

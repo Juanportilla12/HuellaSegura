@@ -2,14 +2,29 @@
 // 10 s bajo techo y fallaba; si no responde, se pide la ubicación aproximada (wifi o
 // antena), que llega casi siempre en uno o dos segundos.
 
+// Más allá de este margen de error la ubicación no sirve: suele venir de la red móvil
+// (en Colombia varios operadores salen a internet por Cali o Bogotá) y no del GPS.
+export const PRECISION_MAXIMA_METROS = 1500;
+
 function pedir(opciones) {
   return new Promise((resolve, reject) => {
     navigator.geolocation.getCurrentPosition(
-      ({ coords }) => resolve({ lat: coords.latitude, lng: coords.longitude }),
+      ({ coords }) => resolve({ lat: coords.latitude, lng: coords.longitude, precision: coords.accuracy }),
       reject,
       opciones
     );
   });
+}
+
+// Una ubicación con un margen de error enorme no se usa: marcaría el punto en otra ciudad
+function exigirPrecision(ubicacion) {
+  if (Number.isFinite(ubicacion.precision) && ubicacion.precision > PRECISION_MAXIMA_METROS) {
+    const error = new Error('ubicacion-imprecisa');
+    error.code = 'IMPRECISA';
+    error.metros = ubicacion.precision;
+    throw error;
+  }
+  return ubicacion;
 }
 
 export async function obtenerUbicacion() {
@@ -18,12 +33,16 @@ export async function obtenerUbicacion() {
     error.code = 'NO_DISPONIBLE';
     throw error;
   }
+  // maximumAge 0: siempre una ubicación nueva. Con caché, después de activar la ubicación
+  // exacta el celular devolvía otra vez la misma ubicación imprecisa
+  let ubicacion;
   try {
-    return await pedir({ enableHighAccuracy: true, timeout: 15000, maximumAge: 60000 });
+    ubicacion = await pedir({ enableHighAccuracy: true, timeout: 15000, maximumAge: 0 });
   } catch (error) {
     if (error.code === 1) throw error; // permiso denegado: reintentar no sirve
-    return pedir({ enableHighAccuracy: false, timeout: 20000, maximumAge: 5 * 60000 });
+    ubicacion = await pedir({ enableHighAccuracy: false, timeout: 20000, maximumAge: 0 });
   }
+  return exigirPrecision(ubicacion);
 }
 
 const esIOS = () => /iPhone|iPad|iPod/i.test(navigator.userAgent);
@@ -32,6 +51,13 @@ const esNavegadorDeApp = () => /FBAN|FBAV|Instagram|WhatsApp|Line\//i.test(navig
 // Mensaje claro según la causa. Con `conMapa` se ofrece marcar el punto en el mapa.
 export function mensajeErrorUbicacion(error, { conMapa = true } = {}) {
   const alternativa = conMapa ? ' Mientras tanto, toca el mapa para marcar el punto.' : '';
+  if (error?.code === 'IMPRECISA') {
+    const km = Math.max(2, Math.round((error.metros || 0) / 1000));
+    const pasos = esIOS()
+      ? 'Activa la "Ubicación exacta": Ajustes › Privacidad y seguridad › Localización › Safari (o Chrome) › Ubicación exacta.'
+      : 'Activa la ubicación precisa del teléfono y, si estás bajo techo, acércate a una ventana.';
+    return `Tu celular solo dio una ubicación aproximada (con un error de unos ${km} km), así que no la usamos. ${pasos}${alternativa}`;
+  }
   if (error?.code === 'NO_DISPONIBLE') {
     return `Este navegador no permite obtener tu ubicación.${alternativa}`;
   }
