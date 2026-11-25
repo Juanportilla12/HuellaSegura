@@ -4,6 +4,7 @@ const avistamientoController = require('../controllers/avistamientoController');
 const upload = require('../middlewares/uploadMiddleware');
 const { limitadorAvistamientos } = require('../middlewares/rateLimiters');
 const { CELULAR_REGEX } = require('../utils/validaciones');
+const { authenticate, autenticacionOpcional } = require('../middlewares/authMiddleware');
 
 const router = Router();
 
@@ -21,7 +22,10 @@ const crearValidators = [
   body('email_testigo').optional({ values: 'falsy' }).isEmail().withMessage('Email inválido.'),
 ];
 
-// POST /api/avistamientos — público, sin autenticación
-router.post('/', limitadorAvistamientos, upload.single('foto'), crearValidators, avistamientoController.crear);
+// POST /api/avistamientos — público; si hay sesión iniciada queda asociado al usuario
+router.post('/', limitadorAvistamientos, autenticacionOpcional, upload.single('foto'), crearValidators, avistamientoController.crear);
+
+// GET /api/avistamientos/mios — avistamientos reportados por el usuario
+router.get('/mios', authenticate, avistamientoController.misAvistamientos);
 
 module.exports = router;

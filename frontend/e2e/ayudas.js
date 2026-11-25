@@ -50,3 +50,32 @@ export async function marcarEnMapa(page) {
   const caja = await mapa.boundingBox();
   await page.mouse.click(caja.x + caja.width / 2, caja.y + caja.height / 2);
 }
+
+// Consulta directa a la base de datos de PRUEBA (variables de backend/.env). Sirve para
+// preparar datos que no se pueden crear por la API en local (p. ej. fotos en Cloudinary).
+import { createRequire } from 'node:module';
+const requireBackend = createRequire(new URL('../../backend/package.json', import.meta.url));
+export async function consultarBD(sql, parametros = []) {
+  requireBackend('dotenv').config({ path: new URL('../../backend/.env', import.meta.url).pathname.replace(/^\/([A-Z]:)/, '$1') });
+  const mysql = requireBackend('mysql2/promise');
+  const db = await mysql.createConnection({
+    host: process.env.DB_HOST, port: Number(process.env.DB_PORT || 3306),
+    user: process.env.DB_USER, password: process.env.DB_PASSWORD, database: process.env.DB_NAME,
+  });
+  try {
+    const [resultado] = await db.query(sql, parametros);
+    return resultado;
+  } finally {
+    await db.end();
+  }
+}
+
+export async function crearReportePorApi(request, token, mascotaId, coords = { latitud: 1.2136, longitud: -77.2811 }) {
+  const hoy = new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().split('T')[0];
+  const resp = await request.post(`${API}/reportes`, {
+    headers: { Authorization: `Bearer ${token}` },
+    data: { mascota_id: mascotaId, ...coords, fecha_perdida: hoy },
+  });
+  if (!resp.ok()) throw new Error(`Crear reporte falló: ${resp.status()} ${await resp.text()}`);
+  return (await resp.json()).reporte;
+}

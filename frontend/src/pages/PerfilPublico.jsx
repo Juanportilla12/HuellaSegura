@@ -110,6 +110,8 @@ export default function PerfilPublico() {
   const { mascota, propietario, reporte_activo: reporte } = datos;
   const fotos   = mascota.foto_urls?.length ? mascota.foto_urls : (mascota.foto_principal ? [mascota.foto_principal] : []);
   const perdida = Boolean(reporte);
+  // El dueño ve su propio perfil público: no se le ofrece contactarse ni reportar que la vio
+  const esPropietario = Boolean(datos.es_propietario);
   const datosMascota = [mascota.raza, mascota.sexo, mascota.color].filter(Boolean);
   const dueno   = propietario?.nombre || 'el dueño';
   // El mensaje depende del estado: si no está reportada como perdida no se habla de "información",
@@ -233,6 +235,13 @@ export default function PerfilPublico() {
         )}
 
         {/* ── Contacto con el dueño ────────────────────────────── */}
+        {esPropietario ? (
+          <p className="rounded-3xl p-4 text-[14px] leading-snug bg-primary-50 text-primary-800 dark:bg-white/10 dark:text-white/80"
+             data-testid="aviso-propietario">
+            Así ven el perfil de {mascota.nombre} quienes escanean su código QR. Por ser tu mascota, aquí no te mostramos
+            los botones para contactarte ni para reportar que la vieron.
+          </p>
+        ) : (
         <section aria-labelledby="titulo-contacto" className="rounded-3xl p-4 bg-white dark:bg-white/5 border border-warm-border dark:border-white/10">
           <div className="flex items-center gap-3">
             <span className="h-12 w-12 shrink-0 rounded-full bg-primary-700 text-white font-poppins font-semibold text-lg
@@ -269,6 +278,7 @@ export default function PerfilPublico() {
             </p>
           )}
         </section>
+        )}
 
         {/* ── Difundir ──────────────────────────────────────────── */}
         <section aria-labelledby="titulo-difundir">
@@ -287,12 +297,21 @@ export default function PerfilPublico() {
       <div className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-mobile z-40 px-5 pt-3
                       pb-[max(env(safe-area-inset-bottom),1rem)] bg-gradient-to-t from-warm-50 via-warm-50 to-warm-50/0
                       dark:from-dark-800 dark:via-dark-800 dark:to-dark-800/0">
+        {esPropietario ? (
+          <button type="button" onClick={() => navigate(`/mascotas/${mascota.id}`)}
+                  className={`w-full h-[52px] rounded-2xl flex items-center justify-center gap-2 font-poppins font-semibold
+                              text-[15px] text-white bg-primary-700 hover:bg-primary-800
+                              shadow-[0_8px_20px_rgba(204,74,52,0.35)] ${focoVisible}`}>
+            Ir a la ficha de {mascota.nombre}
+          </button>
+        ) : (
         <button type="button" onClick={() => navigate(`/avistamientos/nuevo?mascota=${mascota.codigo_publico}`)}
                 className={`w-full h-[52px] rounded-2xl flex items-center justify-center gap-2 font-poppins font-semibold
                             text-[15px] text-white bg-primary-700 hover:bg-primary-800
                             shadow-[0_8px_20px_rgba(204,74,52,0.35)] ${focoVisible}`}>
           <Eye size={19} aria-hidden="true" /> ¡La vi! Reportar avistamiento
         </button>
+        )}
       </div>
     </div>
   );

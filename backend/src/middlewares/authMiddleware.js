@@ -58,6 +58,16 @@ function crearAutenticador({ permitirTokenEnQuery = false } = {}) {
 }
 
 const authenticate = crearAutenticador();
+
+/**
+ * Autenticación opcional para rutas públicas: si llega un token válido se identifica al
+ * usuario (req.usuario); si no hay token o no es válido, se continúa como anónimo.
+ */
+async function autenticacionOpcional(req, res, next) {
+  if (!req.headers.authorization?.startsWith('Bearer ')) return next();
+  const continuarAnonimo = () => { delete req.usuario; next(); };
+  return authenticate(req, { status: () => ({ json: continuarAnonimo }) }, next);
+}
 const authenticateSSE = crearAutenticador({ permitirTokenEnQuery: true });
 
 function requireAdmin(req, res, next) {
@@ -70,4 +80,4 @@ function requireAdmin(req, res, next) {
   next();
 }
 
-module.exports = { authenticate, authenticateSSE, requireAdmin };
+module.exports = { authenticate, authenticateSSE, autenticacionOpcional, requireAdmin };

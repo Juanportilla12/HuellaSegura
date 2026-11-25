@@ -80,12 +80,19 @@ export default function FichaReporte({ reporte, ubicacionUsuario, onCerrar, onVe
       )}
 
       <div className="flex gap-3">
-        <button type="button" onClick={onReportarAvistamiento}
-          className={`flex-1 h-12 rounded-2xl flex items-center justify-center gap-2 font-semibold text-[15px]
-                      border-[1.5px] border-gray-300 text-dark-900 hover:bg-gray-50
-                      dark:border-white/15 dark:text-white dark:hover:bg-white/5 ${focoVisible}`}>
-          <Eye size={18} aria-hidden="true" /> La vi
-        </button>
+        {onReportarAvistamiento ? (
+          <button type="button" onClick={onReportarAvistamiento}
+            className={`flex-1 h-12 rounded-2xl flex items-center justify-center gap-2 font-semibold text-[15px]
+                        border-[1.5px] border-gray-300 text-dark-900 hover:bg-gray-50
+                        dark:border-white/15 dark:text-white dark:hover:bg-white/5 ${focoVisible}`}>
+            <Eye size={18} aria-hidden="true" /> La vi
+          </button>
+        ) : (
+          <span className="flex-1 h-12 rounded-2xl flex items-center justify-center text-[14px] font-semibold
+                           bg-primary-50 text-primary-700 dark:bg-white/10 dark:text-primary-400" data-testid="es-tu-mascota">
+            Es tu mascota
+          </span>
+        )}
         <button type="button" onClick={onVerDetalles}
           className={`flex-[1.4] h-12 rounded-2xl flex items-center justify-center gap-2 font-poppins font-semibold
                       text-[15px] text-white bg-primary-700 hover:bg-primary-800

@@ -3,6 +3,7 @@ import { Search, Check } from 'lucide-react';
 import { listarReportesActivos } from '../../services/reporteService';
 import IconoEspecie from '../ui/IconoEspecie';
 import { focoVisible } from '../auth/AuthUI';
+import { esReportePropio } from '../../utils/sesion';
 
 function fechaCorta(fecha) {
   if (!fecha) return '';
@@ -22,7 +23,7 @@ export default function SelectorMascotaPerdida({ valor, onCambio, error }) {
 
   useEffect(() => {
     listarReportesActivos()
-      .then(({ data }) => setReportes((data.reportes || []).filter((r) => r.mascota)))
+      .then(({ data }) => setReportes((data.reportes || []).filter((r) => r.mascota && !esReportePropio(r))))
       .catch(() => setFallo(true))
       .finally(() => setCargando(false));
   }, []);

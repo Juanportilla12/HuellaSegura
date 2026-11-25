@@ -1,21 +1,10 @@
 import { test, expect } from './base';
-import { createRequire } from 'node:module';
 import {
-  API, datosUsuario, registrarPorApi, entrarConSesion, crearMascotaPorApi, marcarEnMapa,
+  API, datosUsuario, registrarPorApi, entrarConSesion, crearMascotaPorApi, marcarEnMapa, consultarBD,
 } from './ayudas';
 
-// Para volver administrador a un usuario se usa la base de datos de prueba (variables de backend/.env)
-const requireBackend = createRequire(new URL('../../backend/package.json', import.meta.url));
-async function hacerAdmin(email) {
-  requireBackend('dotenv').config({ path: new URL('../../backend/.env', import.meta.url).pathname.replace(/^\/([A-Z]:)/, '$1') });
-  const mysql = requireBackend('mysql2/promise');
-  const db = await mysql.createConnection({
-    host: process.env.DB_HOST, port: Number(process.env.DB_PORT || 3306),
-    user: process.env.DB_USER, password: process.env.DB_PASSWORD, database: process.env.DB_NAME,
-  });
-  await db.query('UPDATE usuarios SET rol = "admin" WHERE email = ?', [email]);
-  await db.end();
-}
+// Para volver administrador a un usuario se usa la base de datos de prueba
+const hacerAdmin = (email) => consultarBD('UPDATE usuarios SET rol = "admin" WHERE email = ?', [email]);
 
 test.describe('Registrar mascota', () => {
   test('exige nombre, especie, sexo y color antes de avanzar', async ({ page, request }) => {

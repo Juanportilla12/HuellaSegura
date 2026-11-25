@@ -6,3 +6,8 @@ export function crearAvistamiento(datos, foto = null) {
   if (foto) formData.append('foto', foto);
   return api.post('/avistamientos', formData, { headers: { 'Content-Type': 'multipart/form-data' }, timeout: 0 });
 }
+
+// Avistamientos que reportó el usuario con sesión iniciada ("Mis reportes")
+export function misAvistamientos() {
+  return api.get('/avistamientos/mios');
+}

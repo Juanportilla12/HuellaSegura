@@ -17,6 +17,7 @@ import { crearPinReporte, PIN_ENTIDAD } from '../components/mapa/pinesMapa';
 import { filtrarReportes } from '../components/mapa/filtrosMapa';
 import { focoVisible } from '../components/auth/AuthUI';
 import { toast } from 'sonner';
+import { esReportePropio } from '../utils/sesion';
 
 // R10 / HU-10, HU-13 a HU-16: mapa de reportes activos y entidades aliadas
 
@@ -136,7 +137,9 @@ export default function MapaPrincipal() {
           <FichaReporte key={`r-${seleccion.id}`} reporte={seleccion} ubicacionUsuario={ubicacionUsuario}
             onCerrar={cerrarFichas}
             onVerDetalles={() => navigate(`/publico/mascotas/${seleccion.mascota?.codigo_publico}`)}
-            onReportarAvistamiento={() => navigate(`/avistamientos/nuevo?mascota=${seleccion.mascota?.codigo_publico}`)} />
+            // El dueño no reporta avistamientos de su propia mascota
+            onReportarAvistamiento={esReportePropio(seleccion) ? null
+              : () => navigate(`/avistamientos/nuevo?mascota=${seleccion.mascota?.codigo_publico}`)} />
         )}
         {entidadSel && (
           <FichaEntidad key={`e-${entidadSel.id}`} entidad={entidadSel} onCerrar={cerrarFichas} />

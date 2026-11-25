@@ -1,9 +1,14 @@
-const { Notificacion } = require('../models');
+const { Notificacion, Avistamiento } = require('../models');
 
 async function listar(req, res, next) {
   try {
     const notificaciones = await Notificacion.findAll({
       where: { usuario_id: req.usuario.id },
+      // Los avisos de avistamiento traen dónde vieron a la mascota (y su foto)
+      include: [{
+        model: Avistamiento, as: 'avistamiento', required: false,
+        attributes: ['id', 'latitud', 'longitud', 'descripcion', 'foto_url', 'created_at'],
+      }],
       order: [['created_at', 'DESC']],
       limit: 50,
     });

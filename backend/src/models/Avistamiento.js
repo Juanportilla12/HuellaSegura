@@ -7,6 +7,8 @@ const Avistamiento = sequelize.define(
     id:             { type: DataTypes.INTEGER.UNSIGNED, autoIncrement: true, primaryKey: true },
     mascota_id:     { type: DataTypes.INTEGER.UNSIGNED, allowNull: false },
     reporte_id:     { type: DataTypes.INTEGER.UNSIGNED, allowNull: true },
+    // Quién lo reportó, si tenía sesión iniciada (se puede reportar sin cuenta)
+    usuario_id:     { type: DataTypes.INTEGER.UNSIGNED, allowNull: true },
     latitud:        { type: DataTypes.DECIMAL(10, 8), allowNull: false },
     longitud:       { type: DataTypes.DECIMAL(11, 8), allowNull: false },
     descripcion:    { type: DataTypes.TEXT, allowNull: true },

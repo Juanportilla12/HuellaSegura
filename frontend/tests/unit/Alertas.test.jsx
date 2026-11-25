@@ -20,7 +20,8 @@ import { listarNotificaciones, marcarLeida } from '../../src/services/notificaci
 const ahora = new Date().toISOString();
 const NOTIFS = [
   { id: 1, tipo: 'avistamiento', leida: false, reporte_id: 5, created_at: ahora,
-    mensaje: '¡Alguien vio a Max! Contacta a quien la vio al 300 123 4567. Revisa el mapa para ver dónde.' },
+    mensaje: '¡Alguien vio a Max! Contacta a quien la vio al 300 123 4567. Toca para ver dónde la vio.',
+    avistamiento: { id: 40, latitud: '1.2001', longitud: '-77.2999', foto_url: 'https://res.cloudinary.com/x/vista.jpg', descripcion: 'Iba sola' } },
   { id: 2, tipo: 'proximidad', leida: true, reporte_id: 9, created_at: '2026-01-02T10:00:00Z',
     mensaje: '¡Alerta! Se reportó una mascota perdida a 0.8 km de tu ubicación: Luna.' },
 ];
@@ -50,12 +51,23 @@ describe('Alertas', () => {
     expect(screen.getByRole('link', { name: /whatsapp/i }).getAttribute('href')).toContain('wa.me/573001234567');
   });
 
-  test('Al tocar una alerta la marca como leída y abre el reporte en el mapa', async () => {
+  test('Al tocar una alerta de proximidad abre el reporte en el mapa', async () => {
+    renderPage();
+    const item = await screen.findByTestId('notif-item-2');
+    fireEvent.click(item.querySelector('button'));
+    await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith('/mapa?reporte=9'));
+  });
+
+  test('El aviso de avistamiento muestra dónde la VIERON (no abre el lugar donde se perdió)', async () => {
     renderPage();
     const item = await screen.findByTestId('notif-item-1');
-    fireEvent.click(item.querySelector('button'));
+    const lugar = await screen.findByTestId('lugar-avistamiento');
+    expect(lugar).toHaveTextContent(/aquí la vieron/i);
+    expect(lugar.querySelector('a[href*="destination=1.2001,-77.2999"]')).not.toBeNull();
+    expect(screen.getByAltText('Foto del avistamiento')).toHaveAttribute('src', 'https://res.cloudinary.com/x/vista.jpg');
+    fireEvent.click(item.querySelector('div'));
     await waitFor(() => expect(marcarLeida).toHaveBeenCalledWith(1));
-    expect(mockNavigate).toHaveBeenCalledWith('/mapa?reporte=5');
+    expect(mockNavigate).not.toHaveBeenCalledWith('/mapa?reporte=5');
   });
 
   test('La pestaña "Cerca de mí" muestra solo alertas de proximidad', async () => {

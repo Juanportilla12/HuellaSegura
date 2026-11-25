@@ -1,12 +1,13 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Bell, Eye, MapPin, Phone, MessageCircle, ChevronRight, BellOff, RotateCw, CheckCheck } from 'lucide-react';
+import { Bell, Eye, MapPin, Phone, MessageCircle, ChevronRight, BellOff, RotateCw, CheckCheck, Navigation } from 'lucide-react';
 import BottomNav from '../components/ui/BottomNav';
 import { listarNotificaciones, marcarLeida, marcarTodasLeidas } from '../services/notificacionService';
 import { useNotificaciones } from '../context/NotificacionesContext';
 import { useAuth } from '../context/AuthContext';
 import { focoVisible } from '../components/auth/AuthUI';
+import MapaEstatico from '../components/mapa/MapaEstatico';
 
 const PESTANAS = [
   { id: 'todas',        label: 'Todas',        filtro: () => true },
@@ -43,10 +44,44 @@ function numeroWhatsApp(telefono) {
   return d.length === 10 && d.startsWith('3') ? `57${d}` : d;
 }
 
+// Dónde vieron a la mascota: el aviso trae el avistamiento con sus coordenadas y foto
+function LugarAvistamiento({ avistamiento, onVer }) {
+  const lat = parseFloat(avistamiento.latitud);
+  const lng = parseFloat(avistamiento.longitud);
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+  return (
+    <div className="px-4 pb-3 flex flex-col gap-2" data-testid="lugar-avistamiento">
+      <p className="text-[12px] font-semibold text-emerald-700 dark:text-emerald-300 flex items-center gap-1">
+        <MapPin size={13} aria-hidden="true" /> Aquí la vieron
+      </p>
+      <div className="flex gap-2">
+        {avistamiento.foto_url && (
+          <img src={avistamiento.foto_url} alt="Foto del avistamiento"
+               className="h-[120px] w-[96px] shrink-0 rounded-2xl object-cover" loading="lazy" />
+        )}
+        <div className="flex-1 min-w-0 rounded-2xl overflow-hidden">
+          <MapaEstatico lat={lat} lng={lng} alto={120} />
+        </div>
+      </div>
+      {avistamiento.descripcion && (
+        <p className="text-[13px] leading-snug text-gray-600 dark:text-white/60">“{avistamiento.descripcion}”</p>
+      )}
+      <a href={`https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`} target="_blank" rel="noopener noreferrer"
+         onClick={onVer}
+         className={`h-10 rounded-xl flex items-center justify-center gap-1.5 text-[13px] font-semibold
+                     text-emerald-800 bg-emerald-50 dark:bg-emerald-500/15 dark:text-emerald-200 ${focoVisible}`}>
+        <Navigation size={15} aria-hidden="true" /> Cómo llegar al lugar del avistamiento
+      </a>
+    </div>
+  );
+}
+
 function Alerta({ notif, onAbrir }) {
   const esAvistamiento = notif.tipo === 'avistamiento';
   const celular = celularDelTestigo(notif);
-  const abrible = Boolean(notif.reporte_id);
+  // Los avisos de proximidad abren el reporte en el mapa. Los de avistamiento muestran aquí
+  // mismo dónde la vieron (abrir el reporte llevaba al lugar donde se perdió, no donde la vieron)
+  const abrible = !esAvistamiento && Boolean(notif.reporte_id);
   const Icono = esAvistamiento ? Eye : MapPin;
 
   const contenido = (
@@ -84,6 +119,9 @@ function Alerta({ notif, onAbrir }) {
         </button>
       ) : (
         <div className="flex items-start gap-3 p-4" onClick={() => onAbrir(notif)}>{contenido}</div>
+      )}
+      {esAvistamiento && notif.avistamiento && (
+        <LugarAvistamiento avistamiento={notif.avistamiento} onVer={() => onAbrir(notif, { soloLeer: true })} />
       )}
       {celular && (
         <div className="flex gap-2 px-4 pb-4 -mt-1">
@@ -140,7 +178,7 @@ export default function Alertas() {
   // DoD Sprint 5: la notificación lleva directamente al reporte en el mapa
   function abrir(notif, { soloLeer = false } = {}) {
     if (!notif.leida) marcarComoLeida(notif.id);
-    if (!soloLeer && notif.reporte_id) navigate(`/mapa?reporte=${notif.reporte_id}`);
+    if (!soloLeer && notif.tipo !== 'avistamiento' && notif.reporte_id) navigate(`/mapa?reporte=${notif.reporte_id}`);
   }
 
   const filtro = PESTANAS.find((p) => p.id === pestana).filtro;

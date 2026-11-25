@@ -27,5 +27,11 @@ Avistamiento.belongsTo(Mascota, { foreignKey: 'mascota_id', as: 'mascota' });
 Reporte.hasMany(Avistamiento,  { foreignKey: 'reporte_id', as: 'avistamientos' });
 Avistamiento.belongsTo(Reporte, { foreignKey: 'reporte_id', as: 'reporte' });
 
+Usuario.hasMany(Avistamiento,  { foreignKey: 'usuario_id', as: 'avistamientosReportados' });
+Avistamiento.belongsTo(Usuario, { foreignKey: 'usuario_id', as: 'testigo' });
+
+Avistamiento.hasMany(Notificacion,  { foreignKey: 'avistamiento_id', as: 'notificaciones' });
+Notificacion.belongsTo(Avistamiento, { foreignKey: 'avistamiento_id', as: 'avistamiento' });
+
 const db = { sequelize, Usuario, Mascota, Reporte, Notificacion, Avistamiento, EntidadAliada };
 module.exports = db;

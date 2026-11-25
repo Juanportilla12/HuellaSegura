@@ -20,6 +20,13 @@ async function crear(req, res, next) {
     if (!mascota) {
       return res.status(404).json({ success: false, message: 'Mascota no encontrada.' });
     }
+    // El dueño no reporta avistamientos de su propia mascota
+    if (req.usuario && req.usuario.id === mascota.propietario.id) {
+      return res.status(400).json({
+        success: false,
+        message: 'Esta mascota es tuya. Si la encontraste, marca su reporte como "¡La encontré!" en Mis reportes.',
+      });
+    }
 
     const reporteActivo = await Reporte.findOne({
       where: { mascota_id, estado: 'en_busqueda' },
@@ -41,11 +48,12 @@ async function crear(req, res, next) {
     const avistamiento = await Avistamiento.create({
       mascota_id,
       reporte_id: reporteActivo?.id || null,
+      usuario_id: req.usuario?.id || null, // así aparece en "Mis reportes" de quien lo hizo
       latitud,
       longitud,
       descripcion: descripcion || null,
       foto_url,
-      nombre_testigo: nombre_testigo || null,
+      nombre_testigo: nombre_testigo || req.usuario?.nombre || null,
       email_testigo: email_testigo || null,
       telefono_testigo,
     });
@@ -54,7 +62,8 @@ async function crear(req, res, next) {
     await Notificacion.create({
       usuario_id: mascota.propietario.id,
       reporte_id: reporteActivo?.id || null,
-      mensaje: `¡Alguien vio a ${mascota.nombre}! Contacta a quien la vio al ${telefono_testigo}. Revisa el mapa para ver dónde.`,
+      avistamiento_id: avistamiento.id, // para mostrar dónde la vieron, no dónde se perdió
+      mensaje: `¡Alguien vio a ${mascota.nombre}! Contacta a quien la vio al ${telefono_testigo}. Toca para ver dónde la vio.`,
       tipo: 'avistamiento',
     });
 
@@ -63,6 +72,7 @@ async function crear(req, res, next) {
       mensaje: `¡Alguien vio a ${mascota.nombre}! Revisa el mapa.`,
       mascota_id: mascota.id,
       mascota_nombre: mascota.nombre,
+      avistamiento_id: avistamiento.id,
       latitud, longitud,
     });
 
@@ -83,4 +93,23 @@ async function crear(req, res, next) {
   }
 }
 
-module.exports = { crear };
+// Avistamientos que reportó el usuario con sesión iniciada ("Mis reportes")
+async function misAvistamientos(req, res, next) {
+  try {
+    const avistamientos = await Avistamiento.findAll({
+      where: { usuario_id: req.usuario.id },
+      attributes: ['id', 'latitud', 'longitud', 'descripcion', 'foto_url', 'created_at'],
+      include: [
+        { model: Mascota, as: 'mascota', attributes: ['id', 'nombre', 'especie', 'sexo', 'foto_urls', 'codigo_publico'] },
+        { model: Reporte, as: 'reporte', attributes: ['id', 'estado'] },
+      ],
+      order: [['created_at', 'DESC']],
+      limit: 100,
+    });
+    return res.status(200).json({ success: true, avistamientos });
+  } catch (error) {
+    next(error);
+  }
+}
+
+module.exports = { crear, misAvistamientos };

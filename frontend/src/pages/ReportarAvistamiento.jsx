@@ -29,7 +29,7 @@ function MascotaDesdeQR({ codigo, onResuelta, onNoEncontrada }) {
 
   useEffect(() => {
     obtenerPerfilPublico(codigo)
-      .then(({ data }) => { setMascota(data.mascota); onResuelta(String(data.mascota.id)); })
+      .then(({ data }) => { setMascota(data.mascota); onResuelta(String(data.mascota.id), Boolean(data.es_propietario)); })
       .catch(() => onNoEncontrada());
   }, [codigo, onResuelta, onNoEncontrada]);
 
@@ -84,6 +84,9 @@ export default function ReportarAvistamiento() {
 
   // Si el código del QR no existe, se muestra la lista para elegir la mascota a mano
   const [qrInvalido, setQrInvalido] = useState(false);
+  // El dueño que abre el formulario desde el QR de su propia mascota no puede reportarla como vista
+  const [esMia, setEsMia] = useState(false);
+  const mascotaResuelta = useCallback((id, propia) => { setMascotaId(id); setEsMia(propia); }, []);
   const mascotaNoEncontrada = useCallback(() => {
     setQrInvalido(true);
     setErrorGlobal('No encontramos esa mascota. Elige una de la lista.');
@@ -165,10 +168,17 @@ export default function ReportarAvistamiento() {
       <form onSubmit={handleSubmit} noValidate data-testid="form-avistamiento">
         <div className="px-4 pt-4 flex flex-col gap-4">
           <AlertaError mensaje={errorGlobal} />
+          {esMia && (
+            <p role="status" data-testid="aviso-mascota-propia"
+               className="rounded-2xl p-4 text-[14px] leading-snug bg-primary-50 text-primary-800 dark:bg-white/10 dark:text-white/80">
+              Esta mascota es tuya, así que no puedes reportar que la viste. Si ya la encontraste, márcala como
+              «¡La encontré!» en Mis reportes.
+            </p>
+          )}
 
           <SeccionFormulario paso={1} titulo="¿Qué mascota viste?" requerido conError={Boolean(errores.mascota)}>
             {codigoDesdeUrl && !qrInvalido
-              ? <MascotaDesdeQR codigo={codigoDesdeUrl} onResuelta={setMascotaId} onNoEncontrada={mascotaNoEncontrada} />
+              ? <MascotaDesdeQR codigo={codigoDesdeUrl} onResuelta={mascotaResuelta} onNoEncontrada={mascotaNoEncontrada} />
               : <SelectorMascotaPerdida valor={mascotaId} error={errores.mascota}
                   onCambio={(id, cod) => { setMascotaId(id); setCodigo(cod); setErrores((p) => ({ ...p, mascota: '' })); }} />}
           </SeccionFormulario>
@@ -220,7 +230,7 @@ export default function ReportarAvistamiento() {
         <div className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-mobile z-40 px-4 pt-3
                         pb-[max(env(safe-area-inset-bottom),1rem)] bg-gradient-to-t from-warm-50 via-warm-50 to-warm-50/0
                         dark:from-dark-800 dark:via-dark-800 dark:to-dark-800/0">
-          <BotonPrimario type="submit" loading={enviando} textoCargando="Enviando…" data-testid="btn-enviar-avistamiento">
+          <BotonPrimario type="submit" loading={enviando} disabled={esMia} textoCargando="Enviando…" data-testid="btn-enviar-avistamiento">
             <Eye size={19} aria-hidden="true" /> Enviar avistamiento
           </BotonPrimario>
         </div>

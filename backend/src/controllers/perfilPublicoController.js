@@ -42,6 +42,8 @@ async function obtenerPerfil(req, res, next) {
         video_url: mascota.video_url || null,
       },
       // Ley 1581: solo el primer nombre y el número de contacto; nunca el correo
+      // Solo dice si quien consulta es el dueño; nunca expone el id del dueño
+      es_propietario: Boolean(req.usuario && req.usuario.id === mascota.propietario.id),
       propietario: {
         nombre: (mascota.propietario.nombre || '').split(' ')[0],
         telefono: mascota.propietario.celular || null,

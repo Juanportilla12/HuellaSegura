@@ -11,7 +11,12 @@ vi.mock('../../src/services/reporteService', () => ({
   cambiarEstado:  vi.fn(),
 }));
 
+vi.mock('../../src/services/avistamientoService', () => ({
+  misAvistamientos: vi.fn().mockResolvedValue({ data: { avistamientos: [] } }),
+}));
+
 import * as reporteService from '../../src/services/reporteService';
+import { misAvistamientos } from '../../src/services/avistamientoService';
 
 // ─── Helper ───────────────────────────────────────────────────────────────────
 function buildReporte(overrides = {}) {
@@ -102,5 +107,19 @@ describe('MisReportes', () => {
     await user.click(screen.getByTestId('btn-estado-encontrada'));
 
     expect(reporteService.cambiarEstado).toHaveBeenCalledWith(1, 'encontrada');
+  });
+
+  test('La pestaña "Mis avistamientos" muestra los avistamientos que reportó el usuario', async () => {
+    reporteService.misReportes.mockResolvedValue({ data: { reportes: [] } });
+    misAvistamientos.mockResolvedValueOnce({ data: { avistamientos: [{
+      id: 7, latitud: '1.2001', longitud: '-77.2999', created_at: '2026-11-24T15:00:00Z', descripcion: null, foto_url: null,
+      mascota: { id: 3, nombre: 'Batman', especie: 'gato', foto_urls: [], codigo_publico: 'abc' },
+      reporte: { id: 30, estado: 'en_busqueda' },
+    }] } });
+    render(<ThemeProvider><MemoryRouter><MisReportes /></MemoryRouter></ThemeProvider>);
+    // Sin reportes de pérdida, abre directamente la pestaña de avistamientos
+    expect(await screen.findByTestId('avistamiento-7')).toHaveTextContent('Viste a Batman');
+    expect(screen.getByTestId('avistamiento-7')).toHaveTextContent('Su familia aún la busca');
+    expect(screen.getByTestId('pestana-avistamientos')).toHaveAttribute('aria-selected', 'true');
   });
 });
