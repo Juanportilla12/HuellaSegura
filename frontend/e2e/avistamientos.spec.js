@@ -2,6 +2,7 @@ import { test, expect } from './base';
 import {
   API, datosUsuario, registrarPorApi, entrarConSesion, crearMascotaPorApi, crearReportePorApi, consultarBD,
 } from './ayudas';
+import { CENTRO_PASTO } from '../src/config/mapa';
 
 // Flujo real de un avistamiento entre dos personas: el dueño (perdió la mascota) y el
 // testigo (la vio). El avistamiento se inserta en la base de datos porque en local no hay
@@ -77,4 +78,32 @@ test('a otra persona sí le aparece "La vi" en esa mascota', async ({ page, requ
   await entrarConSesion(page, testigo);
   await page.goto(`/mapa?reporte=${reporte.id}`);
   await expect(page.getByRole('button', { name: 'La vi' })).toBeVisible();
+});
+
+test('dos mascotas reportadas en el mismo lugar se ven como un pin con el número 2 y se puede elegir cada una', async ({ page, request }) => {
+  const dueno = await registrarPorApi(request, datosUsuario('mismo-punto'));
+  const sufijo = Date.now().toString(36).slice(-4);
+  const luna = await crearMascotaPorApi(request, dueno.token, { nombre: `Luna ${sufijo}` });
+  const kira = await crearMascotaPorApi(request, dueno.token, { nombre: `Kira ${sufijo}` });
+  // Punto distinto en cada ejecución (la base de prueba conserva reportes anteriores), visible en el mapa
+  // entre ~170 y ~330 m del centro, lejos de los reportes que otras pruebas crean justo en el centro
+  const desvio = () => (Math.random() < 0.5 ? -1 : 1) * (0.0015 + Math.random() * 0.0015);
+  const MISMO_PUNTO = { latitud: CENTRO_PASTO[0] + desvio(), longitud: CENTRO_PASTO[1] + desvio() };
+  await crearReportePorApi(request, dueno.token, luna.id, MISMO_PUNTO);
+  await crearReportePorApi(request, dueno.token, kira.id, MISMO_PUNTO);
+
+  const testigo = await registrarPorApi(request, datosUsuario('mira-mapa'));
+  await entrarConSesion(page, testigo);
+  await page.goto('/mapa');
+  const pin = page.locator(`.leaflet-marker-icon[title^="2 mascotas aquí"][title*="Luna ${sufijo}"][title*="Kira ${sufijo}"]`);
+  await expect(pin).toHaveCount(1);
+  await expect(pin).toContainText('2');
+
+  await pin.click();
+  const lista = page.getByTestId('lista-grupo');
+  await expect(lista).toContainText(`Luna ${sufijo}`);
+  await expect(lista).toContainText(`Kira ${sufijo}`);
+  await lista.getByRole('button', { name: new RegExp(`Kira ${sufijo}`) }).click();
+  await expect(page.getByRole('dialog').getByText(`Kira ${sufijo}`).first()).toBeVisible();
+  await expect(page.getByTestId('lista-grupo')).toHaveCount(0);
 });

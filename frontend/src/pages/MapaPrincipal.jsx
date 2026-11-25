@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { MapContainer, TileLayer, Marker, useMapEvents, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -13,7 +13,9 @@ import BarraBusquedaMapa from '../components/mapa/BarraBusquedaMapa';
 import FichaReporte from '../components/mapa/FichaReporte';
 import FichaEntidad from '../components/mapa/FichaEntidad';
 import PanelFiltrosMapa from '../components/mapa/PanelFiltrosMapa';
-import { crearPinReporte, PIN_ENTIDAD } from '../components/mapa/pinesMapa';
+import { crearPinReporte, crearPinGrupo, PIN_ENTIDAD } from '../components/mapa/pinesMapa';
+import { agruparReportes } from '../components/mapa/agruparReportes';
+import FichaGrupo from '../components/mapa/FichaGrupo';
 import { filtrarReportes } from '../components/mapa/filtrosMapa';
 import { focoVisible } from '../components/auth/AuthUI';
 import { toast } from 'sonner';
@@ -48,6 +50,7 @@ export default function MapaPrincipal() {
   const [texto,     setTexto]     = useState('');
   const [seleccion, setSeleccion] = useState(null);
   const [entidadSel, setEntidadSel] = useState(null);
+  const [grupoSel,  setGrupoSel]  = useState(null); // varias mascotas en el mismo punto
   const [centrarEn, setCentrarEn] = useState(null);
   const [panelAbierto, setPanelAbierto] = useState(false);
 
@@ -80,12 +83,14 @@ export default function MapaPrincipal() {
     else obtenerUbicacion();
   }
 
-  const cerrarFichas  = useCallback(() => { setSeleccion(null); setEntidadSel(null); }, []);
+  const cerrarFichas  = useCallback(() => { setSeleccion(null); setEntidadSel(null); setGrupoSel(null); }, []);
   const cerrarFiltros = useCallback(() => setPanelAbierto(false), []);
 
-  const visibles = filtrarReportes(reportes, { ...filtros, texto });
+  const visibles = useMemo(() => filtrarReportes(reportes, { ...filtros, texto }), [reportes, filtros, texto]);
   const filtrosActivos = (filtros.especie !== 'todos' ? 1 : 0) + (filtros.tiempo !== 'todos' ? 1 : 0);
-  const hayFicha = !!(seleccion || entidadSel);
+  const hayFicha = !!(seleccion || entidadSel || grupoSel);
+  // Mascotas reportadas en el mismo punto se muestran en un solo pin con el número
+  const grupos = useMemo(() => agruparReportes(visibles), [visibles]);
 
   return (
     <div className="relative w-full h-dvh overflow-hidden bg-warm-100">
@@ -101,13 +106,27 @@ export default function MapaPrincipal() {
             eventHandlers={{ click: (ev) => { ev.originalEvent.stopPropagation(); setSeleccion(null); setEntidadSel(e); } }} />
         ))}
 
-        {visibles.map((r) => (
-          <Marker key={r.id} position={[parseFloat(r.latitud), parseFloat(r.longitud)]}
-            icon={crearPinReporte(r.mascota, seleccion?.id === r.id)}
-            zIndexOffset={seleccion?.id === r.id ? 1000 : 0}
-            title={r.mascota?.nombre ?? 'Mascota perdida'} alt={`Reporte: ${r.mascota?.nombre ?? 'mascota perdida'}`}
-            eventHandlers={{ click: (ev) => { ev.originalEvent.stopPropagation(); setEntidadSel(null); setSeleccion(r); } }} />
-        ))}
+        {grupos.map((g) => {
+          if (g.reportes.length === 1) {
+            const r = g.reportes[0];
+            return (
+              <Marker key={g.clave} position={[g.lat, g.lng]}
+                icon={crearPinReporte(r.mascota, seleccion?.id === r.id)}
+                zIndexOffset={seleccion?.id === r.id ? 1000 : 0}
+                title={r.mascota?.nombre ?? 'Mascota perdida'} alt={`Reporte: ${r.mascota?.nombre ?? 'mascota perdida'}`}
+                eventHandlers={{ click: (ev) => { ev.originalEvent.stopPropagation(); setEntidadSel(null); setGrupoSel(null); setSeleccion(r); } }} />
+            );
+          }
+          const activo = grupoSel?.clave === g.clave || g.reportes.some((r) => r.id === seleccion?.id);
+          const nombres = g.reportes.map((r) => r.mascota?.nombre).filter(Boolean).join(', ');
+          return (
+            <Marker key={g.clave} position={[g.lat, g.lng]}
+              icon={crearPinGrupo(g.reportes[0].mascota, g.reportes.length, activo)}
+              zIndexOffset={activo ? 1000 : 500}
+              title={`${g.reportes.length} mascotas aquí: ${nombres}`} alt={`${g.reportes.length} mascotas perdidas en este lugar`}
+              eventHandlers={{ click: (ev) => { ev.originalEvent.stopPropagation(); setEntidadSel(null); setSeleccion(null); setGrupoSel(g); } }} />
+          );
+        })}
       </MapContainer>
 
       <BarraBusquedaMapa texto={texto} onTexto={setTexto} resultados={visibles.length}
@@ -140,6 +159,10 @@ export default function MapaPrincipal() {
             // El dueño no reporta avistamientos de su propia mascota
             onReportarAvistamiento={esReportePropio(seleccion) ? null
               : () => navigate(`/avistamientos/nuevo?mascota=${seleccion.mascota?.codigo_publico}`)} />
+        )}
+        {grupoSel && (
+          <FichaGrupo key={`g-${grupoSel.clave}`} grupo={grupoSel} onCerrar={cerrarFichas}
+            onElegir={(r) => { setGrupoSel(null); setSeleccion(r); }} />
         )}
         {entidadSel && (
           <FichaEntidad key={`e-${entidadSel.id}`} entidad={entidadSel} onCerrar={cerrarFichas} />

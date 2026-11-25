@@ -44,6 +44,22 @@ export function crearPinReporte(mascota, seleccionado = false) {
   });
 }
 
+// Varias mascotas en el mismo punto: el pin de la primera con una burbuja que dice cuántas son
+export function crearPinGrupo(mascota, cantidad, seleccionado = false) {
+  const base = crearPinReporte(mascota, seleccionado);
+  const tam = seleccionado ? 56 : 46;
+  const burbuja = `
+    <span style="position:absolute;top:-6px;right:-8px;min-width:24px;height:24px;padding:0 6px;border-radius:12px;
+                 background:#1A1A2E;color:white;font:700 13px/24px Inter,system-ui,sans-serif;text-align:center;
+                 border:2px solid white;box-sizing:border-box;">${Number(cantidad)}</span>`;
+  return L.divIcon({
+    className: '',
+    html: base.options.html.replace(/<\/div>\s*$/, `${burbuja}</div>`),
+    iconSize: [tam, tam + 10],
+    iconAnchor: [tam / 2, tam + 10],
+  });
+}
+
 // HU-27 / DoD Sprint 7: entidades aliadas (veterinarias, albergues) con pin verde y cruz
 export const PIN_ENTIDAD = L.divIcon({
   className: '',
