@@ -308,6 +308,55 @@ describe('MascotaController', () => {
       expect(Mascota.findOne.mock.calls[0][0].where).toMatchObject({ usuario_id: 1 });
     });
 
+    test('Subir un video MOV del iPhone lo guarda en Cloudinary como video y en la mascota', async () => {
+      const mockMascota = buildMockMascota({ usuario_id: 1 });
+      Mascota.findOne.mockResolvedValue(mockMascota);
+      uploadBuffer.mockResolvedValueOnce({ secure_url: 'https://res.cloudinary.com/test/video/upload/v1/mascota-1.mov' });
+
+      const res = await request(app)
+        .post('/api/mascotas/1/video')
+        .set('Authorization', `Bearer ${TOKEN_USUARIO_1}`)
+        .attach('video', Buffer.from('fake-video'), { filename: 'IMG_0001.MOV', contentType: 'video/quicktime' });
+
+      expect(res.status).toBe(200);
+      expect(res.body.video_url).toMatch(/video\/upload/);
+      expect(uploadBuffer.mock.calls.at(-1)[1]).toMatchObject({ resource_type: 'video', folder: 'huella-segura/videos' });
+      expect(mockMascota.update).toHaveBeenCalledWith({ video_url: res.body.video_url });
+    });
+
+    test('Un video de más de 30 MB se rechaza con un mensaje claro (400, no 500)', async () => {
+      Mascota.findOne.mockResolvedValue(buildMockMascota({ usuario_id: 1 }));
+      const res = await request(app)
+        .post('/api/mascotas/1/video')
+        .set('Authorization', `Bearer ${TOKEN_USUARIO_1}`)
+        .attach('video', Buffer.alloc(31 * 1024 * 1024), { filename: 'largo.mp4', contentType: 'video/mp4' });
+
+      expect(res.status).toBe(400);
+      expect(res.body.message).toMatch(/tamaño máximo/i);
+    });
+
+    test('Una foto de más de 5 MB se rechaza con un mensaje claro', async () => {
+      Mascota.findOne.mockResolvedValue(buildMockMascota({ usuario_id: 1, foto_urls: [] }));
+      const res = await request(app)
+        .post('/api/mascotas/1/fotos')
+        .set('Authorization', `Bearer ${TOKEN_USUARIO_1}`)
+        .attach('fotos', Buffer.alloc(6 * 1024 * 1024), { filename: 'grande.jpg', contentType: 'image/jpeg' });
+
+      expect(res.status).toBe(400);
+      expect(res.body.message).toMatch(/tamaño máximo/i);
+    });
+
+    test('No se puede subir video a la mascota de otra persona', async () => {
+      Mascota.findOne.mockResolvedValue(null); // la búsqueda filtra por dueño
+      const res = await request(app)
+        .post('/api/mascotas/99/video')
+        .set('Authorization', `Bearer ${TOKEN_USUARIO_1}`)
+        .attach('video', Buffer.from('fake-video'), { filename: 'v.mp4', contentType: 'video/mp4' });
+
+      expect(res.status).toBe(404);
+      expect(Mascota.findOne.mock.calls.at(-1)[0].where).toMatchObject({ id: '99', usuario_id: 1 });
+    });
+
     test('Quitar el video lo borra de la mascota y de Cloudinary', async () => {
       const video = 'https://res.cloudinary.com/t/video/upload/v1/huella-segura/videos/mascota-1.mp4';
       const mascota = buildMockMascota({ video_url: video });

@@ -68,7 +68,8 @@ async function listarActivos(req, res, next) {
       where: { estado: 'en_busqueda', moderado: false },
       include: [
         { model: Mascota,  as: 'mascota',    attributes: ['id', 'codigo_publico', 'nombre', 'especie', 'raza', 'sexo', 'color', 'foto_urls'] },
-        { model: Usuario,  as: 'reportante', attributes: ['id', 'nombre'] },
+        // Los reportes de cuentas desactivadas por un administrador no se muestran
+        { model: Usuario,  as: 'reportante', attributes: ['id', 'nombre'], where: { activo: true }, required: true },
       ],
       order: [['created_at', 'DESC']],
     });

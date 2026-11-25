@@ -13,15 +13,15 @@ async function obtenerPerfil(req, res, next) {
   try {
     const mascota = await buscarPorCodigo(req.params.codigo, {
       attributes: ['id', 'codigo_publico', 'nombre', 'especie', 'raza', 'sexo', 'color', 'descripcion', 'microchip', 'foto_urls', 'video_url'],
-      include: [{ model: Usuario, as: 'propietario', attributes: ['id', 'nombre', 'celular'] }],
+      include: [{ model: Usuario, as: 'propietario', attributes: ['id', 'nombre', 'celular', 'activo'] }],
     });
 
     if (!mascota) {
       return res.status(404).json({ success: false, message: 'Mascota no encontrada.' });
     }
 
-    // Un reporte ocultado por el administrador tampoco se muestra aquí (HU-28)
-    const reporteActivo = await Reporte.findOne({
+    // Un reporte ocultado por el administrador (HU-28) o de una cuenta desactivada no se muestra
+    const reporteActivo = mascota.propietario.activo === false ? null : await Reporte.findOne({
       where: { mascota_id: mascota.id, estado: 'en_busqueda', moderado: false },
       attributes: ['id', 'latitud', 'longitud', 'descripcion', 'fecha_perdida'],
     });

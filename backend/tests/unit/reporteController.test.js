@@ -223,6 +223,15 @@ describe('ReporteController', () => {
     });
   });
 
+  describe('GET /api/reportes (mapa)', () => {
+    test('No muestra reportes de cuentas desactivadas por un administrador', async () => {
+      Reporte.findAll.mockResolvedValue([]);
+      await request(app).get('/api/reportes');
+      const reportante = Reporte.findAll.mock.calls.at(-1)[0].include.find((i) => i.as === 'reportante');
+      expect(reportante).toMatchObject({ where: { activo: true }, required: true });
+    });
+  });
+
   // ── PUT /api/reportes/:id/estado ───────────────────────────────────────────
   describe('PUT /api/reportes/:id/estado', () => {
     test('200 cambia estado a "encontrada" correctamente', async () => {
