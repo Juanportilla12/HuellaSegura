@@ -26,13 +26,19 @@ import { esReportePropio } from '../utils/sesion';
 function CentrarMapa({ coords }) {
   const map = useMap();
   useEffect(() => {
-    if (coords) map.flyTo([coords.lat, coords.lng], 16, { duration: 1.2 });
+    if (coords) map.flyTo([coords.lat, coords.lng], coords.zoom ?? 16, { duration: 1.2 });
   }, [coords, map]);
   return null;
 }
 
 function ClicEnMapa({ onClic }) {
   useMapEvents({ click: onClic });
+  return null;
+}
+
+// Informa el zoom actual: con el mapa alejado se agrupan los pines que se taparían
+function SeguirZoom({ onZoom }) {
+  const map = useMapEvents({ zoomend: () => onZoom(map.getZoom()) });
   return null;
 }
 
@@ -50,7 +56,8 @@ export default function MapaPrincipal() {
   const [texto,     setTexto]     = useState('');
   const [seleccion, setSeleccion] = useState(null);
   const [entidadSel, setEntidadSel] = useState(null);
-  const [grupoSel,  setGrupoSel]  = useState(null); // varias mascotas en el mismo punto
+  const [grupoSel,  setGrupoSel]  = useState(null); // varias mascotas en el mismo punto o zona
+  const [zoom,      setZoom]      = useState(14);
   const [centrarEn, setCentrarEn] = useState(null);
   const [panelAbierto, setPanelAbierto] = useState(false);
 
@@ -89,8 +96,8 @@ export default function MapaPrincipal() {
   const visibles = useMemo(() => filtrarReportes(reportes, { ...filtros, texto }), [reportes, filtros, texto]);
   const filtrosActivos = (filtros.especie !== 'todos' ? 1 : 0) + (filtros.tiempo !== 'todos' ? 1 : 0);
   const hayFicha = !!(seleccion || entidadSel || grupoSel);
-  // Mascotas reportadas en el mismo punto se muestran en un solo pin con el número
-  const grupos = useMemo(() => agruparReportes(visibles), [visibles]);
+  // Mascotas en el mismo punto, o que se taparían con este zoom, van en un solo pin con el número
+  const grupos = useMemo(() => agruparReportes(visibles, { zoom }), [visibles, zoom]);
 
   return (
     <div className="relative w-full h-dvh overflow-hidden bg-warm-100">
@@ -99,6 +106,7 @@ export default function MapaPrincipal() {
         <TileLayer url={TILE_URL} attribution={TILE_ATTRIBUTION} maxZoom={19} />
         <CentrarMapa coords={centrarEn} />
         <ClicEnMapa onClic={cerrarFichas} />
+        <SeguirZoom onZoom={setZoom} />
 
         {entidades.map((e) => (
           <Marker key={`entidad-${e.id}`} position={[parseFloat(e.latitud), parseFloat(e.longitud)]} icon={PIN_ENTIDAD}
@@ -162,7 +170,8 @@ export default function MapaPrincipal() {
         )}
         {grupoSel && (
           <FichaGrupo key={`g-${grupoSel.clave}`} grupo={grupoSel} onCerrar={cerrarFichas}
-            onElegir={(r) => { setGrupoSel(null); setSeleccion(r); }} />
+            onElegir={(r) => { setGrupoSel(null); setSeleccion(r); }}
+            onAcercar={() => { setGrupoSel(null); setCentrarEn({ lat: grupoSel.lat, lng: grupoSel.lng, zoom: Math.min(zoom + 2, 19) }); }} />
         )}
         {entidadSel && (
           <FichaEntidad key={`e-${entidadSel.id}`} entidad={entidadSel} onCerrar={cerrarFichas} />

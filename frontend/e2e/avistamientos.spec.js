@@ -95,9 +95,12 @@ test('dos mascotas reportadas en el mismo lugar se ven como un pin con el númer
   const testigo = await registrarPorApi(request, datosUsuario('mira-mapa'));
   await entrarConSesion(page, testigo);
   await page.goto('/mapa');
-  const pin = page.locator(`.leaflet-marker-icon[title^="2 mascotas aquí"][title*="Luna ${sufijo}"][title*="Kira ${sufijo}"]`);
+  // Las dos quedan en el mismo pin (puede haber más si la base de prueba ya tenía reportes ahí)
+  const pin = page.locator(`.leaflet-marker-icon[title*="Luna ${sufijo}"][title*="Kira ${sufijo}"]`);
   await expect(pin).toHaveCount(1);
-  await expect(pin).toContainText('2');
+  const cantidad = Number((await pin.getAttribute('title')).match(/^(\d+) mascotas aquí/)[1]);
+  expect(cantidad).toBeGreaterThanOrEqual(2);
+  await expect(pin).toContainText(String(cantidad)); // la burbuja muestra cuántas son
 
   await pin.click();
   const lista = page.getByTestId('lista-grupo');

@@ -1,18 +1,28 @@
-import { ChevronRight } from 'lucide-react';
+import { ChevronRight, ZoomIn } from 'lucide-react';
 import { HojaMapa } from './FichaReporte';
 import { tiempoLegible } from './filtrosMapa';
 import IconoEspecie from '../ui/IconoEspecie';
 import { focoVisible } from '../auth/AuthUI';
 
-// Varias mascotas reportadas en el mismo punto del mapa: se listan para elegir cuál ver
-export default function FichaGrupo({ grupo, onCerrar, onElegir }) {
+// Varias mascotas en el mismo punto o en una zona (mapa alejado): se listan para elegir cuál ver
+export default function FichaGrupo({ grupo, onCerrar, onElegir, onAcercar }) {
   const total = grupo.reportes.length;
+  const lugar = grupo.mismoPunto ? 'en este lugar' : 'en esta zona';
   return (
-    <HojaMapa etiqueta={`${total} mascotas en este lugar`} onCerrar={onCerrar}>
+    <HojaMapa etiqueta={`${total} mascotas ${lugar}`} onCerrar={onCerrar}>
       <h2 className="font-poppins font-bold text-[20px] leading-tight text-dark-900 dark:text-white pr-10">
-        {total} mascotas perdidas en este lugar
+        {total} mascotas perdidas {lugar}
       </h2>
-      <p className="text-[13px] text-gray-500 dark:text-white/50 mb-4">Toca una para ver su ficha.</p>
+      <div className="flex items-center justify-between gap-3 mb-4">
+        <p className="text-[13px] text-gray-500 dark:text-white/50">Toca una para ver su ficha.</p>
+        {!grupo.mismoPunto && onAcercar && (
+          <button type="button" onClick={onAcercar}
+            className={`shrink-0 h-9 px-3 rounded-full flex items-center gap-1.5 text-[13px] font-semibold text-primary-700
+                        bg-primary-50 dark:bg-white/10 dark:text-primary-400 ${focoVisible}`}>
+            <ZoomIn size={15} aria-hidden="true" /> Acercar
+          </button>
+        )}
+      </div>
       <ul className="flex flex-col gap-2 max-h-[45dvh] overflow-y-auto -mx-1 px-1" data-testid="lista-grupo">
         {grupo.reportes.map((r) => (
           <li key={r.id}>
@@ -30,7 +40,7 @@ export default function FichaGrupo({ grupo, onCerrar, onElegir }) {
                 </span>
                 <span className="block text-[13px] truncate text-gray-500 dark:text-white/50">
                   {[r.mascota?.raza, r.mascota?.color].filter(Boolean).join(' · ') || r.mascota?.especie}
-                  {r.fecha_perdida ? ` · ${tiempoLegible(r.fecha_perdida)}` : ''}
+                  {r.created_at ? ` · reportada ${tiempoLegible(r.created_at)}` : ''}
                 </span>
               </span>
               <ChevronRight size={18} className="shrink-0 text-gray-400" aria-hidden="true" />
