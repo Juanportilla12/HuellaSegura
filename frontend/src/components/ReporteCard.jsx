@@ -105,6 +105,14 @@ export default function ReporteCard({ reporte, onCambiarEstado }) {
         </div>
       </div>
 
+      {/* Un administrador lo ocultó: el dueño debe saber que ya no aparece en el mapa */}
+      {reporte.moderado && (
+        <p role="status" data-testid="aviso-moderado"
+           className="mx-4 mb-3 rounded-2xl p-3 text-[13px] leading-snug bg-amber-50 text-amber-800 dark:bg-amber-500/15 dark:text-amber-200">
+          Un administrador ocultó este reporte del mapa y del perfil público. Si crees que es un error, contáctanos.
+        </p>
+      )}
+
       {tieneUbicacion && (
         <button type="button" onClick={() => navigate(`/mapa?reporte=${reporte.id}`)} aria-label={`Ver dónde se perdió ${nombre} en el mapa`}
                 className={`block w-full ${focoVisible}`}>

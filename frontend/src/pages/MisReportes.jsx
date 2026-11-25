@@ -117,8 +117,9 @@ export default function MisReportes() {
       await reporteService.cambiarEstado(id, nuevoEstado);
       setReportes(prev => prev.map(r => r.id === id ? { ...r, estado: nuevoEstado } : r));
       toast.success(MENSAJES[nuevoEstado] || 'Estado actualizado.');
-    } catch {
-      toast.error('No se pudo cambiar el estado del reporte.');
+    } catch (err) {
+      // Muestra el motivo real (p. ej. al reactivar si ya hay otra búsqueda activa)
+      toast.error(err.response?.data?.message || 'No se pudo cambiar el estado del reporte.');
     }
   }
 

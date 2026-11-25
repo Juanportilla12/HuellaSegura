@@ -1,4 +1,5 @@
 const { validationResult } = require('express-validator');
+const { Op } = require('sequelize');
 const { Reporte, Mascota, Usuario } = require('../models');
 const { generarNotificacionesProximidad } = require('../services/notificacionService');
 const { enviarCorreoReporteCreado } = require('../services/emailService');
@@ -117,6 +118,19 @@ async function cambiarEstado(req, res, next) {
         success: false,
         message: 'No tienes permiso para modificar este reporte.',
       });
+    }
+
+    // Al reactivar, la mascota no puede quedar con dos búsquedas activas (dos pines en el mapa)
+    if (estado === 'en_busqueda' && reporte.estado !== 'en_busqueda') {
+      const otroActivo = await Reporte.findOne({
+        where: { mascota_id: reporte.mascota_id, estado: 'en_busqueda', id: { [Op.ne]: reporte.id } },
+      });
+      if (otroActivo) {
+        return res.status(409).json({
+          success: false,
+          message: 'Esta mascota ya tiene otro reporte de búsqueda activo. Ciérralo antes de reactivar este.',
+        });
+      }
     }
 
     await reporte.update({ estado });

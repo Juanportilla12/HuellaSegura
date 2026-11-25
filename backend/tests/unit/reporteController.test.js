@@ -250,6 +250,35 @@ describe('ReporteController', () => {
       expect(res.status).toBe(200);
     });
 
+    test('409 al reactivar si la mascota ya tiene otra búsqueda activa (no dos pines en el mapa)', async () => {
+      const mockReporte = buildMockReporte({ id: 1, usuario_id: 1, mascota_id: 1, estado: 'cerrado' });
+      Reporte.findByPk.mockResolvedValue(mockReporte);
+      Reporte.findOne.mockResolvedValueOnce(buildMockReporte({ id: 2, mascota_id: 1, estado: 'en_busqueda' }));
+
+      const res = await request(app)
+        .put('/api/reportes/1/estado')
+        .set('Authorization', `Bearer ${TOKEN_U1}`)
+        .send({ estado: 'en_busqueda' });
+
+      expect(res.status).toBe(409);
+      expect(res.body.message).toMatch(/otro reporte de búsqueda activo/i);
+      expect(mockReporte.update).not.toHaveBeenCalled();
+    });
+
+    test('200 al reactivar si no hay otra búsqueda activa', async () => {
+      const mockReporte = buildMockReporte({ id: 1, usuario_id: 1, mascota_id: 1, estado: 'cerrado' });
+      Reporte.findByPk.mockResolvedValue(mockReporte);
+      Reporte.findOne.mockResolvedValueOnce(null);
+
+      const res = await request(app)
+        .put('/api/reportes/1/estado')
+        .set('Authorization', `Bearer ${TOKEN_U1}`)
+        .send({ estado: 'en_busqueda' });
+
+      expect(res.status).toBe(200);
+      expect(mockReporte.update).toHaveBeenCalledWith({ estado: 'en_busqueda' });
+    });
+
     test('400 estado inválido es rechazado', async () => {
       const res = await request(app)
         .put('/api/reportes/1/estado')

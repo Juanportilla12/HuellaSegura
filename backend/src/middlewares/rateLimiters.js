@@ -30,9 +30,10 @@ const limitadorAuth = crearLimitador({
   mensaje: 'Demasiados intentos fallidos. Espera unos minutos e intenta de nuevo.',
 });
 
-// Avistamientos — endpoint público que notifica al dueño: 20 por hora por IP
+// Avistamientos — endpoint público que notifica al dueño: 60 por hora por IP. Mucha gente
+// comparte la IP (wifi de un salón o una universidad), así que no puede ser muy bajo.
 const limitadorAvistamientos = crearLimitador({
-  minutos: 60, max: 20, mensaje: 'Has enviado varios avistamientos seguidos. Intenta de nuevo más tarde.',
+  minutos: 60, max: 60, mensaje: 'Has enviado varios avistamientos seguidos. Intenta de nuevo más tarde.',
 });
 
 module.exports = { limitadorGlobal, limitadorAuth, limitadorAvistamientos };

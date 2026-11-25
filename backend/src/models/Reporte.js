@@ -65,6 +65,8 @@ Reporte.prototype.toPublicJSON = function () {
     longitud: parseFloat(this.longitud),
     descripcion: this.descripcion,
     estado: this.estado,
+    // Oculto del mapa por un administrador (el dueño lo ve en "Mis reportes")
+    moderado: Boolean(this.moderado),
     fecha_perdida: this.fecha_perdida,
     created_at: this.created_at,
     mascota: this.mascota ? {
