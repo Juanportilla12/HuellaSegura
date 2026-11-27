@@ -113,6 +113,15 @@ const Usuario = sequelize.define(
       type: DataTypes.DATE,
       allowNull: true,
     },
+    // Enlace "¿No fuiste tú?" de los correos con código: hash SHA-256 de su clave secreta
+    anulacion_token: {
+      type: DataTypes.STRING(64),
+      allowNull: true,
+    },
+    anulacion_expira: {
+      type: DataTypes.DATE,
+      allowNull: true,
+    },
   },
   {
     tableName: 'usuarios',

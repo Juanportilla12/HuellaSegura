@@ -1,5 +1,7 @@
 import { test, expect } from './base';
-import { API, datosUsuario, registrarPorApi, sinBienvenida, fijarCodigoVerificacion, CODIGO_PRUEBA } from './ayudas';
+import {
+  API, datosUsuario, registrarPorApi, sinBienvenida, fijarCodigoVerificacion, CODIGO_PRUEBA, consultarBD,
+} from './ayudas';
 
 test.beforeEach(async ({ page }) => { await sinBienvenida(page); });
 
@@ -156,5 +158,34 @@ test.describe('Inicio de sesión', () => {
     await page.getByLabel(/correo electrónico/i).fill('malo@');
     await page.getByRole('button', { name: /enviar|código/i }).first().click();
     await expect(page.getByText(/ingresa un correo válido/i)).toBeVisible();
+  });
+});
+
+test.describe('"¿No fuiste tú?" desde el correo', () => {
+  test('anula el registro hecho con tu correo, el enlace no se puede reusar y tu correo queda libre', async ({ page, request }) => {
+    await sinBienvenida(page);
+    const crypto = await import('node:crypto');
+    const u = datosUsuario('suplantado');
+    // Alguien registra tu correo (queda pendiente: nunca recibió el código)
+    expect((await request.post(`${API}/auth/register`, { data: { ...u, nombre: 'Suplantador' } })).status()).toBe(201);
+
+    // El enlace real llega en el correo; aquí se fija una clave conocida en la base de datos de prueba
+    const clave = crypto.randomBytes(32).toString('hex');
+    await consultarBD('UPDATE usuarios SET anulacion_token = ?, anulacion_expira = DATE_ADD(NOW(), INTERVAL 1 DAY) WHERE email = ?',
+      [crypto.createHash('sha256').update(clave).digest('hex'), u.email]);
+
+    await page.goto(`/no-fui-yo?clave=${clave}`);
+    await expect(page.getByRole('heading', { name: '¿No fuiste tú?' })).toBeVisible();
+    await page.getByTestId('btn-anular').click();
+    await expect(page.getByTestId('mensaje-anulado')).toContainText(/cancelamos ese registro/i);
+    expect(await consultarBD('SELECT id FROM usuarios WHERE email = ?', [u.email])).toHaveLength(0);
+
+    // El mismo enlace ya no sirve
+    await page.goto(`/no-fui-yo?clave=${clave}`);
+    await page.getByTestId('btn-anular').click();
+    await expect(page.getByText(/ya no es válido/i)).toBeVisible();
+
+    // Tu correo quedó libre: te registras tú
+    expect((await request.post(`${API}/auth/register`, { data: u })).status()).toBe(201);
   });
 });

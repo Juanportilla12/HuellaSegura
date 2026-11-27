@@ -174,7 +174,18 @@ async function enviarCorreoAvistamiento({ propietario, mascota, avistamiento }) 
   return info;
 }
 
-async function enviarCorreoResetCodigo({ email, nombre, codigo }) {
+// Bloque "¿No fuiste tú?": lleva a una pantalla de la app donde la persona confirma la anulación
+function bloqueNoFuiYo(enlace, texto) {
+  if (!enlace) return '';
+  return `
+        <div style="margin-top:22px;padding:16px 18px;border:1px solid ${BORDE};border-radius:14px;">
+          <p style="margin:0 0 6px;font-weight:bold;color:${TEXTO};">¿No fuiste tú?</p>
+          <p style="margin:0 0 12px;color:${SUAVE};font-size:14px;">${texto}</p>
+          <a href="${esc(enlace)}" style="color:${CORAL};font-weight:bold;font-size:14px;">No fui yo: anular este código</a>
+        </div>`;
+}
+
+async function enviarCorreoResetCodigo({ email, nombre, codigo, enlaceAnular }) {
   const transporte = crearTransporte();
   return transporte.sendMail({
     from: `"HuellaSegura" <${process.env.EMAIL_USER}>`,
@@ -187,14 +198,14 @@ async function enviarCorreoResetCodigo({ email, nombre, codigo }) {
         <div style="margin:24px 0;padding:22px;text-align:center;background:${FONDO};border:1px solid ${BORDE};border-radius:16px;">
           <span style="font-size:36px;font-weight:bold;letter-spacing:10px;color:${TEXTO};">${esc(codigo)}</span>
         </div>
-        <p style="margin:0;color:${SUAVE};font-size:14px;">El código vence en <strong>15 minutos</strong>.
-          Si no pediste este cambio, ignora este correo: tu contraseña sigue igual.</p>`,
+        <p style="margin:0;color:${SUAVE};font-size:14px;">El código vence en <strong>15 minutos</strong>.</p>
+        ${bloqueNoFuiYo(enlaceAnular, 'Si no pediste cambiar tu contraseña, anula el código para que nadie pueda usarlo. Tu contraseña sigue igual.')}`,
     }),
   });
 }
 
 // Verificación del correo al crear la cuenta
-async function enviarCorreoVerificacion({ email, nombre, codigo }) {
+async function enviarCorreoVerificacion({ email, nombre, codigo, enlaceAnular }) {
   const transporte = crearTransporte();
   return transporte.sendMail({
     from: `"HuellaSegura" <${process.env.EMAIL_USER}>`,
@@ -207,8 +218,8 @@ async function enviarCorreoVerificacion({ email, nombre, codigo }) {
         <div style="margin:24px 0;padding:22px;text-align:center;background:${FONDO};border:1px solid ${BORDE};border-radius:16px;">
           <span style="font-size:36px;font-weight:bold;letter-spacing:10px;color:${TEXTO};">${esc(codigo)}</span>
         </div>
-        <p style="margin:0;color:${SUAVE};font-size:14px;">El código vence en <strong>15 minutos</strong>.
-          Si no fuiste tú quien creó esta cuenta, ignora este correo: sin el código nadie puede activarla.</p>`,
+        <p style="margin:0;color:${SUAVE};font-size:14px;">El código vence en <strong>15 minutos</strong>.</p>
+        ${bloqueNoFuiYo(enlaceAnular, 'Si tú no creaste esta cuenta, cancélala: el código queda anulado y nadie podrá usar tu correo.')}`,
     }),
   });
 }

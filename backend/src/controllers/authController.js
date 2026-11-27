@@ -4,6 +4,7 @@ const bcrypt = require('bcryptjs');
 const { Op, literal } = require('sequelize');
 const { Usuario } = require('../models');
 const { sign } = require('../config/jwt');
+const { urlFrontend } = require('../utils/urlFrontend');
 const { enviarCorreoResetCodigo, enviarCorreoVerificacion } = require('../services/emailService');
 
 // Errores de Cloudflare que indican mala configuración del servidor (clave secreta
@@ -50,6 +51,18 @@ const ESPERA_REENVIO_MS = 60 * 1000;       // un código nuevo cada minuto como 
 const MAX_LOGIN_FALLIDOS = 5;
 const BLOQUEO_LOGIN_MS = 15 * 60 * 1000;   // 15 minutos
 
+const VIGENCIA_ANULACION_MS = 7 * 24 * 60 * 60 * 1000; // el enlace sirve una semana
+
+// Enlace "¿No fuiste tú?": clave aleatoria de 64 caracteres; en la base de datos solo su SHA-256
+const hashAnulacion = (clave) => crypto.createHash('sha256').update(String(clave)).digest('hex');
+function nuevoEnlaceAnulacion() {
+  const clave = crypto.randomBytes(32).toString('hex');
+  return {
+    enlace: urlFrontend(`/no-fui-yo?clave=${clave}`),
+    campos: { anulacion_token: hashAnulacion(clave), anulacion_expira: new Date(Date.now() + VIGENCIA_ANULACION_MS) },
+  };
+}
+
 const tokenDe = (usuario) => sign({ id: usuario.id, rol: usuario.rol, tokenVersion: usuario.token_version });
 
 /**
@@ -59,14 +72,16 @@ const tokenDe = (usuario) => sign({ id: usuario.id, rol: usuario.rol, tokenVersi
  */
 async function enviarCodigoVerificacion(usuario) {
   const codigo = String(crypto.randomInt(100000, 1000000));
+  const anulacion = nuevoEnlaceAnulacion();
   await usuario.update({
     verificacion_code: await bcrypt.hash(codigo, 10),
     verificacion_expira: new Date(Date.now() + VIGENCIA_CODIGO_MS),
     verificacion_intentos: 0,
     verificacion_enviada: new Date(),
+    ...anulacion.campos,
   });
   try {
-    await enviarCorreoVerificacion({ email: usuario.email, nombre: usuario.nombre, codigo });
+    await enviarCorreoVerificacion({ email: usuario.email, nombre: usuario.nombre, codigo, enlaceAnular: anulacion.enlace });
   } catch (error) {
     if (process.env.NODE_ENV === 'production') throw error;
     console.warn(`[Correo] Sin servicio de correo (${error.message}). Código de verificación de ${usuario.email}: ${codigo}`);
@@ -159,6 +174,8 @@ async function verificarCorreo(req, res, next) {
       verificacion_code: null,
       verificacion_expira: null,
       verificacion_intentos: 0,
+      anulacion_token: null,
+      anulacion_expira: null,
     });
 
     return res.status(200).json({
@@ -339,12 +356,13 @@ async function forgotPassword(req, res, next) {
     const expira = new Date(Date.now() + 15 * 60 * 1000); // 15 minutos
 
     const codigoHash = await bcrypt.hash(codigo, 10);
-    await usuario.update({ reset_code: codigoHash, reset_code_expires: expira, reset_intentos: 0 });
+    const anulacion = nuevoEnlaceAnulacion();
+    await usuario.update({ reset_code: codigoHash, reset_code_expires: expira, reset_intentos: 0, ...anulacion.campos });
 
     // Se espera el envío: si el correo no sale, el usuario debe saberlo en vez de
     // quedarse esperando un código que nunca llegará
     try {
-      await enviarCorreoResetCodigo({ email: usuario.email, nombre: usuario.nombre, codigo });
+      await enviarCorreoResetCodigo({ email: usuario.email, nombre: usuario.nombre, codigo, enlaceAnular: anulacion.enlace });
     } catch (errorCorreo) {
       console.error('[Correo] No se pudo enviar el código de recuperación:', errorCorreo.message);
       await usuario.update({ reset_code: null, reset_code_expires: null });
@@ -464,6 +482,8 @@ async function resetPassword(req, res, next) {
       reset_code_expires: null,
       reset_intentos: 0,
       token_version: (usuario.token_version || 0) + 1,
+      anulacion_token: null,
+      anulacion_expira: null,
       // El código llegó a su correo: queda verificado y sin bloqueo por intentos fallidos
       email_verificado: true,
       login_fallidos: 0,
@@ -476,6 +496,48 @@ async function resetPassword(req, res, next) {
   }
 }
 
+/**
+ * "¿No fuiste tú?" desde el correo: anula el código. Si la cuenta nunca se verificó, alguien
+ * intentó registrar este correo sin ser su dueño: se cancela ese registro y el correo queda
+ * libre. Si la cuenta ya estaba verificada, se anula el código para cambiar la contraseña.
+ */
+async function anularCodigo(req, res, next) {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ success: false, message: 'Este enlace no es válido.' });
+    }
+
+    const usuario = await Usuario.findOne({
+      where: { anulacion_token: hashAnulacion(req.body.clave), anulacion_expira: { [Op.gt]: new Date() } },
+    });
+    if (!usuario) {
+      return res.status(400).json({ success: false, message: 'Este enlace ya no es válido: se usó antes o venció.' });
+    }
+
+    if (!usuario.email_verificado) {
+      await usuario.destroy();
+      return res.status(200).json({
+        success: true,
+        resultado: 'registro_cancelado',
+        message: 'Listo: cancelamos ese registro y el código quedó anulado. Nadie podrá usar tu correo sin tu permiso.',
+      });
+    }
+
+    await usuario.update({
+      reset_code: null, reset_code_expires: null, reset_intentos: 0, anulacion_token: null, anulacion_expira: null,
+    });
+    return res.status(200).json({
+      success: true,
+      resultado: 'codigo_anulado',
+      message: 'Listo: anulamos el código para cambiar la contraseña. Tu contraseña sigue igual.',
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
 module.exports = {
+  anularCodigo,
   register, verificarCorreo, reenviarVerificacion, login, logout, me, forgotPassword, verifyResetCode, resetPassword,
 };

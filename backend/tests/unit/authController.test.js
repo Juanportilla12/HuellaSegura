@@ -363,6 +363,55 @@ describe('AuthController', () => {
     });
   });
 
+  // ── POST /api/auth/no-fui-yo ───────────────────────────────────────────────
+  describe('"¿No fuiste tú?" desde el correo', () => {
+    const crypto = require('crypto');
+    const CLAVE = 'a'.repeat(64);
+    const HASH = crypto.createHash('sha256').update(CLAVE).digest('hex');
+
+    test('El correo de verificación trae el enlace "No fui yo" y en la base solo queda su hash', async () => {
+      const mockUser = await buildMockUser({ email_verificado: false });
+      Usuario.findOne.mockResolvedValue(null);
+      Usuario.create.mockResolvedValue(mockUser);
+      await request(app).post('/api/auth/register').send({
+        celular: '3001234567', nombre: 'Ana García', email: 'ana@example.com', password: 'password123',
+      });
+      const { enlaceAnular } = enviarCorreoVerificacion.mock.calls[0][0];
+      const clave = enlaceAnular.match(/\/no-fui-yo\?clave=([a-f0-9]{64})$/)[1];
+      const guardado = mockUser.update.mock.calls[0][0].anulacion_token;
+      expect(guardado).toBe(crypto.createHash('sha256').update(clave).digest('hex'));
+      expect(guardado).not.toBe(clave);
+    });
+
+    test('En una cuenta sin verificar cancela el registro (el correo queda libre)', async () => {
+      const u = await buildMockUser({ email_verificado: false, anulacion_token: HASH });
+      Usuario.findOne.mockResolvedValue(u);
+      const res = await request(app).post('/api/auth/no-fui-yo').send({ clave: CLAVE });
+      expect(res.status).toBe(200);
+      expect(res.body.resultado).toBe('registro_cancelado');
+      expect(u.destroy).toHaveBeenCalled();
+      expect(Usuario.findOne.mock.calls[0][0].where.anulacion_token).toBe(HASH); // busca por el hash
+    });
+
+    test('En una cuenta verificada solo anula el código de cambio de contraseña', async () => {
+      const u = await buildMockUser({ email_verificado: true, reset_code: 'hash', anulacion_token: HASH });
+      Usuario.findOne.mockResolvedValue(u);
+      const res = await request(app).post('/api/auth/no-fui-yo').send({ clave: CLAVE });
+      expect(res.status).toBe(200);
+      expect(res.body.resultado).toBe('codigo_anulado');
+      expect(u.destroy).not.toHaveBeenCalled();
+      expect(u.update).toHaveBeenCalledWith(expect.objectContaining({ reset_code: null, anulacion_token: null }));
+    });
+
+    test('Un enlace usado, vencido o inventado no hace nada', async () => {
+      Usuario.findOne.mockResolvedValue(null);
+      const res = await request(app).post('/api/auth/no-fui-yo').send({ clave: CLAVE });
+      expect(res.status).toBe(400);
+      const mala = await request(app).post('/api/auth/no-fui-yo').send({ clave: 'abc' });
+      expect(mala.status).toBe(400);
+    });
+  });
+
   // ── GET /api/auth/me ───────────────────────────────────────────────────────
   describe('GET /api/auth/me', () => {
     test('401 sin token en el header', async () => {

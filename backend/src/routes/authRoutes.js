@@ -54,6 +54,12 @@ router.post('/verificar-correo', limitadorAuth,
 // POST /api/auth/reenviar-verificacion — un código nuevo para una cuenta pendiente
 router.post('/reenviar-verificacion', limitadorAuth, [validarEmail], authController.reenviarVerificacion);
 
+// POST /api/auth/no-fui-yo — enlace "¿No fuiste tú?" de los correos con código
+router.post('/no-fui-yo', limitadorAuth,
+  [body('clave').isString().matches(/^[a-f0-9]{64}$/).withMessage('Enlace no válido.')],
+  authController.anularCodigo
+);
+
 // POST /api/auth/login
 router.post('/login', limitadorAuth, loginValidators, authController.login);
 
