@@ -10,7 +10,8 @@ export const test = base.extend({
     const bloqueadas = [];
     await context.route(/\/api\/|railway\.app/, (route) => {
       const url = route.request().url();
-      if (API_LOCAL.test(url)) return route.continue();
+      // La verificación anti-bots de Cloudflare (Turnstile) también usa rutas con /api/
+      if (API_LOCAL.test(url) || /^https:\/\/challenges\.cloudflare\.com\//.test(url)) return route.continue();
       bloqueadas.push(url);
       return route.abort('blockedbyclient');
     });

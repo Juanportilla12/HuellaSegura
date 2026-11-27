@@ -40,8 +40,14 @@ export function AuthProvider({ children }) {
     return data;
   }, []);
 
+  // El registro deja la cuenta pendiente: la sesión empieza al verificar el correo
   const register = useCallback(async (datos) => {
     const { data } = await authService.register(datos);
+    return data;
+  }, []);
+
+  const verificarCorreo = useCallback(async (email, codigo) => {
+    const { data } = await authService.verificarCorreo(email, codigo);
     localStorage.setItem('token', data.token);
     localStorage.setItem('usuario', JSON.stringify(data.usuario));
     setUsuario(data.usuario);
@@ -75,6 +81,7 @@ export function AuthProvider({ children }) {
     esAdmin: usuario?.rol === 'admin',
     login,
     register,
+    verificarCorreo,
     logout,
     actualizarUsuario,
   };

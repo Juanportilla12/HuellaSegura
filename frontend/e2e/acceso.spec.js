@@ -1,5 +1,5 @@
 import { test, expect } from './base';
-import { datosUsuario, registrarPorApi, sinBienvenida } from './ayudas';
+import { API, datosUsuario, registrarPorApi, sinBienvenida, fijarCodigoVerificacion, CODIGO_PRUEBA } from './ayudas';
 
 test.beforeEach(async ({ page }) => { await sinBienvenida(page); });
 
@@ -45,7 +45,7 @@ test.describe('Registro', () => {
     await expect(page).toHaveURL(/\/register$/);
   });
 
-  test('registro completo entra a la app', async ({ page }) => {
+  test('registro completo: pide el código enviado al correo y con él activa la cuenta', async ({ page }) => {
     const u = datosUsuario('registro');
     await page.goto('/register');
     await page.getByLabel(/nombre completo/i).fill(u.nombre);
@@ -56,8 +56,46 @@ test.describe('Registro', () => {
     await page.getByLabel(/confirmar contraseña/i).fill(u.password);
     await page.getByTestId('check-datos').check();
     await page.getByRole('button', { name: /crear cuenta/i }).click();
+
+    // La cuenta queda pendiente: se pide el código enviado al correo
+    await expect(page).toHaveURL(/\/verificar-correo$/);
+    await expect(page.getByTestId('correo-a-verificar')).toHaveText(u.email);
+
+    // Un código equivocado no activa la cuenta
+    await fijarCodigoVerificacion(u.email);
+    await page.getByLabel('Dígito 1').fill('9');
+    for (const [i, d] of [...'99999'].entries()) await page.getByLabel(`Dígito ${i + 2}`).fill(d);
+    await page.getByRole('button', { name: /activar mi cuenta/i }).click();
+    await expect(page.getByText(/código incorrecto/i)).toBeVisible();
+
+    // Con el código correcto entra a la app
+    for (const [i, d] of [...CODIGO_PRUEBA].entries()) await page.getByLabel(`Dígito ${i + 1}`).fill(d);
+    await page.getByRole('button', { name: /activar mi cuenta/i }).click();
     await expect(page).toHaveURL('http://localhost:4173/');
     await expect(page.getByRole('navigation').first()).toBeVisible();
+  });
+
+  test('con la contraseña correcta pero el correo sin verificar, el login lleva a escribir el código', async ({ page, request }) => {
+    const u = datosUsuario('sin-verificar');
+    expect((await request.post(`${API}/auth/register`, { data: u })).status()).toBe(201);
+    await page.goto('/login');
+    await page.getByLabel(/correo electrónico/i).fill(u.email);
+    await page.getByLabel(/^contraseña/i).fill(u.password);
+    await page.getByRole('button', { name: /iniciar sesión/i }).click();
+    await expect(page).toHaveURL(/\/verificar-correo$/);
+    await expect(page.getByTestId('correo-a-verificar')).toHaveText(u.email);
+  });
+
+  test('5 contraseñas incorrectas bloquean la cuenta y se informa', async ({ page, request }) => {
+    const u = await registrarPorApi(request, datosUsuario('bloqueo'));
+    await page.goto('/login');
+    await page.getByLabel(/correo electrónico/i).fill(u.email);
+    for (let i = 0; i < 5; i += 1) {
+      await page.getByLabel(/^contraseña/i).fill(`adivinando${i}`);
+      await page.getByRole('button', { name: /iniciar sesión/i }).click();
+      await page.waitForTimeout(400);
+    }
+    await expect(page.getByText(/bloqueamos el inicio de sesión de esta cuenta/i)).toBeVisible();
   });
 
   test('correo ya registrado vuelve al paso 1 con el mensaje', async ({ page, request }) => {

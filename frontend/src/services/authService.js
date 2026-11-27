@@ -27,3 +27,12 @@ export function verificarCodigoRecuperacion(email, codigo) {
 export function restablecerPassword(email, codigo, nuevaPassword) {
   return api.post('/auth/reset-password', { email, codigo, nuevaPassword });
 }
+
+// Verificación del correo al crear la cuenta
+export function verificarCorreo(email, codigo) {
+  return api.post('/auth/verificar-correo', { email, codigo });
+}
+
+export function reenviarVerificacion(email) {
+  return api.post('/auth/reenviar-verificacion', { email });
+}

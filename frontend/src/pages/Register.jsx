@@ -2,11 +2,9 @@ import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Mail, Lock, User, Phone, ArrowRight, X } from 'lucide-react';
-import { actualizarUbicacion } from '../services/usuarioService';
 import { useAuth } from '../context/AuthContext';
 import { CORREO_REGEX, CELULAR_REGEX } from '../utils/formulario';
 import fotoPasto from '../assets/mascotas-pasto.webp';
-import { obtenerUbicacion } from '../utils/ubicacion';
 import {
   PantallaAuth, CabeceraFoto, HojaAuth, EncabezadoHoja, Progreso,
   CampoAuth, inputAuth, BotonVerClave, AlertaError, BotonPrimario, MarcaObligatorio, focoVisible,
@@ -171,16 +169,12 @@ export default function Register() {
     if (!validarSeguridad()) return;
     setLoading(true);
     try {
-      await register({
+      const datos = await register({
         nombre: form.nombre.trim(), email: form.email.trim(), celular: form.celular.trim(), password: form.password,
       });
-      // Consentimiento explícito de ubicación para alertas por proximidad (Ley 1581)
-      if (aceptaUbicacion) {
-        obtenerUbicacion()
-          .then(({ lat, lng }) => actualizarUbicacion(lat, lng))
-          .catch(() => {});
-      }
-      navigate('/', { replace: true });
+      // La cuenta queda pendiente hasta confirmar el correo con el código que le llegó.
+      // El consentimiento de ubicación (Ley 1581) se aplica al activar la cuenta.
+      navigate('/verificar-correo', { replace: true, state: { email: datos.email, aceptaUbicacion } });
     } catch (err) {
       const msg = err.response?.data?.message || 'Error al registrarse. Intenta de nuevo.';
       // Si el problema está en un dato del primer paso, se vuelve allí para corregirlo

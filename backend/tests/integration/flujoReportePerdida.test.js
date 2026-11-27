@@ -32,6 +32,7 @@ jest.mock('../../src/services/notificacionService', () => ({
   generarNotificacionesProximidad: jest.fn().mockResolvedValue(0),
 }));
 jest.mock('../../src/services/emailService', () => ({
+  enviarCorreoVerificacion:  jest.fn().mockResolvedValue({ messageId: 'test' }),
   enviarCorreoReporteCreado: jest.fn().mockResolvedValue({ messageId: 'test' }),
   enviarCorreoAvistamiento:  jest.fn().mockResolvedValue({ messageId: 'test' }),
 }));
@@ -45,11 +46,12 @@ describe('Flujo completo: Reporte de pérdida', () => {
   beforeEach(() => jest.clearAllMocks());
 
   // ── Test 1 ─────────────────────────────────────────────────────────────────
-  test('1. Usuario se registra exitosamente', async () => {
+  test('1. Usuario se registra y le llega el código para verificar su correo', async () => {
     Usuario.findOne.mockResolvedValue(null); // Email no existe
     const nuevoUsuario = {
       id: 1, nombre: 'María González', email: 'maria@example.com',
-      rol: 'usuario', token_version: 0, activo: true,
+      rol: 'usuario', token_version: 0, activo: true, email_verificado: false,
+      update: jest.fn().mockResolvedValue(true),
       toPublicJSON: () => ({ id: 1, nombre: 'María González', email: 'maria@example.com', rol: 'usuario' }),
     };
     Usuario.create.mockResolvedValue(nuevoUsuario);
@@ -61,11 +63,9 @@ describe('Flujo completo: Reporte de pérdida', () => {
 
     expect(res.status).toBe(201);
     expect(res.body.success).toBe(true);
-    expect(res.body.token).toBeDefined();
-    expect(res.body.usuario.email).toBe('maria@example.com');
-
-    ctx.token1  = res.body.token;
-    ctx.usuario1 = res.body.usuario;
+    expect(res.body.requiereVerificacion).toBe(true);
+    expect(res.body.email).toBe('maria@example.com');
+    expect(res.body.token).toBeUndefined(); // la sesión llega al verificar el correo
   });
 
   // ── Test 2 ─────────────────────────────────────────────────────────────────
@@ -73,7 +73,7 @@ describe('Flujo completo: Reporte de pérdida', () => {
     const hash = await bcrypt.hash('password123', 10);
     const mockUsuario = {
       id: 1, nombre: 'María González', email: 'maria@example.com',
-      password: hash, rol: 'usuario', token_version: 0, activo: true,
+      password: hash, rol: 'usuario', token_version: 0, activo: true, email_verificado: true,
       verificarPassword: (p) => bcrypt.compare(p, hash),
       toPublicJSON: () => ({ id: 1, nombre: 'María González' }),
     };

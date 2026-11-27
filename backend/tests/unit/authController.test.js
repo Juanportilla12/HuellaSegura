@@ -13,7 +13,13 @@ jest.mock('../../src/models', () => ({
     findOne: jest.fn(),
     findByPk: jest.fn(),
     create: jest.fn(),
+    update: jest.fn().mockResolvedValue([1]),
   },
+}));
+
+jest.mock('../../src/services/emailService', () => ({
+  enviarCorreoVerificacion: jest.fn().mockResolvedValue({}),
+  enviarCorreoResetCodigo: jest.fn().mockResolvedValue({}),
 }));
 
 jest.mock('../../src/config/connection', () => ({
@@ -22,6 +28,7 @@ jest.mock('../../src/config/connection', () => ({
 }));
 
 const { Usuario } = require('../../src/models');
+const { enviarCorreoVerificacion } = require('../../src/services/emailService');
 
 // ─── Helper ───────────────────────────────────────────────────────────────────
 async function buildMockUser(overrides = {}) {
@@ -35,8 +42,16 @@ async function buildMockUser(overrides = {}) {
     radio_alerta: 5,
     token_version: 0,
     activo: true,
+    email_verificado: true,
+    login_fallidos: 0,
+    bloqueado_hasta: null,
     created_at: new Date(),
     increment: jest.fn().mockResolvedValue(true),
+    // Como Sequelize: update/set/save cambian los campos del propio objeto
+    update: jest.fn(async function (datos) { Object.assign(this, datos); return this; }),
+    set: jest.fn(function (datos) { Object.assign(this, datos); }),
+    save: jest.fn().mockResolvedValue(true),
+    destroy: jest.fn().mockResolvedValue(true),
     verificarPassword: jest.fn((plain) => bcrypt.compare(plain, hashedPassword)),
     toPublicJSON: jest.fn().mockReturnValue({
       id: 1,
@@ -55,8 +70,8 @@ describe('AuthController', () => {
 
   // ── POST /api/auth/register ────────────────────────────────────────────────
   describe('POST /api/auth/register', () => {
-    test('201 con usuario válido', async () => {
-      const mockUser = await buildMockUser();
+    test('201: crea la cuenta PENDIENTE, envía el código al correo y no entrega sesión', async () => {
+      const mockUser = await buildMockUser({ email_verificado: false });
       Usuario.findOne.mockResolvedValue(null);
       Usuario.create.mockResolvedValue(mockUser);
 
@@ -68,9 +83,46 @@ describe('AuthController', () => {
       });
 
       expect(res.status).toBe(201);
-      expect(res.body.success).toBe(true);
-      expect(res.body.token).toBeDefined();
-      expect(res.body.usuario.email).toBe('ana@example.com');
+      expect(res.body).toMatchObject({ success: true, requiereVerificacion: true, email: 'ana@example.com' });
+      expect(res.body.token).toBeUndefined(); // sin verificar no hay sesión
+      expect(Usuario.create.mock.calls[0][0]).toMatchObject({ email_verificado: false });
+      const { codigo } = enviarCorreoVerificacion.mock.calls[0][0];
+      expect(codigo).toMatch(/^\d{6}$/);
+      // En la base de datos queda el hash, nunca el código
+      const guardado = mockUser.update.mock.calls[0][0].verificacion_code;
+      expect(guardado).not.toBe(codigo);
+      expect(await bcrypt.compare(codigo, guardado)).toBe(true);
+    });
+
+    test('Si alguien registró tu correo y nunca lo verificó, puedes registrarte igual (se reemplaza)', async () => {
+      const pendiente = await buildMockUser({ email_verificado: false, nombre: 'Suplantador', verificacion_enviada: null });
+      Usuario.findOne.mockResolvedValue(pendiente);
+
+      const res = await request(app).post('/api/auth/register').send({
+        celular: '3109998877', nombre: 'Ana García', email: 'ana@example.com', password: 'otraClave123',
+      });
+
+      expect(res.status).toBe(201);
+      expect(pendiente.set).toHaveBeenCalledWith({ nombre: 'Ana García', celular: '3109998877', password: 'otraClave123' });
+      expect(Usuario.create).not.toHaveBeenCalled();
+      expect(enviarCorreoVerificacion).toHaveBeenCalledTimes(1);
+    });
+
+    test('Si el correo de verificación no sale, avisa (503) y no deja la cuenta creada', async () => {
+      const prev = process.env.NODE_ENV;
+      process.env.NODE_ENV = 'production'; // en producción el fallo del correo se informa
+      const mockUser = await buildMockUser({ email_verificado: false });
+      Usuario.findOne.mockResolvedValue(null);
+      Usuario.create.mockResolvedValue(mockUser);
+      enviarCorreoVerificacion.mockRejectedValueOnce(new Error('Brevo caído'));
+
+      const res = await request(app).post('/api/auth/register').send({
+        celular: '3001234567', nombre: 'Ana García', email: 'ana@example.com', password: 'password123',
+      });
+      process.env.NODE_ENV = prev;
+
+      expect(res.status).toBe(503);
+      expect(mockUser.destroy).toHaveBeenCalled();
     });
 
     test('400 si falta el nombre', async () => {
@@ -111,8 +163,8 @@ describe('AuthController', () => {
       expect(res.status).toBe(400);
     });
 
-    test('409 si el correo ya existe', async () => {
-      const mockUser = await buildMockUser();
+    test('409 si el correo ya pertenece a una cuenta verificada', async () => {
+      const mockUser = await buildMockUser({ email_verificado: true });
       Usuario.findOne.mockResolvedValue(mockUser);
 
       const res = await request(app).post('/api/auth/register').send({
@@ -174,6 +226,61 @@ describe('AuthController', () => {
       expect(res.status).toBe(400);
     });
 
+    test('403 CORREO_NO_VERIFICADO: con la contraseña correcta pero sin verificar no hay sesión', async () => {
+      const mockUser = await buildMockUser({ email_verificado: false, verificacion_enviada: null });
+      Usuario.findOne.mockResolvedValue(mockUser);
+
+      const res = await request(app).post('/api/auth/login').send({ email: 'ana@example.com', password: 'password123' });
+
+      expect(res.status).toBe(403);
+      expect(res.body).toMatchObject({ codigo: 'CORREO_NO_VERIFICADO', email: 'ana@example.com' });
+      expect(res.body.token).toBeUndefined();
+      expect(enviarCorreoVerificacion).toHaveBeenCalledTimes(1); // se le reenvía el código
+    });
+
+    test('Con la contraseña incorrecta NO revela si la cuenta está sin verificar', async () => {
+      const mockUser = await buildMockUser({ email_verificado: false });
+      mockUser.verificarPassword = jest.fn().mockResolvedValue(false);
+      Usuario.findOne.mockResolvedValue(mockUser);
+
+      const res = await request(app).post('/api/auth/login').send({ email: 'ana@example.com', password: 'mala12345' });
+
+      expect(res.status).toBe(401);
+      expect(res.body.codigo).toBeUndefined();
+    });
+
+    test('Bloquea la cuenta 15 minutos tras 5 contraseñas incorrectas seguidas (423)', async () => {
+      const mockUser = await buildMockUser({ login_fallidos: 4 });
+      mockUser.verificarPassword = jest.fn().mockResolvedValue(false);
+      Usuario.findOne.mockResolvedValue(mockUser);
+
+      const res = await request(app).post('/api/auth/login').send({ email: 'ana@example.com', password: 'mala12345' });
+
+      expect(res.status).toBe(423);
+      expect(res.body.codigo).toBe('CUENTA_BLOQUEADA');
+      expect(new Date(mockUser.bloqueado_hasta) - Date.now()).toBeGreaterThan(14 * 60 * 1000);
+    });
+
+    test('Con la cuenta bloqueada ni siquiera se comprueba la contraseña', async () => {
+      const mockUser = await buildMockUser({ bloqueado_hasta: new Date(Date.now() + 10 * 60 * 1000) });
+      Usuario.findOne.mockResolvedValue(mockUser);
+
+      const res = await request(app).post('/api/auth/login').send({ email: 'ana@example.com', password: 'password123' });
+
+      expect(res.status).toBe(423);
+      expect(mockUser.verificarPassword).not.toHaveBeenCalled();
+    });
+
+    test('Un inicio de sesión correcto reinicia el contador de intentos fallidos', async () => {
+      const mockUser = await buildMockUser({ login_fallidos: 3 });
+      Usuario.findOne.mockResolvedValue(mockUser);
+
+      const res = await request(app).post('/api/auth/login').send({ email: 'ana@example.com', password: 'password123' });
+
+      expect(res.status).toBe(200);
+      expect(mockUser.update).toHaveBeenCalledWith({ login_fallidos: 0, bloqueado_hasta: null });
+    });
+
     test('403 si el usuario está inactivo', async () => {
       const mockUser = await buildMockUser({ activo: false });
       Usuario.findOne.mockResolvedValue(mockUser);
@@ -184,6 +291,75 @@ describe('AuthController', () => {
       });
 
       expect(res.status).toBe(403);
+    });
+  });
+
+  // ── POST /api/auth/verificar-correo ────────────────────────────────────────
+  describe('POST /api/auth/verificar-correo', () => {
+    async function pendienteConCodigo(codigo) {
+      return buildMockUser({
+        email_verificado: false,
+        verificacion_code: await bcrypt.hash(codigo, 10),
+        verificacion_expira: new Date(Date.now() + 10 * 60 * 1000),
+        verificacion_intentos: 0,
+      });
+    }
+
+    test('Con el código correcto activa la cuenta e inicia sesión', async () => {
+      const u = await pendienteConCodigo('482913');
+      Usuario.findOne.mockResolvedValue(u);
+
+      const res = await request(app).post('/api/auth/verificar-correo').send({ email: 'ana@example.com', codigo: '482913' });
+
+      expect(res.status).toBe(200);
+      expect(res.body.token).toBeDefined();
+      expect(u.update).toHaveBeenCalledWith(expect.objectContaining({ email_verificado: true, verificacion_code: null }));
+    });
+
+    test('Con un código incorrecto no activa la cuenta e informa los intentos restantes', async () => {
+      const u = await pendienteConCodigo('482913');
+      Usuario.findOne.mockResolvedValue(u);
+
+      const res = await request(app).post('/api/auth/verificar-correo').send({ email: 'ana@example.com', codigo: '000000' });
+
+      expect(res.status).toBe(400);
+      expect(res.body.message).toMatch(/te quedan 4 intento/i);
+      expect(u.email_verificado).toBe(false);
+    });
+
+    test('Un código vencido no sirve', async () => {
+      const u = await pendienteConCodigo('482913');
+      u.verificacion_expira = new Date(Date.now() - 1000);
+      Usuario.findOne.mockResolvedValue(u);
+
+      const res = await request(app).post('/api/auth/verificar-correo').send({ email: 'ana@example.com', codigo: '482913' });
+
+      expect(res.status).toBe(400);
+      expect(res.body.token).toBeUndefined();
+    });
+  });
+
+  // ── POST /api/auth/reenviar-verificacion ───────────────────────────────────
+  describe('POST /api/auth/reenviar-verificacion', () => {
+    test('Envía un código nuevo a una cuenta pendiente', async () => {
+      Usuario.findOne.mockResolvedValue(await buildMockUser({ email_verificado: false, verificacion_enviada: null }));
+      const res = await request(app).post('/api/auth/reenviar-verificacion').send({ email: 'ana@example.com' });
+      expect(res.status).toBe(200);
+      expect(enviarCorreoVerificacion).toHaveBeenCalledTimes(1);
+    });
+
+    test('No permite pedir otro código antes de un minuto (429)', async () => {
+      Usuario.findOne.mockResolvedValue(await buildMockUser({ email_verificado: false, verificacion_enviada: new Date() }));
+      const res = await request(app).post('/api/auth/reenviar-verificacion').send({ email: 'ana@example.com' });
+      expect(res.status).toBe(429);
+      expect(enviarCorreoVerificacion).not.toHaveBeenCalled();
+    });
+
+    test('Respuesta genérica si el correo no existe (no revela cuentas)', async () => {
+      Usuario.findOne.mockResolvedValue(null);
+      const res = await request(app).post('/api/auth/reenviar-verificacion').send({ email: 'nadie@example.com' });
+      expect(res.status).toBe(200);
+      expect(enviarCorreoVerificacion).not.toHaveBeenCalled();
     });
   });
 

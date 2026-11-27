@@ -79,6 +79,40 @@ const Usuario = sequelize.define(
       type: DataTypes.STRING(500),
       allowNull: true,
     },
+    // Verificación del correo: la cuenta queda pendiente hasta escribir el código enviado
+    // al correo. Por defecto true (cuentas existentes y el administrador); el registro
+    // crea las cuentas nuevas con false.
+    email_verificado: {
+      type: DataTypes.BOOLEAN,
+      allowNull: false,
+      defaultValue: true,
+    },
+    verificacion_code: {
+      // Hash bcrypt del código de 6 dígitos (nunca el código en claro)
+      type: DataTypes.STRING(100),
+      allowNull: true,
+    },
+    verificacion_expira: {
+      type: DataTypes.DATE,
+      allowNull: true,
+    },
+    verificacion_intentos: {
+      type: DataTypes.INTEGER,
+      defaultValue: 0,
+    },
+    verificacion_enviada: {
+      type: DataTypes.DATE,
+      allowNull: true,
+    },
+    // Bloqueo temporal tras varias contraseñas incorrectas seguidas (por cuenta, no por IP)
+    login_fallidos: {
+      type: DataTypes.INTEGER,
+      defaultValue: 0,
+    },
+    bloqueado_hasta: {
+      type: DataTypes.DATE,
+      allowNull: true,
+    },
   },
   {
     tableName: 'usuarios',

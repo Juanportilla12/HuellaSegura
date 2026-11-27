@@ -193,6 +193,26 @@ async function enviarCorreoResetCodigo({ email, nombre, codigo }) {
   });
 }
 
+// Verificación del correo al crear la cuenta
+async function enviarCorreoVerificacion({ email, nombre, codigo }) {
+  const transporte = crearTransporte();
+  return transporte.sendMail({
+    from: `"HuellaSegura" <${process.env.EMAIL_USER}>`,
+    to: email,
+    subject: `✅ Confirma tu correo — HuellaSegura`,
+    html: plantilla({
+      titulo: 'Confirma tu correo para activar tu cuenta',
+      contenido: `
+        <p style="margin:0;">Hola <strong>${esc(nombre)}</strong>, escribe este código en la app para activar tu cuenta de HuellaSegura:</p>
+        <div style="margin:24px 0;padding:22px;text-align:center;background:${FONDO};border:1px solid ${BORDE};border-radius:16px;">
+          <span style="font-size:36px;font-weight:bold;letter-spacing:10px;color:${TEXTO};">${esc(codigo)}</span>
+        </div>
+        <p style="margin:0;color:${SUAVE};font-size:14px;">El código vence en <strong>15 minutos</strong>.
+          Si no fuiste tú quien creó esta cuenta, ignora este correo: sin el código nadie puede activarla.</p>`,
+    }),
+  });
+}
+
 async function enviarCorreoAlertaProximidad({ destinatario, mascotaNombre, distanciaKm, reporteId }) {
   const transporte = crearTransporte();
   return transporte.sendMail({
@@ -230,4 +250,5 @@ async function enviarCorreoReporteSemanal({ destinatario, pdf }) {
 module.exports = {
   enviarCorreoReporteSemanal,
   enviarCorreoReporteCreado, enviarCorreoAvistamiento, enviarCorreoResetCodigo, enviarCorreoAlertaProximidad,
+  enviarCorreoVerificacion,
 };

@@ -4,7 +4,7 @@ const bcrypt = require('bcryptjs');
 const { Op, literal } = require('sequelize');
 const { Usuario } = require('../models');
 const { sign } = require('../config/jwt');
-const { enviarCorreoResetCodigo } = require('../services/emailService');
+const { enviarCorreoResetCodigo, enviarCorreoVerificacion } = require('../services/emailService');
 
 // Errores de Cloudflare que indican mala configuración del servidor (clave secreta
 // ausente o que no corresponde a la clave del sitio), no un intento sospechoso.
@@ -45,6 +45,43 @@ async function turnstileValido(token) {
   }
 }
 
+const VIGENCIA_CODIGO_MS = 15 * 60 * 1000; // 15 minutos
+const ESPERA_REENVIO_MS = 60 * 1000;       // un código nuevo cada minuto como máximo
+const MAX_LOGIN_FALLIDOS = 5;
+const BLOQUEO_LOGIN_MS = 15 * 60 * 1000;   // 15 minutos
+
+const tokenDe = (usuario) => sign({ id: usuario.id, rol: usuario.rol, tokenVersion: usuario.token_version });
+
+/**
+ * Genera un código de 6 dígitos, guarda su hash (nunca el código) y lo envía al correo.
+ * Sin servicio de correo (desarrollo o pruebas automáticas) el código se muestra en la
+ * consola del servidor; en producción un fallo del envío se informa a quien llama.
+ */
+async function enviarCodigoVerificacion(usuario) {
+  const codigo = String(crypto.randomInt(100000, 1000000));
+  await usuario.update({
+    verificacion_code: await bcrypt.hash(codigo, 10),
+    verificacion_expira: new Date(Date.now() + VIGENCIA_CODIGO_MS),
+    verificacion_intentos: 0,
+    verificacion_enviada: new Date(),
+  });
+  try {
+    await enviarCorreoVerificacion({ email: usuario.email, nombre: usuario.nombre, codigo });
+  } catch (error) {
+    if (process.env.NODE_ENV === 'production') throw error;
+    console.warn(`[Correo] Sin servicio de correo (${error.message}). Código de verificación de ${usuario.email}: ${codigo}`);
+  }
+}
+
+const reenvioReciente = (usuario) =>
+  usuario.verificacion_enviada && Date.now() - new Date(usuario.verificacion_enviada) < ESPERA_REENVIO_MS;
+
+/**
+ * Registro: la cuenta queda pendiente hasta que se escribe el código enviado al correo.
+ * Así nadie puede registrar un correo que no es suyo. Si el correo tiene una cuenta
+ * pendiente (nunca verificada), quien se registra ahora la reemplaza: la anterior nunca
+ * demostró ser dueña del correo y no debe poder "apartarlo".
+ */
 async function register(req, res, next) {
   try {
     const errors = validationResult(req);
@@ -54,31 +91,139 @@ async function register(req, res, next) {
 
     const { nombre, email, celular, password } = req.body;
 
-    const existe = await Usuario.findOne({ where: { email } });
-    if (existe) {
+    let usuario = await Usuario.findOne({ where: { email } });
+    if (usuario?.email_verificado) {
       return res.status(409).json({
         success: false,
         message: 'Ya existe una cuenta con ese correo electrónico.',
       });
     }
+    if (usuario && reenvioReciente(usuario)) {
+      return res.status(429).json({
+        success: false,
+        message: 'Acabamos de enviar un código a ese correo. Espera un minuto antes de intentarlo de nuevo.',
+      });
+    }
 
-    const usuario = await Usuario.create({ nombre, email, celular, password });
+    const nueva = !usuario;
+    if (usuario) {
+      usuario.set({ nombre, celular, password }); // el hook cifra la contraseña al guardar
+      await usuario.save();
+    } else {
+      usuario = await Usuario.create({ nombre, email, celular, password, email_verificado: false });
+    }
 
-    const token = sign({
-      id: usuario.id,
-      rol: usuario.rol,
-      tokenVersion: usuario.token_version,
-    });
+    try {
+      await enviarCodigoVerificacion(usuario);
+    } catch (errorCorreo) {
+      console.error('[Correo] No se pudo enviar el código de verificación:', errorCorreo.message);
+      if (nueva) await usuario.destroy();
+      return res.status(503).json({
+        success: false,
+        message: 'No pudimos enviar el correo de verificación. Intenta de nuevo en unos minutos.',
+      });
+    }
 
     return res.status(201).json({
       success: true,
-      message: 'Usuario registrado exitosamente.',
-      token,
+      requiereVerificacion: true,
+      email: usuario.email,
+      message: 'Te enviamos un código a tu correo para activar la cuenta.',
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+// Activa la cuenta con el código enviado al correo e inicia la sesión
+async function verificarCorreo(req, res, next) {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ success: false, message: errors.array()[0].msg, errors: errors.array() });
+    }
+
+    const { email, codigo } = req.body;
+    const usuario = await Usuario.findOne({ where: { email } });
+    if (usuario?.email_verificado) {
+      return res.status(400).json({ success: false, message: 'Esta cuenta ya está activa. Inicia sesión.' });
+    }
+
+    const resultado = await validarCodigo(usuario, codigo, 'verificacion');
+    if (!resultado.ok) {
+      return res.status(resultado.status).json({ success: false, message: resultado.message });
+    }
+
+    await usuario.update({
+      email_verificado: true,
+      verificacion_code: null,
+      verificacion_expira: null,
+      verificacion_intentos: 0,
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: '¡Correo verificado! Tu cuenta está activa.',
+      token: tokenDe(usuario),
       usuario: usuario.toPublicJSON(),
     });
   } catch (error) {
     next(error);
   }
+}
+
+// Envía un código nuevo a una cuenta pendiente (respuesta genérica: no revela cuentas)
+async function reenviarVerificacion(req, res, next) {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ success: false, message: errors.array()[0].msg, errors: errors.array() });
+    }
+
+    const usuario = await Usuario.findOne({ where: { email: req.body.email } });
+    if (usuario && !usuario.email_verificado) {
+      if (reenvioReciente(usuario)) {
+        return res.status(429).json({ success: false, message: 'Espera un minuto antes de pedir otro código.' });
+      }
+      try {
+        await enviarCodigoVerificacion(usuario);
+      } catch (errorCorreo) {
+        console.error('[Correo] No se pudo reenviar el código de verificación:', errorCorreo.message);
+        return res.status(503).json({
+          success: false,
+          message: 'No pudimos enviar el correo en este momento. Intenta de nuevo en unos minutos.',
+        });
+      }
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: 'Si hay una cuenta pendiente con ese correo, te enviamos un código nuevo.',
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+// Contraseña incorrecta: tras MAX_LOGIN_FALLIDOS seguidas la cuenta se bloquea un tiempo
+async function registrarLoginFallido(usuario) {
+  const fallidos = (usuario.login_fallidos || 0) + 1;
+  const bloquear = fallidos >= MAX_LOGIN_FALLIDOS;
+  await usuario.update({
+    login_fallidos: bloquear ? 0 : fallidos,
+    bloqueado_hasta: bloquear ? new Date(Date.now() + BLOQUEO_LOGIN_MS) : null,
+  });
+  return bloquear;
+}
+
+function respuestaBloqueo(res, hasta) {
+  const minutos = Math.max(1, Math.ceil((new Date(hasta) - Date.now()) / 60000));
+  return res.status(423).json({
+    success: false,
+    codigo: 'CUENTA_BLOQUEADA',
+    message: `Por seguridad bloqueamos el inicio de sesión de esta cuenta durante ${minutos} minuto(s) `
+      + 'tras varios intentos fallidos. Espera o restablece tu contraseña.',
+  });
 }
 
 async function login(req, res, next) {
@@ -97,14 +242,25 @@ async function login(req, res, next) {
       });
     }
 
-    // Mismo mensaje si el correo no existe o la contraseña es incorrecta (no revela cuentas)
     const usuario = await Usuario.findOne({ where: { email } });
+
+    // Cuenta bloqueada temporalmente por contraseñas incorrectas seguidas
+    if (usuario?.bloqueado_hasta && new Date(usuario.bloqueado_hasta) > new Date()) {
+      return respuestaBloqueo(res, usuario.bloqueado_hasta);
+    }
+
+    // Mismo mensaje si el correo no existe o la contraseña es incorrecta (no revela cuentas)
     const passwordValida = usuario ? await usuario.verificarPassword(password) : false;
     if (!usuario || !passwordValida) {
+      if (usuario && await registrarLoginFallido(usuario)) return respuestaBloqueo(res, usuario.bloqueado_hasta);
       return res.status(401).json({
         success: false,
         message: 'Correo o contraseña incorrectos.',
       });
+    }
+
+    if (usuario.login_fallidos || usuario.bloqueado_hasta) {
+      await usuario.update({ login_fallidos: 0, bloqueado_hasta: null });
     }
 
     if (!usuario.activo) {
@@ -114,11 +270,20 @@ async function login(req, res, next) {
       });
     }
 
-    const token = sign({
-      id: usuario.id,
-      rol: usuario.rol,
-      tokenVersion: usuario.token_version,
-    });
+    // Solo se informa después de comprobar la contraseña (no revela qué correos existen)
+    if (!usuario.email_verificado) {
+      if (!reenvioReciente(usuario)) {
+        await enviarCodigoVerificacion(usuario).catch((e) => console.error('[Correo] Verificación al iniciar sesión:', e.message));
+      }
+      return res.status(403).json({
+        success: false,
+        codigo: 'CORREO_NO_VERIFICADO',
+        email: usuario.email,
+        message: 'Tu correo aún no está verificado. Te enviamos un código para activar la cuenta.',
+      });
+    }
+
+    const token = tokenDe(usuario);
 
     return res.status(200).json({
       success: true,
@@ -200,21 +365,28 @@ async function forgotPassword(req, res, next) {
 
 const MAX_INTENTOS_CODIGO = 5;
 
+const CAMPOS_CODIGO = {
+  recuperacion: { codigo: 'reset_code', expira: 'reset_code_expires', intentos: 'reset_intentos' },
+  verificacion: { codigo: 'verificacion_code', expira: 'verificacion_expira', intentos: 'verificacion_intentos' },
+};
+
 /**
- * Valida el código de recuperación: existe, no expiró, no superó 5 intentos
- * y coincide con el hash guardado. Cada intento fallido se cuenta; al llegar
- * al máximo el código se invalida y hay que solicitar uno nuevo.
+ * Valida un código enviado al correo (recuperación de contraseña o verificación de la
+ * cuenta): existe, no expiró, no superó 5 intentos y coincide con el hash guardado.
+ * Cada intento fallido se cuenta; al llegar al máximo el código se invalida y hay que
+ * solicitar uno nuevo.
  */
-async function validarCodigoRecuperacion(usuario, codigo) {
+async function validarCodigo(usuario, codigo, tipo) {
+  const c = CAMPOS_CODIGO[tipo];
   const invalido = { ok: false, status: 400, message: 'Código inválido o expirado. Solicita uno nuevo.' };
   const agotado = { ok: false, status: 429, message: 'Demasiados intentos. Solicita un código nuevo.' };
-  // Al invalidar se conserva el contador: solo un código nuevo (forgotPassword) lo reinicia
-  const invalidar = () => usuario.update({ reset_code: null, reset_code_expires: null });
+  // Al invalidar se conserva el contador: solo un código nuevo lo reinicia
+  const invalidar = () => usuario.update({ [c.codigo]: null, [c.expira]: null });
 
-  if (!usuario || !usuario.reset_code || !usuario.reset_code_expires) return invalido;
-  if (new Date() > new Date(usuario.reset_code_expires)) return invalido;
+  if (!usuario || !usuario[c.codigo] || !usuario[c.expira]) return invalido;
+  if (new Date() > new Date(usuario[c.expira])) return invalido;
 
-  const previos = usuario.reset_intentos || 0;
+  const previos = usuario[c.intentos] || 0;
   if (previos >= MAX_INTENTOS_CODIGO) {
     await invalidar();
     return agotado;
@@ -223,15 +395,15 @@ async function validarCodigoRecuperacion(usuario, codigo) {
   // El intento se reserva en la base de datos ANTES de comparar: con peticiones
   // simultáneas, la condición del UPDATE impide evaluar más de 5 códigos.
   const [reservado] = await Usuario.update(
-    { reset_intentos: literal('reset_intentos + 1') },
-    { where: { id: usuario.id, reset_code: { [Op.ne]: null }, reset_intentos: { [Op.lt]: MAX_INTENTOS_CODIGO } } }
+    { [c.intentos]: literal(`${c.intentos} + 1`) },
+    { where: { id: usuario.id, [c.codigo]: { [Op.ne]: null }, [c.intentos]: { [Op.lt]: MAX_INTENTOS_CODIGO } } }
   );
   if (reservado === 0) {
     await invalidar();
     return agotado;
   }
 
-  const coincide = await bcrypt.compare(String(codigo), usuario.reset_code);
+  const coincide = await bcrypt.compare(String(codigo), usuario[c.codigo]);
   if (!coincide) {
     const intentos = previos + 1;
     if (intentos >= MAX_INTENTOS_CODIGO) {
@@ -247,6 +419,8 @@ async function validarCodigoRecuperacion(usuario, codigo) {
 
   return { ok: true };
 }
+
+const validarCodigoRecuperacion = (usuario, codigo) => validarCodigo(usuario, codigo, 'recuperacion');
 
 async function verifyResetCode(req, res, next) {
   try {
@@ -290,6 +464,10 @@ async function resetPassword(req, res, next) {
       reset_code_expires: null,
       reset_intentos: 0,
       token_version: (usuario.token_version || 0) + 1,
+      // El código llegó a su correo: queda verificado y sin bloqueo por intentos fallidos
+      email_verificado: true,
+      login_fallidos: 0,
+      bloqueado_hasta: null,
     });
 
     return res.status(200).json({ success: true, message: 'Contraseña restablecida exitosamente.' });
@@ -298,4 +476,6 @@ async function resetPassword(req, res, next) {
   }
 }
 
-module.exports = { register, login, logout, me, forgotPassword, verifyResetCode, resetPassword };
+module.exports = {
+  register, verificarCorreo, reenviarVerificacion, login, logout, me, forgotPassword, verifyResetCode, resetPassword,
+};

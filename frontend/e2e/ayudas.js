@@ -1,3 +1,5 @@
+import { createRequire } from 'node:module';
+const requireBackend = createRequire(new URL('../../backend/package.json', import.meta.url));
 // Utilidades compartidas por las pruebas de navegador
 export const API = process.env.E2E_API_URL || 'http://localhost:3001/api';
 
@@ -13,11 +15,24 @@ export function datosUsuario(prefijo = 'usuario') {
   };
 }
 
-// Registra un usuario por la API (más rápido que el formulario cuando no es lo que se prueba)
+// El código de verificación real llega por correo. En la base de datos de PRUEBA se fija
+// uno conocido (su hash) para poder escribirlo, como haría el usuario con el que le llegó.
+export const CODIGO_PRUEBA = '123456';
+export async function fijarCodigoVerificacion(email, codigo = CODIGO_PRUEBA) {
+  const bcrypt = requireBackend('bcryptjs');
+  await consultarBD('UPDATE usuarios SET verificacion_code = ?, verificacion_intentos = 0 WHERE email = ?',
+    [await bcrypt.hash(codigo, 10), email]);
+}
+
+// Registra un usuario por la API y verifica su correo (más rápido que el formulario cuando
+// no es lo que se prueba). Devuelve la sesión ya iniciada.
 export async function registrarPorApi(request, datos = datosUsuario()) {
   const resp = await request.post(`${API}/auth/register`, { data: datos });
   if (!resp.ok()) throw new Error(`Registro falló: ${resp.status()} ${await resp.text()}`);
-  const body = await resp.json();
+  await fijarCodigoVerificacion(datos.email);
+  const verif = await request.post(`${API}/auth/verificar-correo`, { data: { email: datos.email, codigo: CODIGO_PRUEBA } });
+  if (!verif.ok()) throw new Error(`Verificación falló: ${verif.status()} ${await verif.text()}`);
+  const body = await verif.json();
   return { ...datos, token: body.token, usuario: body.usuario };
 }
 
@@ -53,8 +68,6 @@ export async function marcarEnMapa(page) {
 
 // Consulta directa a la base de datos de PRUEBA (variables de backend/.env). Sirve para
 // preparar datos que no se pueden crear por la API en local (p. ej. fotos en Cloudinary).
-import { createRequire } from 'node:module';
-const requireBackend = createRequire(new URL('../../backend/package.json', import.meta.url));
 export async function consultarBD(sql, parametros = []) {
   requireBackend('dotenv').config({ path: new URL('../../backend/.env', import.meta.url).pathname.replace(/^\/([A-Z]:)/, '$1') });
   const mysql = requireBackend('mysql2/promise');

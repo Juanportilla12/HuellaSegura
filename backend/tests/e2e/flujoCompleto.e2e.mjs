@@ -9,6 +9,7 @@
  */
 import 'dotenv/config';
 import mysql from 'mysql2/promise';
+import bcrypt from 'bcryptjs';
 
 const API = process.env.E2E_API_URL || 'http://localhost:3001/api';
 const BASE = API.replace(/\/api\/?$/, '');
@@ -54,11 +55,49 @@ check('HU-01 contraseña de 7 caracteres rechazada', r.status === 400);
 r = await req('POST', '/auth/register', { body: { ...dueno, celular: undefined } });
 check('R1 celular obligatorio', r.status === 400);
 r = await req('POST', '/auth/register', { body: dueno });
-check('R1 registro con celular', r.status === 201 && r.data.usuario.celular === dueno.celular);
+check('R1 registro queda pendiente de verificar el correo (sin sesión)', r.status === 201 && r.data.requiereVerificacion === true && !r.data.token);
+check('R1 celular guardado', await sql(`SELECT celular FROM usuarios WHERE email='${dueno.email}'`) === dueno.celular);
+check('Seguridad: la cuenta nueva no está verificada', await sql(`SELECT email_verificado FROM usuarios WHERE email='${dueno.email}'`) === '0');
+check('Seguridad: el código de verificación se guarda cifrado', (await sql(`SELECT verificacion_code FROM usuarios WHERE email='${dueno.email}'`)).startsWith('$2'));
+r = await req('POST', '/auth/login', { body: { email: dueno.email, password: dueno.password } });
+check('Seguridad: sin verificar el correo no se puede iniciar sesión', r.status === 403 && r.data.codigo === 'CORREO_NO_VERIFICADO' && !r.data.token);
+
+// El código real llega por correo; aquí se fija uno conocido en la base de datos de prueba
+async function verificarCuenta(email) {
+  const hash = await bcrypt.hash('123456', 10);
+  await db.query('UPDATE usuarios SET verificacion_code = ?, verificacion_enviada = NULL WHERE email = ?', [hash, email]);
+  return req('POST', '/auth/verificar-correo', { body: { email, codigo: '123456' } });
+}
+await db.query('UPDATE usuarios SET verificacion_code = ? WHERE email = ?', [await bcrypt.hash('123456', 10), dueno.email]);
+r = await req('POST', '/auth/verificar-correo', { body: { email: dueno.email, codigo: '654321' } });
+check('Seguridad: código de verificación incorrecto rechazado', r.status === 400 && /te quedan 4/i.test(r.data.message));
+r = await req('POST', '/auth/verificar-correo', { body: { email: dueno.email, codigo: '123456' } });
+check('Seguridad: código correcto activa la cuenta e inicia sesión', r.status === 200 && Boolean(r.data.token));
 r = await req('POST', '/auth/register', { body: dueno });
-check('Correo duplicado rechazado', r.status === 409);
+check('Correo duplicado (ya verificado) rechazado', r.status === 409);
+
+// Alguien registra un correo ajeno y no lo verifica: el dueño real puede registrarse igual
+const ajeno = { nombre: 'Suplantador', email: `ajeno${sufijo}@test.local`, celular: '3001112233', password: 'clave1234' };
+await req('POST', '/auth/register', { body: ajeno });
+await db.query('UPDATE usuarios SET verificacion_enviada = NULL WHERE email = ?', [ajeno.email]);
+r = await req('POST', '/auth/register', { body: { ...ajeno, nombre: 'Dueño Real' } });
+check('Seguridad: una cuenta pendiente no "aparta" el correo (el dueño real puede registrarse)', r.status === 201
+  && await sql(`SELECT nombre FROM usuarios WHERE email='${ajeno.email}'`) === 'Dueño Real');
+
 await req('POST', '/auth/register', { body: vecino });
 await req('POST', '/auth/register', { body: admin });
+await verificarCuenta(vecino.email);
+await verificarCuenta(admin.email);
+
+// Bloqueo por contraseñas incorrectas seguidas (por cuenta, no por IP)
+const victima = { nombre: 'Cuenta Atacada', email: `atacada${sufijo}@test.local`, celular: '3002223344', password: 'clave1234' };
+await req('POST', '/auth/register', { body: victima });
+await verificarCuenta(victima.email);
+for (let i = 0; i < 4; i += 1) await req('POST', '/auth/login', { body: { email: victima.email, password: 'adivinando1' } });
+r = await req('POST', '/auth/login', { body: { email: victima.email, password: 'adivinando1' } });
+check('Seguridad: 5 contraseñas incorrectas bloquean la cuenta (423)', r.status === 423 && r.data.codigo === 'CUENTA_BLOQUEADA');
+r = await req('POST', '/auth/login', { body: { email: victima.email, password: victima.password } });
+check('Seguridad: bloqueada, ni con la contraseña correcta entra', r.status === 423);
 check('RNF-05 contraseña con bcrypt costo 10', await sql(`SELECT LEFT(password,7) FROM usuarios WHERE email='${dueno.email}'`) === '$2a$10$' || await sql(`SELECT LEFT(password,7) FROM usuarios WHERE email='${dueno.email}'`) === '$2b$10$');
 
 // R2 login

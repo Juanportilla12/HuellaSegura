@@ -52,6 +52,11 @@ export default function Login() {
       await login(form.email.trim(), form.password, turnstileToken);
       navigate(destino, { replace: true });
     } catch (err) {
+      // Contraseña correcta pero correo sin verificar: el servidor ya envió un código nuevo
+      if (err.response?.data?.codigo === 'CORREO_NO_VERIFICADO') {
+        navigate('/verificar-correo', { state: { email: err.response.data.email } });
+        return;
+      }
       setApiError(err.response?.data?.message || 'Correo o contraseña incorrectos.');
       // Resetear Turnstile para que el usuario pueda volver a intentarlo
       turnstileRef.current?.reset();

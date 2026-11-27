@@ -39,6 +39,21 @@ const loginValidators = [
 // POST /api/auth/register
 router.post('/register', limitadorAuth, registerValidators, authController.register);
 
+const validarEmail = body('email').trim().notEmpty().withMessage('El correo es obligatorio.')
+  .bail().isEmail().withMessage('Ingresa un correo válido.').normalizeEmail();
+
+// POST /api/auth/verificar-correo — activa la cuenta con el código enviado al correo
+router.post('/verificar-correo', limitadorAuth,
+  [
+    validarEmail,
+    body('codigo').isLength({ min: 6, max: 6 }).isNumeric().withMessage('El código debe tener 6 dígitos.'),
+  ],
+  authController.verificarCorreo
+);
+
+// POST /api/auth/reenviar-verificacion — un código nuevo para una cuenta pendiente
+router.post('/reenviar-verificacion', limitadorAuth, [validarEmail], authController.reenviarVerificacion);
+
 // POST /api/auth/login
 router.post('/login', limitadorAuth, loginValidators, authController.login);
 
