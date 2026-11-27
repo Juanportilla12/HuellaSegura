@@ -15,7 +15,6 @@ import Home   from './pages/Home';
 
 const Register             = lazy(() => import('./pages/Register'));
 const VerificarCorreo      = lazy(() => import('./pages/VerificarCorreo'));
-const NoFuiYo              = lazy(() => import('./pages/NoFuiYo'));
 const PerfilPublico        = lazy(() => import('./pages/PerfilPublico'));
 const ReportarAvistamiento = lazy(() => import('./pages/ReportarAvistamiento'));
 const OlvideContrasena     = lazy(() => import('./pages/OlvideContrasena'));
@@ -65,7 +64,6 @@ function AnimatedRoutes() {
           <Route path="/login"                element={<Login />} />
           <Route path="/register"             element={<Register />} />
           <Route path="/verificar-correo"     element={<VerificarCorreo />} />
-          <Route path="/no-fui-yo"            element={<NoFuiYo />} />
           <Route path="/publico/mascotas/:codigo"  element={<PerfilPublico />} />
           <Route path="/avistamientos/nuevo"  element={<ReportarAvistamiento />} />
           <Route path="/olvide-contrasena"    element={<OlvideContrasena />} />

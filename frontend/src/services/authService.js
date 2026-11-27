@@ -36,8 +36,3 @@ export function verificarCorreo(email, codigo) {
 export function reenviarVerificacion(email) {
   return api.post('/auth/reenviar-verificacion', { email });
 }
-
-// Enlace "¿No fuiste tú?" de los correos con código: anula el código o cancela el registro
-export function anularCodigo(clave) {
-  return api.post('/auth/no-fui-yo', { clave });
-}

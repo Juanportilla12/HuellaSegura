@@ -27,7 +27,7 @@ api.interceptors.request.use((config) => {
 // Rutas donde un 401 significa "datos incorrectos" y no "sesión vencida"
 const RUTAS_SIN_SESION = [
   '/auth/login', '/auth/register', '/auth/forgot-password', '/auth/verify-reset-code', '/auth/reset-password',
-  '/auth/verificar-correo', '/auth/reenviar-verificacion', '/auth/no-fui-yo',
+  '/auth/verificar-correo', '/auth/reenviar-verificacion',
 ];
 
 api.interceptors.response.use(

@@ -39,17 +39,18 @@ const originesPermitidos = new Set([
   'http://localhost:4173',
 ].map(normalizarOrigen).filter(Boolean));
 
-app.use(cors({
-  origin: (origin, callback) => {
-    // Permitir peticiones sin origen (mobile, Postman, curl)
-    if (!origin) return callback(null, true);
-    if (originesPermitidos.has(normalizarOrigen(origin))) return callback(null, true);
-    console.warn(`[CORS] Origen rechazado: ${origin}. Agrégalo a FRONTEND_URL.`);
-    const error = new Error('Origen no permitido por CORS.');
-    error.status = 403;
-    callback(error);
-  },
-  credentials: true,
+app.use(cors((req, callback) => {
+  const origin = req.headers.origin;
+  // Permitir peticiones sin origen (mobile, Postman, curl) y las del propio servidor
+  // (p. ej. el formulario de la página "No fui yo" que sirve el backend)
+  const propio = `${req.protocol}://${req.get('host')}`;
+  if (!origin || normalizarOrigen(origin) === normalizarOrigen(propio) || originesPermitidos.has(normalizarOrigen(origin))) {
+    return callback(null, { origin: true, credentials: true });
+  }
+  console.warn(`[CORS] Origen rechazado: ${origin}. Agrégalo a FRONTEND_URL.`);
+  const error = new Error('Origen no permitido por CORS.');
+  error.status = 403;
+  callback(error);
 }));
 
 app.use(express.json({ limit: '10mb' }));

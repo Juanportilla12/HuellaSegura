@@ -173,16 +173,27 @@ test.describe('"¿No fuiste tú?" desde el correo', () => {
     const clave = crypto.randomBytes(32).toString('hex');
     await consultarBD('UPDATE usuarios SET anulacion_token = ?, anulacion_expira = DATE_ADD(NOW(), INTERVAL 1 DAY) WHERE email = ?',
       [crypto.createHash('sha256').update(clave).digest('hex'), u.email]);
+    await fijarCodigoVerificacion(u.email); // el código que "llegó" al correo
 
-    await page.goto(`/no-fui-yo?clave=${clave}`);
+    // El enlace del correo abre una página del servidor: abrirla no anula nada
+    const enlace = `${API}/auth/no-fui-yo?clave=${clave}`;
+    await page.goto(enlace);
     await expect(page.getByRole('heading', { name: '¿No fuiste tú?' })).toBeVisible();
-    await page.getByTestId('btn-anular').click();
-    await expect(page.getByTestId('mensaje-anulado')).toContainText(/cancelamos ese registro/i);
+    expect(await consultarBD('SELECT id FROM usuarios WHERE email = ?', [u.email])).toHaveLength(1);
+
+    // El botón rojo sí lo anula
+    await page.getByRole('button', { name: /no fui yo: anular el código/i }).click();
+    await expect(page.getByText(/cancelamos ese registro/i)).toBeVisible();
     expect(await consultarBD('SELECT id FROM usuarios WHERE email = ?', [u.email])).toHaveLength(0);
 
+    // El código que había llegado al correo ya no permite activar la cuenta
+    const intento = await request.post(`${API}/auth/verificar-correo`, { data: { email: u.email, codigo: CODIGO_PRUEBA } });
+    expect(intento.status()).toBe(400);
+    expect(intento.ok()).toBe(false);
+
     // El mismo enlace ya no sirve
-    await page.goto(`/no-fui-yo?clave=${clave}`);
-    await page.getByTestId('btn-anular').click();
+    await page.goto(enlace);
+    await page.getByRole('button', { name: /no fui yo: anular el código/i }).click();
     await expect(page.getByText(/ya no es válido/i)).toBeVisible();
 
     // Tu correo quedó libre: te registras tú

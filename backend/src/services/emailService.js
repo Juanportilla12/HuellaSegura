@@ -178,10 +178,11 @@ async function enviarCorreoAvistamiento({ propietario, mascota, avistamiento }) 
 function bloqueNoFuiYo(enlace, texto) {
   if (!enlace) return '';
   return `
-        <div style="margin-top:22px;padding:16px 18px;border:1px solid ${BORDE};border-radius:14px;">
+        <div style="margin-top:24px;padding:18px;border:1px solid ${BORDE};border-radius:14px;text-align:center;">
           <p style="margin:0 0 6px;font-weight:bold;color:${TEXTO};">¿No fuiste tú?</p>
-          <p style="margin:0 0 12px;color:${SUAVE};font-size:14px;">${texto}</p>
-          <a href="${esc(enlace)}" style="color:${CORAL};font-weight:bold;font-size:14px;">No fui yo: anular este código</a>
+          <p style="margin:0 0 14px;color:${SUAVE};font-size:14px;">${texto}</p>
+          <a href="${esc(enlace)}" style="display:inline-block;background:#DC2626;color:#ffffff;text-decoration:none;
+             font-weight:bold;font-size:15px;padding:13px 28px;border-radius:12px;">No fui yo</a>
         </div>`;
 }
 

@@ -4,7 +4,6 @@ const bcrypt = require('bcryptjs');
 const { Op, literal } = require('sequelize');
 const { Usuario } = require('../models');
 const { sign } = require('../config/jwt');
-const { urlFrontend } = require('../utils/urlFrontend');
 const { enviarCorreoResetCodigo, enviarCorreoVerificacion } = require('../services/emailService');
 
 // Errores de Cloudflare que indican mala configuración del servidor (clave secreta
@@ -55,10 +54,13 @@ const VIGENCIA_ANULACION_MS = 7 * 24 * 60 * 60 * 1000; // el enlace sirve una se
 
 // Enlace "¿No fuiste tú?": clave aleatoria de 64 caracteres; en la base de datos solo su SHA-256
 const hashAnulacion = (clave) => crypto.createHash('sha256').update(String(clave)).digest('hex');
-function nuevoEnlaceAnulacion() {
+// URL pública de este servidor (detrás del proxy de Railway, req.protocol ya es https)
+const urlServidor = (req) => (process.env.BACKEND_URL || `${req.protocol}://${req.get('host')}`).replace(/\/+$/, '');
+
+function nuevoEnlaceAnulacion(req) {
   const clave = crypto.randomBytes(32).toString('hex');
   return {
-    enlace: urlFrontend(`/no-fui-yo?clave=${clave}`),
+    enlace: `${urlServidor(req)}/api/auth/no-fui-yo?clave=${clave}`,
     campos: { anulacion_token: hashAnulacion(clave), anulacion_expira: new Date(Date.now() + VIGENCIA_ANULACION_MS) },
   };
 }
@@ -70,9 +72,9 @@ const tokenDe = (usuario) => sign({ id: usuario.id, rol: usuario.rol, tokenVersi
  * Sin servicio de correo (desarrollo o pruebas automáticas) el código se muestra en la
  * consola del servidor; en producción un fallo del envío se informa a quien llama.
  */
-async function enviarCodigoVerificacion(usuario) {
+async function enviarCodigoVerificacion(usuario, req) {
   const codigo = String(crypto.randomInt(100000, 1000000));
-  const anulacion = nuevoEnlaceAnulacion();
+  const anulacion = nuevoEnlaceAnulacion(req);
   await usuario.update({
     verificacion_code: await bcrypt.hash(codigo, 10),
     verificacion_expira: new Date(Date.now() + VIGENCIA_CODIGO_MS),
@@ -129,7 +131,7 @@ async function register(req, res, next) {
     }
 
     try {
-      await enviarCodigoVerificacion(usuario);
+      await enviarCodigoVerificacion(usuario, req);
     } catch (errorCorreo) {
       console.error('[Correo] No se pudo enviar el código de verificación:', errorCorreo.message);
       if (nueva) await usuario.destroy();
@@ -203,7 +205,7 @@ async function reenviarVerificacion(req, res, next) {
         return res.status(429).json({ success: false, message: 'Espera un minuto antes de pedir otro código.' });
       }
       try {
-        await enviarCodigoVerificacion(usuario);
+        await enviarCodigoVerificacion(usuario, req);
       } catch (errorCorreo) {
         console.error('[Correo] No se pudo reenviar el código de verificación:', errorCorreo.message);
         return res.status(503).json({
@@ -290,7 +292,7 @@ async function login(req, res, next) {
     // Solo se informa después de comprobar la contraseña (no revela qué correos existen)
     if (!usuario.email_verificado) {
       if (!reenvioReciente(usuario)) {
-        await enviarCodigoVerificacion(usuario).catch((e) => console.error('[Correo] Verificación al iniciar sesión:', e.message));
+        await enviarCodigoVerificacion(usuario, req).catch((e) => console.error('[Correo] Verificación al iniciar sesión:', e.message));
       }
       return res.status(403).json({
         success: false,
@@ -356,7 +358,7 @@ async function forgotPassword(req, res, next) {
     const expira = new Date(Date.now() + 15 * 60 * 1000); // 15 minutos
 
     const codigoHash = await bcrypt.hash(codigo, 10);
-    const anulacion = nuevoEnlaceAnulacion();
+    const anulacion = nuevoEnlaceAnulacion(req);
     await usuario.update({ reset_code: codigoHash, reset_code_expires: expira, reset_intentos: 0, ...anulacion.campos });
 
     // Se espera el envío: si el correo no sale, el usuario debe saberlo en vez de
@@ -501,43 +503,102 @@ async function resetPassword(req, res, next) {
  * intentó registrar este correo sin ser su dueño: se cancela ese registro y el correo queda
  * libre. Si la cuenta ya estaba verificada, se anula el código para cambiar la contraseña.
  */
+const ROJO = '#DC2626';
+
+// Página mínima con los colores de la marca, servida por el propio backend
+function paginaSimple({ titulo, cuerpo }) {
+  return `<!doctype html>
+<html lang="es"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex"><title>${titulo} — HuellaSegura</title>
+<style>
+  body{margin:0;background:#FFF8F5;font-family:Arial,Helvetica,sans-serif;color:#1A1A2E}
+  .tarjeta{max-width:440px;margin:32px auto;background:#fff;border:1px solid #EDE5E1;border-radius:20px;overflow:hidden}
+  .marca{background:#E8732F;color:#fff;font-weight:bold;font-size:20px;padding:18px 24px}
+  .contenido{padding:24px;line-height:1.55}
+  h1{font-size:22px;margin:0 0 10px} p{margin:0 0 16px;color:#4B5563}
+  button{width:100%;padding:15px;border:0;border-radius:14px;background:${ROJO};color:#fff;font-size:16px;font-weight:bold;cursor:pointer}
+  .secundario{display:block;text-align:center;margin-top:14px;color:#6B7280;font-size:14px}
+</style></head>
+<body><div class="tarjeta"><div class="marca">HuellaSegura</div><div class="contenido">${cuerpo}</div></div></body></html>`;
+}
+
+const claveValida = (clave) => /^[a-f0-9]{64}$/.test(String(clave || ''));
+
+/**
+ * GET del enlace "No fui yo" del correo: solo muestra la confirmación. No anula nada al
+ * abrirse, porque algunos programas de correo abren los enlaces para revisarlos.
+ */
+function paginaNoFuiYo(req, res) {
+  const { clave } = req.query;
+  res.set('Content-Type', 'text/html; charset=utf-8');
+  // Con la política general "no-referrer" el navegador envía el formulario con origen "null"
+  // y CORS lo rechazaría; "same-origin" sigue sin compartir nada con otros sitios
+  res.set('Referrer-Policy', 'same-origin');
+  if (!claveValida(clave)) {
+    return res.status(400).send(paginaSimple({ titulo: 'Enlace no válido', cuerpo: '<h1>Enlace no válido</h1><p>Revisa que hayas abierto el enlace completo del correo.</p>' }));
+  }
+  return res.send(paginaSimple({
+    titulo: '¿No fuiste tú?',
+    cuerpo: `<h1>¿No fuiste tú?</h1>
+      <p>Si no pediste el código que te llegó al correo, anúlalo y nadie podrá usarlo.
+      Si alguien intentó crear una cuenta con tu correo, ese registro se cancela.</p>
+      <form method="post" action="${urlServidor(req)}/api/auth/no-fui-yo">
+        <input type="hidden" name="clave" value="${clave}">
+        <button type="submit">No fui yo: anular el código</button>
+      </form>
+      <span class="secundario">Si sí fuiste tú, puedes cerrar esta página.</span>`,
+  }));
+}
+
+/**
+ * "¿No fuiste tú?" desde el correo: anula el código. Si la cuenta nunca se verificó, alguien
+ * intentó registrar este correo sin ser su dueño: se cancela ese registro y el correo queda
+ * libre. Si la cuenta ya estaba verificada, se anula el código para cambiar la contraseña.
+ * Responde JSON a la app y una página HTML al formulario de la página del servidor.
+ */
 async function anularCodigo(req, res, next) {
+  const desdeFormulario = req.is('application/x-www-form-urlencoded');
+  const responder = (status, datos, titulo) => {
+    if (!desdeFormulario) return res.status(status).json(datos);
+    res.set('Content-Type', 'text/html; charset=utf-8');
+    return res.status(status).send(paginaSimple({ titulo, cuerpo: `<h1>${titulo}</h1><p>${datos.message}</p>` }));
+  };
   try {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      return res.status(400).json({ success: false, message: 'Este enlace no es válido.' });
+    if (!claveValida(req.body.clave)) {
+      return responder(400, { success: false, message: 'Este enlace no es válido.' }, 'Enlace no válido');
     }
 
     const usuario = await Usuario.findOne({
       where: { anulacion_token: hashAnulacion(req.body.clave), anulacion_expira: { [Op.gt]: new Date() } },
     });
     if (!usuario) {
-      return res.status(400).json({ success: false, message: 'Este enlace ya no es válido: se usó antes o venció.' });
+      return responder(400, { success: false, message: 'Este enlace ya no es válido: se usó antes o venció.' }, 'Enlace no válido');
     }
 
     if (!usuario.email_verificado) {
       await usuario.destroy();
-      return res.status(200).json({
+      return responder(200, {
         success: true,
         resultado: 'registro_cancelado',
         message: 'Listo: cancelamos ese registro y el código quedó anulado. Nadie podrá usar tu correo sin tu permiso.',
-      });
+      }, 'Código anulado');
     }
 
     await usuario.update({
       reset_code: null, reset_code_expires: null, reset_intentos: 0, anulacion_token: null, anulacion_expira: null,
     });
-    return res.status(200).json({
+    return responder(200, {
       success: true,
       resultado: 'codigo_anulado',
       message: 'Listo: anulamos el código para cambiar la contraseña. Tu contraseña sigue igual.',
-    });
+    }, 'Código anulado');
   } catch (error) {
     next(error);
   }
 }
 
 module.exports = {
-  anularCodigo,
+  anularCodigo, paginaNoFuiYo,
   register, verificarCorreo, reenviarVerificacion, login, logout, me, forgotPassword, verifyResetCode, resetPassword,
 };

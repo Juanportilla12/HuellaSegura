@@ -403,6 +403,35 @@ describe('AuthController', () => {
       expect(u.update).toHaveBeenCalledWith(expect.objectContaining({ reset_code: null, anulacion_token: null }));
     });
 
+    test('El enlace del correo apunta al propio servidor (no depende de la versión del frontend)', async () => {
+      const mockUser = await buildMockUser({ email_verificado: false });
+      Usuario.findOne.mockResolvedValue(null);
+      Usuario.create.mockResolvedValue(mockUser);
+      await request(app).post('/api/auth/register').send({
+        celular: '3001234567', nombre: 'Ana García', email: 'ana@example.com', password: 'password123',
+      });
+      expect(enviarCorreoVerificacion.mock.calls[0][0].enlaceAnular).toMatch(/^http:\/\/127\.0\.0\.1:\d+\/api\/auth\/no-fui-yo\?clave=/);
+    });
+
+    test('Abrir el enlace solo muestra la confirmación con el botón: NO anula nada', async () => {
+      const res = await request(app).get(`/api/auth/no-fui-yo?clave=${CLAVE}`);
+      expect(res.status).toBe(200);
+      expect(res.headers['content-type']).toMatch(/text\/html/);
+      expect(res.text).toMatch(/No fui yo: anular el código/);
+      expect(res.text).toMatch(new RegExp(`name="clave" value="${CLAVE}"`));
+      expect(Usuario.findOne).not.toHaveBeenCalled();
+    });
+
+    test('El botón de esa página (formulario) cancela el registro y responde una página', async () => {
+      const u = await buildMockUser({ email_verificado: false, anulacion_token: HASH });
+      Usuario.findOne.mockResolvedValue(u);
+      const res = await request(app).post('/api/auth/no-fui-yo').type('form').send({ clave: CLAVE });
+      expect(res.status).toBe(200);
+      expect(res.headers['content-type']).toMatch(/text\/html/);
+      expect(res.text).toMatch(/cancelamos ese registro/);
+      expect(u.destroy).toHaveBeenCalled();
+    });
+
     test('Un enlace usado, vencido o inventado no hace nada', async () => {
       Usuario.findOne.mockResolvedValue(null);
       const res = await request(app).post('/api/auth/no-fui-yo').send({ clave: CLAVE });

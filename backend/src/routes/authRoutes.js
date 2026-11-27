@@ -55,10 +55,10 @@ router.post('/verificar-correo', limitadorAuth,
 router.post('/reenviar-verificacion', limitadorAuth, [validarEmail], authController.reenviarVerificacion);
 
 // POST /api/auth/no-fui-yo — enlace "¿No fuiste tú?" de los correos con código
-router.post('/no-fui-yo', limitadorAuth,
-  [body('clave').isString().matches(/^[a-f0-9]{64}$/).withMessage('Enlace no válido.')],
-  authController.anularCodigo
-);
+// GET muestra la confirmación (no actúa al abrirse); POST anula. Lo sirve el propio servidor
+// para que el enlace del correo funcione sin depender de la versión del frontend.
+router.get('/no-fui-yo', authController.paginaNoFuiYo);
+router.post('/no-fui-yo', limitadorAuth, authController.anularCodigo);
 
 // POST /api/auth/login
 router.post('/login', limitadorAuth, loginValidators, authController.login);
